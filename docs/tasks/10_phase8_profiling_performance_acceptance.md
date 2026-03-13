@@ -8,14 +8,14 @@ Phase 8 pass A owns `P8-01..P8-08` and delivers the instrumentation and profilin
   - Add permanent NVTX v3 wrapper infrastructure and build-time switches so profiling instrumentation is compiled consistently across supported solver modules.
 - Exact citations:
   - Authority:
-    - `docs/master_pin_manifest.md` -> `## Frozen Defaults`
-    - `docs/master_pin_manifest.md` -> `## Consumption Rules`
-    - `docs/continuity_ledger.md` -> `# 1. Frozen global decisions` (NVTX3 baseline and centralized runtime governance)
-    - `docs/planning/pr_expansion/03_phase1_blackwell_bringup.md` -> `## P1-02 Blackwell build-system enablement`
+    - `docs/authority/master_pin_manifest.md` -> `## Frozen Defaults`
+    - `docs/authority/master_pin_manifest.md` -> `## Consumption Rules`
+    - `docs/authority/continuity_ledger.md` -> `# 1. Frozen global decisions` (NVTX3 baseline and centralized runtime governance)
+    - `docs/tasks/03_phase1_blackwell_bringup.md` -> `## P1-02 Blackwell build-system enablement`
   - Phase spec or `README_FIRST` authority-order note for `FND-*`:
-    - `docs/phase8_profiling_performance_acceptance_spec.md` -> `#### DD-8.4 — Make NVTX v3 mandatory and design the range hierarchy before adding kernels`
-    - `docs/phase8_profiling_performance_acceptance_spec.md` -> `#### Step 1 — Add NVTX v3 dependency and build flags`
-    - `docs/phase8_profiling_performance_acceptance_spec.md` -> `#### 8. Add build-system changes`
+    - `docs/specs/phase8_profiling_performance_acceptance_spec.md` -> `#### DD-8.4 — Make NVTX v3 mandatory and design the range hierarchy before adding kernels`
+    - `docs/specs/phase8_profiling_performance_acceptance_spec.md` -> `#### Step 1 — Add NVTX v3 dependency and build flags`
+    - `docs/specs/phase8_profiling_performance_acceptance_spec.md` -> `#### 8. Add build-system changes`
   - Backlog scope:
     - "Add the permanent NVTX3 wrapper library, compile-time switches, and dependency wiring required by the profiling subsystem."
   - Backlog done_when:
@@ -51,18 +51,18 @@ Phase 8 pass A owns `P8-01..P8-08` and delivers the instrumentation and profilin
   - Implement canonical runtime parsing for `gpuRuntime.profiling` and `gpuRuntime.acceptance`, with compatibility shims but no local shadow schemas.
 - Exact citations:
   - Authority:
-    - `docs/continuity_ledger.md` -> `# 1. Frozen global decisions` (normalized `gpuRuntime.*` contract)
-    - `docs/acceptance_manifest.md` -> `## Accepted Tuple Matrix`
-    - `docs/acceptance_manifest.md` -> `## Disposition Rules`
-    - `docs/graph_capture_support_matrix.md` -> `## Run Modes`
-    - `docs/graph_capture_support_matrix.md` -> `## Canonical Stage IDs`
-    - `docs/planning/pr_expansion/01_foundation_authority_consumption.md` -> `## FND-05 Acceptance-manifest evaluator scaffold`
-    - `docs/planning/pr_expansion/01_foundation_authority_consumption.md` -> `## FND-06 Graph stage registry and graph-support-matrix loader`
+    - `docs/authority/continuity_ledger.md` -> `# 1. Frozen global decisions` (normalized `gpuRuntime.*` contract)
+    - `docs/authority/acceptance_manifest.md` -> `## Accepted Tuple Matrix`
+    - `docs/authority/acceptance_manifest.md` -> `## Disposition Rules`
+    - `docs/authority/graph_capture_support_matrix.md` -> `## Run Modes`
+    - `docs/authority/graph_capture_support_matrix.md` -> `## Canonical Stage IDs`
+    - `docs/tasks/01_foundation_authority_consumption.md` -> `## FND-05 Acceptance-manifest evaluator scaffold`
+    - `docs/tasks/01_foundation_authority_consumption.md` -> `## FND-06 Graph stage registry and graph-support-matrix loader`
   - Phase spec or `README_FIRST` authority-order note for `FND-*`:
-    - `docs/phase8_profiling_performance_acceptance_spec.md` -> `#### DD-8.1 — Introduce six explicit profiling modes`
-    - `docs/phase8_profiling_performance_acceptance_spec.md` -> `#### DD-8.2 — Use NVTX v3 domains and categories with a fixed naming grammar`
-    - `docs/phase8_profiling_performance_acceptance_spec.md` -> `#### Step 3 — Add canonical gpuRuntime.profiling / gpuRuntime.acceptance parsing`
-    - `docs/phase8_profiling_performance_acceptance_spec.md` -> `#### 2. Runtime configuration interface`
+    - `docs/specs/phase8_profiling_performance_acceptance_spec.md` -> `#### DD-8.1 — Introduce six explicit profiling modes`
+    - `docs/specs/phase8_profiling_performance_acceptance_spec.md` -> `#### DD-8.2 — Use NVTX v3 domains and categories with a fixed naming grammar`
+    - `docs/specs/phase8_profiling_performance_acceptance_spec.md` -> `#### Step 3 — Add canonical gpuRuntime.profiling / gpuRuntime.acceptance parsing`
+    - `docs/specs/phase8_profiling_performance_acceptance_spec.md` -> `#### 2. Runtime configuration interface`
   - Backlog scope:
     - "Implement the normalized `gpuRuntime.profiling` / `gpuRuntime.acceptance` parser and compatibility shims."
   - Backlog done_when:
@@ -101,18 +101,18 @@ Phase 8 pass A owns `P8-01..P8-08` and delivers the instrumentation and profilin
   - Instrument required solver stages with canonical NVTX hierarchy aligned to stage-registry contract.
 - Exact citations:
   - Authority:
-    - `docs/graph_capture_support_matrix.md` -> `## Canonical Stage IDs`
-    - `docs/acceptance_manifest.md` -> `## Tuple-Specific NVTX Contract`
-    - `docs/acceptance_manifest.json` -> `accepted_tuples[*].required_stage_ids`
-    - `docs/planning/pr_expansion/01_foundation_authority_consumption.md` -> `## FND-06 Graph stage registry and graph-support-matrix loader`
-    - `docs/planning/pr_expansion/pr_inventory.md` -> `## Cross-Section Dependency Edges (Canonical)` (`P5-11 <- P8-03`)
+    - `docs/authority/graph_capture_support_matrix.md` -> `## Canonical Stage IDs`
+    - `docs/authority/acceptance_manifest.md` -> `## Tuple-Specific NVTX Contract`
+    - `docs/authority/acceptance_manifest.json` -> `accepted_tuples[*].required_stage_ids`
+    - `docs/tasks/01_foundation_authority_consumption.md` -> `## FND-06 Graph stage registry and graph-support-matrix loader`
+    - `docs/tasks/pr_inventory.md` -> `## Cross-Section Dependency Edges (Canonical)` (`P5-11 <- P8-03`)
   - Phase spec or `README_FIRST` authority-order note for `FND-*`:
-    - `docs/phase8_profiling_performance_acceptance_spec.md` -> `#### DD-8.2 — Use NVTX v3 domains and categories with a fixed naming grammar`
-    - `docs/phase8_profiling_performance_acceptance_spec.md` -> `#### Step 4 — Instrument top-level timestep and PIMPLE scopes`
-    - `docs/phase8_profiling_performance_acceptance_spec.md` -> `#### Step 5 — Instrument alpha path scopes`
-    - `docs/phase8_profiling_performance_acceptance_spec.md` -> `#### Step 6 — Instrument momentum, pressure, and surface-tension scopes`
-    - `docs/phase8_profiling_performance_acceptance_spec.md` -> `#### Step 7 — Instrument boundary and output staging scopes`
-    - `docs/phase8_profiling_performance_acceptance_spec.md` -> `#### Mandatory NVTX range inventory`
+    - `docs/specs/phase8_profiling_performance_acceptance_spec.md` -> `#### DD-8.2 — Use NVTX v3 domains and categories with a fixed naming grammar`
+    - `docs/specs/phase8_profiling_performance_acceptance_spec.md` -> `#### Step 4 — Instrument top-level timestep and PIMPLE scopes`
+    - `docs/specs/phase8_profiling_performance_acceptance_spec.md` -> `#### Step 5 — Instrument alpha path scopes`
+    - `docs/specs/phase8_profiling_performance_acceptance_spec.md` -> `#### Step 6 — Instrument momentum, pressure, and surface-tension scopes`
+    - `docs/specs/phase8_profiling_performance_acceptance_spec.md` -> `#### Step 7 — Instrument boundary and output staging scopes`
+    - `docs/specs/phase8_profiling_performance_acceptance_spec.md` -> `#### Mandatory NVTX range inventory`
   - Backlog scope:
     - "Instrument the top-level timestep/PIMPLE/alpha/momentum/pressure/surface/boundary/output stages with the canonical NVTX naming hierarchy."
   - Backlog done_when:
@@ -150,14 +150,14 @@ Phase 8 pass A owns `P8-01..P8-08` and delivers the instrumentation and profilin
   - Instrument graph capture/build/replay/update lifecycle events without changing solver semantics.
 - Exact citations:
   - Authority:
-    - `docs/graph_capture_support_matrix.md` -> `## Run Modes`
-    - `docs/graph_capture_support_matrix.md` -> `## Canonical Stage IDs`
-    - `docs/graph_capture_support_matrix.md` -> `## Global Capture Rules`
-    - `docs/planning/pr_expansion/01_foundation_authority_consumption.md` -> `## FND-06 Graph stage registry and graph-support-matrix loader`
+    - `docs/authority/graph_capture_support_matrix.md` -> `## Run Modes`
+    - `docs/authority/graph_capture_support_matrix.md` -> `## Canonical Stage IDs`
+    - `docs/authority/graph_capture_support_matrix.md` -> `## Global Capture Rules`
+    - `docs/tasks/01_foundation_authority_consumption.md` -> `## FND-06 Graph stage registry and graph-support-matrix loader`
   - Phase spec or `README_FIRST` authority-order note for `FND-*`:
-    - `docs/phase8_profiling_performance_acceptance_spec.md` -> `#### DD-8.6 — Use graph-level tracing by default; use node-level tracing only for graph debugging`
-    - `docs/phase8_profiling_performance_acceptance_spec.md` -> `#### Step 8 — Add graph lifecycle markers`
-    - `docs/phase8_profiling_performance_acceptance_spec.md` -> `#### 5. Graph instrumentation`
+    - `docs/specs/phase8_profiling_performance_acceptance_spec.md` -> `#### DD-8.6 — Use graph-level tracing by default; use node-level tracing only for graph debugging`
+    - `docs/specs/phase8_profiling_performance_acceptance_spec.md` -> `#### Step 8 — Add graph lifecycle markers`
+    - `docs/specs/phase8_profiling_performance_acceptance_spec.md` -> `#### 5. Graph instrumentation`
   - Backlog scope:
     - "Instrument graph capture/build/replay/update lifecycle events so graph behavior is visible in traces and parsers."
   - Backlog done_when:
@@ -192,19 +192,19 @@ Phase 8 pass A owns `P8-01..P8-08` and delivers the instrumentation and profilin
   - Build reproducible `nsys` capture workflow, mode selection, environment manifests, and standardized artifact layout.
 - Exact citations:
   - Authority:
-    - `docs/master_pin_manifest.md` -> `## Frozen Defaults`
-    - `docs/master_pin_manifest.md` -> `## Consumption Rules`
-    - `docs/acceptance_manifest.md` -> `## Coverage Rules`
-    - `docs/acceptance_manifest.md` -> `## Production Defaults`
-    - `docs/planning/pr_expansion/03_phase1_blackwell_bringup.md` -> `## exports_to_next`
-    - `docs/planning/pr_expansion/pr_inventory.md` -> `## Cross-Section Dependency Edges (Canonical)` (`P7-01 <- P8-05`)
+    - `docs/authority/master_pin_manifest.md` -> `## Frozen Defaults`
+    - `docs/authority/master_pin_manifest.md` -> `## Consumption Rules`
+    - `docs/authority/acceptance_manifest.md` -> `## Coverage Rules`
+    - `docs/authority/acceptance_manifest.md` -> `## Production Defaults`
+    - `docs/tasks/03_phase1_blackwell_bringup.md` -> `## exports_to_next`
+    - `docs/tasks/pr_inventory.md` -> `## Cross-Section Dependency Edges (Canonical)` (`P7-01 <- P8-05`)
   - Phase spec or `README_FIRST` authority-order note for `FND-*`:
-    - `docs/phase8_profiling_performance_acceptance_spec.md` -> `#### DD-8.5 — Baseline Nsight Systems command uses --trace=cuda,nvtx,osrt and graph-level graph tracing`
-    - `docs/phase8_profiling_performance_acceptance_spec.md` -> `#### DD-8.6 — --cuda-event-trace=false by default in baseline mode`
-    - `docs/phase8_profiling_performance_acceptance_spec.md` -> `#### DD-8.12 — Record full environment metadata in every acceptance artifact`
-    - `docs/phase8_profiling_performance_acceptance_spec.md` -> `#### Step 9 — Add baseline nsys wrapper script`
-    - `docs/phase8_profiling_performance_acceptance_spec.md` -> `#### Required profiler command families`
-    - `docs/phase8_profiling_performance_acceptance_spec.md` -> `#### 6. Baseline nsys wrapper`
+    - `docs/specs/phase8_profiling_performance_acceptance_spec.md` -> `#### DD-8.5 — Baseline Nsight Systems command uses --trace=cuda,nvtx,osrt and graph-level graph tracing`
+    - `docs/specs/phase8_profiling_performance_acceptance_spec.md` -> `#### DD-8.6 — --cuda-event-trace=false by default in baseline mode`
+    - `docs/specs/phase8_profiling_performance_acceptance_spec.md` -> `#### DD-8.12 — Record full environment metadata in every acceptance artifact`
+    - `docs/specs/phase8_profiling_performance_acceptance_spec.md` -> `#### Step 9 — Add baseline nsys wrapper script`
+    - `docs/specs/phase8_profiling_performance_acceptance_spec.md` -> `#### Required profiler command families`
+    - `docs/specs/phase8_profiling_performance_acceptance_spec.md` -> `#### 6. Baseline nsys wrapper`
   - Backlog scope:
     - "Create the Phase 8 `nsys` capture scripts, mode selection, environment manifests, and artifact directory layout."
   - Backlog done_when:
@@ -244,18 +244,18 @@ Phase 8 pass A owns `P8-01..P8-08` and delivers the instrumentation and profilin
   - Export `nsys` reports and map metrics to manifest-driven hard and soft gates for first formal `R1` profiling acceptance summary.
 - Exact citations:
   - Authority:
-    - `docs/acceptance_manifest.md` -> `## Hard Gates`
-    - `docs/acceptance_manifest.md` -> `## Soft Gates`
-    - `docs/acceptance_manifest.md` -> `## Disposition Rules`
-    - `docs/acceptance_manifest.md` -> `## Exact Threshold Classes`
-    - `docs/acceptance_manifest.json` -> `hard_gates`, `soft_gates`, `threshold_classes`, `disposition_rules`
-    - `docs/planning/pr_expansion/01_foundation_authority_consumption.md` -> `## FND-05 Acceptance-manifest evaluator scaffold`
+    - `docs/authority/acceptance_manifest.md` -> `## Hard Gates`
+    - `docs/authority/acceptance_manifest.md` -> `## Soft Gates`
+    - `docs/authority/acceptance_manifest.md` -> `## Disposition Rules`
+    - `docs/authority/acceptance_manifest.md` -> `## Exact Threshold Classes`
+    - `docs/authority/acceptance_manifest.json` -> `hard_gates`, `soft_gates`, `threshold_classes`, `disposition_rules`
+    - `docs/tasks/01_foundation_authority_consumption.md` -> `## FND-05 Acceptance-manifest evaluator scaffold`
   - Phase spec or `README_FIRST` authority-order note for `FND-*`:
-    - `docs/phase8_profiling_performance_acceptance_spec.md` -> `#### DD-8.9 — Use nsys stats built-in reports as the primary parser surface`
-    - `docs/phase8_profiling_performance_acceptance_spec.md` -> `#### DD-8.10 — Define pass/fail gates in tiers`
-    - `docs/phase8_profiling_performance_acceptance_spec.md` -> `#### Step 10 — Add nsys export + report-generation script`
-    - `docs/phase8_profiling_performance_acceptance_spec.md` -> `#### Step 11 — Implement parser and acceptance evaluator`
-    - `docs/phase8_profiling_performance_acceptance_spec.md` -> `#### 7. nsys export/parser`
+    - `docs/specs/phase8_profiling_performance_acceptance_spec.md` -> `#### DD-8.9 — Use nsys stats built-in reports as the primary parser surface`
+    - `docs/specs/phase8_profiling_performance_acceptance_spec.md` -> `#### DD-8.10 — Define pass/fail gates in tiers`
+    - `docs/specs/phase8_profiling_performance_acceptance_spec.md` -> `#### Step 10 — Add nsys export + report-generation script`
+    - `docs/specs/phase8_profiling_performance_acceptance_spec.md` -> `#### Step 11 — Implement parser and acceptance evaluator`
+    - `docs/specs/phase8_profiling_performance_acceptance_spec.md` -> `#### 7. nsys export/parser`
   - Backlog scope:
     - "Implement report export from `nsys` outputs and the acceptance parser that maps metrics back to manifest-driven hard/soft gates."
   - Backlog done_when:
@@ -291,18 +291,18 @@ Phase 8 pass A owns `P8-01..P8-08` and delivers the instrumentation and profilin
   - Add `uvmAudit`, `syncAudit`, and `graphDebug` modes as diagnostics only, outside formal baseline timing mode.
 - Exact citations:
   - Authority:
-    - `docs/graph_capture_support_matrix.md` -> `## Run Modes`
-    - `docs/acceptance_manifest.md` -> `## Coverage Rules`
-    - `docs/planning/pr_expansion/boundary_matrix.md` -> `### Phase 7 -> Phase 8`
+    - `docs/authority/graph_capture_support_matrix.md` -> `## Run Modes`
+    - `docs/authority/acceptance_manifest.md` -> `## Coverage Rules`
+    - `docs/tasks/boundary_matrix.md` -> `### Phase 7 -> Phase 8`
   - Phase spec or `README_FIRST` authority-order note for `FND-*`:
-    - `docs/phase8_profiling_performance_acceptance_spec.md` -> `#### DD-8.1 — Introduce six explicit profiling modes`
-    - `docs/phase8_profiling_performance_acceptance_spec.md` -> `#### DD-8.7 — UVM page-fault tracing enabled only in uvmAudit mode`
-    - `docs/phase8_profiling_performance_acceptance_spec.md` -> `#### DD-8.11 — Use CPU sampling/backtraces only in syncAudit`
-    - `docs/phase8_profiling_performance_acceptance_spec.md` -> `#### Step 12 — Add UVM audit mode`
-    - `docs/phase8_profiling_performance_acceptance_spec.md` -> `#### Step 13 — Add sync audit mode and expert analysis capture`
-    - `docs/phase8_profiling_performance_acceptance_spec.md` -> `#### 3. UVM audit algorithm`
-    - `docs/phase8_profiling_performance_acceptance_spec.md` -> `#### 4. Synchronization audit algorithm`
-    - `docs/phase8_profiling_performance_acceptance_spec.md` -> `#### 5. Graph debug algorithm`
+    - `docs/specs/phase8_profiling_performance_acceptance_spec.md` -> `#### DD-8.1 — Introduce six explicit profiling modes`
+    - `docs/specs/phase8_profiling_performance_acceptance_spec.md` -> `#### DD-8.7 — UVM page-fault tracing enabled only in uvmAudit mode`
+    - `docs/specs/phase8_profiling_performance_acceptance_spec.md` -> `#### DD-8.11 — Use CPU sampling/backtraces only in syncAudit`
+    - `docs/specs/phase8_profiling_performance_acceptance_spec.md` -> `#### Step 12 — Add UVM audit mode`
+    - `docs/specs/phase8_profiling_performance_acceptance_spec.md` -> `#### Step 13 — Add sync audit mode and expert analysis capture`
+    - `docs/specs/phase8_profiling_performance_acceptance_spec.md` -> `#### 3. UVM audit algorithm`
+    - `docs/specs/phase8_profiling_performance_acceptance_spec.md` -> `#### 4. Synchronization audit algorithm`
+    - `docs/specs/phase8_profiling_performance_acceptance_spec.md` -> `#### 5. Graph debug algorithm`
   - Backlog scope:
     - "Add the `uvmAudit`, `syncAudit`, and `graphDebug` modes, keeping them diagnostically useful but outside baseline production timing mode."
   - Backlog done_when:
@@ -334,16 +334,16 @@ Phase 8 pass A owns `P8-01..P8-08` and delivers the instrumentation and profilin
   - Add top-five-kernel Nsight Compute and Compute Sanitizer automation without contaminating baseline timing runs.
 - Exact citations:
   - Authority:
-    - `docs/master_pin_manifest.md` -> `## Frozen Defaults`
-    - `docs/acceptance_manifest.md` -> `## Coverage Rules`
-    - `docs/planning/pr_expansion/03_phase1_blackwell_bringup.md` -> `## P1-05 Compute Sanitizer memcheck lane`
+    - `docs/authority/master_pin_manifest.md` -> `## Frozen Defaults`
+    - `docs/authority/acceptance_manifest.md` -> `## Coverage Rules`
+    - `docs/tasks/03_phase1_blackwell_bringup.md` -> `## P1-05 Compute Sanitizer memcheck lane`
   - Phase spec or `README_FIRST` authority-order note for `FND-*`:
-    - `docs/phase8_profiling_performance_acceptance_spec.md` -> `#### DD-8.3 — Restrict Nsight Compute to the top five kernels per steady-state run`
-    - `docs/phase8_profiling_performance_acceptance_spec.md` -> `#### DD-8.11 — Use Compute Sanitizer in a staged order and only on reduced cases`
-    - `docs/phase8_profiling_performance_acceptance_spec.md` -> `#### Step 14 — Add top-five-kernel selector and NCU wrapper`
-    - `docs/phase8_profiling_performance_acceptance_spec.md` -> `#### Step 15 — Add sanitizer script and nightly target`
-    - `docs/phase8_profiling_performance_acceptance_spec.md` -> `#### 8. Top-kernel selection and NCU invocation`
-    - `docs/phase8_profiling_performance_acceptance_spec.md` -> `#### 9. Sanitizer wrapper`
+    - `docs/specs/phase8_profiling_performance_acceptance_spec.md` -> `#### DD-8.3 — Restrict Nsight Compute to the top five kernels per steady-state run`
+    - `docs/specs/phase8_profiling_performance_acceptance_spec.md` -> `#### DD-8.11 — Use Compute Sanitizer in a staged order and only on reduced cases`
+    - `docs/specs/phase8_profiling_performance_acceptance_spec.md` -> `#### Step 14 — Add top-five-kernel selector and NCU wrapper`
+    - `docs/specs/phase8_profiling_performance_acceptance_spec.md` -> `#### Step 15 — Add sanitizer script and nightly target`
+    - `docs/specs/phase8_profiling_performance_acceptance_spec.md` -> `#### 8. Top-kernel selection and NCU invocation`
+    - `docs/specs/phase8_profiling_performance_acceptance_spec.md` -> `#### 9. Sanitizer wrapper`
   - Backlog scope:
     - "Add the top-five-kernel Nsight Compute wrapper, section configuration, Compute Sanitizer wrapper, and nightly reduced-case automation."
   - Backlog done_when:
@@ -381,39 +381,39 @@ Phase 8 pass A owns `P8-01..P8-08` and delivers the instrumentation and profilin
   - Run formal tuple-driven `R1` and `R0` acceptance, lock first approved baselines, and operationalize scheduled profiling/sanitizer jobs with explicit retention and lock-update policy.
 - Exact citations:
   - Authority:
-    - `docs/acceptance_manifest.md` -> `## Accepted Tuple Matrix`
-    - `docs/acceptance_manifest.md` -> `## Coverage Rules`
-    - `docs/acceptance_manifest.md` -> `## Tuple-Specific NVTX Contract`
-    - `docs/acceptance_manifest.md` -> `## Hard Gates`
-    - `docs/acceptance_manifest.md` -> `## Soft Gates`
-    - `docs/acceptance_manifest.md` -> `## Disposition Rules`
-    - `docs/acceptance_manifest.md` -> `## Production Defaults`
-    - `docs/acceptance_manifest.json` -> `accepted_tuples`
-    - `docs/acceptance_manifest.json` -> `accepted_tuples[*].required_stage_ids`
-    - `docs/acceptance_manifest.json` -> `coverage_rules`
-    - `docs/acceptance_manifest.json` -> `hard_gates`
-    - `docs/acceptance_manifest.json` -> `soft_gates`
-    - `docs/acceptance_manifest.json` -> `threshold_classes`
-    - `docs/acceptance_manifest.json` -> `production_defaults`
-    - `docs/graph_capture_support_matrix.md` -> `## Run Modes`
-    - `docs/graph_capture_support_matrix.md` -> `## Canonical Stage IDs`
-    - `docs/graph_capture_support_matrix.md` -> `## Global Capture Rules`
-    - `docs/graph_capture_support_matrix.json` -> `run_modes`
-    - `docs/graph_capture_support_matrix.json` -> `stages`
-    - `docs/graph_capture_support_matrix.json` -> `required_orchestration_ranges`
-    - `docs/continuity_ledger.md` -> `# 1. Frozen global decisions` (no silent fallback, canonical runtime ownership, native baseline policy)
-    - `docs/master_pin_manifest.md` -> `## Frozen Defaults`
-    - `docs/master_pin_manifest.md` -> `## Consumption Rules`
-    - `docs/planning/pr_expansion/boundary_matrix.md` -> `### Phase 7 -> Phase 8`
-    - `docs/planning/pr_expansion/09_phase7_custom_cuda_kernels.md` -> `## P7-08 Graph-safety cleanup, capture validation, and final regression package`
+    - `docs/authority/acceptance_manifest.md` -> `## Accepted Tuple Matrix`
+    - `docs/authority/acceptance_manifest.md` -> `## Coverage Rules`
+    - `docs/authority/acceptance_manifest.md` -> `## Tuple-Specific NVTX Contract`
+    - `docs/authority/acceptance_manifest.md` -> `## Hard Gates`
+    - `docs/authority/acceptance_manifest.md` -> `## Soft Gates`
+    - `docs/authority/acceptance_manifest.md` -> `## Disposition Rules`
+    - `docs/authority/acceptance_manifest.md` -> `## Production Defaults`
+    - `docs/authority/acceptance_manifest.json` -> `accepted_tuples`
+    - `docs/authority/acceptance_manifest.json` -> `accepted_tuples[*].required_stage_ids`
+    - `docs/authority/acceptance_manifest.json` -> `coverage_rules`
+    - `docs/authority/acceptance_manifest.json` -> `hard_gates`
+    - `docs/authority/acceptance_manifest.json` -> `soft_gates`
+    - `docs/authority/acceptance_manifest.json` -> `threshold_classes`
+    - `docs/authority/acceptance_manifest.json` -> `production_defaults`
+    - `docs/authority/graph_capture_support_matrix.md` -> `## Run Modes`
+    - `docs/authority/graph_capture_support_matrix.md` -> `## Canonical Stage IDs`
+    - `docs/authority/graph_capture_support_matrix.md` -> `## Global Capture Rules`
+    - `docs/authority/graph_capture_support_matrix.json` -> `run_modes`
+    - `docs/authority/graph_capture_support_matrix.json` -> `stages`
+    - `docs/authority/graph_capture_support_matrix.json` -> `required_orchestration_ranges`
+    - `docs/authority/continuity_ledger.md` -> `# 1. Frozen global decisions` (no silent fallback, canonical runtime ownership, native baseline policy)
+    - `docs/authority/master_pin_manifest.md` -> `## Frozen Defaults`
+    - `docs/authority/master_pin_manifest.md` -> `## Consumption Rules`
+    - `docs/tasks/boundary_matrix.md` -> `### Phase 7 -> Phase 8`
+    - `docs/tasks/09_phase7_custom_cuda_kernels.md` -> `## P7-08 Graph-safety cleanup, capture validation, and final regression package`
   - Phase spec or `README_FIRST` authority-order note for `FND-*`:
-    - `docs/phase8_profiling_performance_acceptance_spec.md` -> `#### Step 16 — Define default thresholds and baseline files`
-    - `docs/phase8_profiling_performance_acceptance_spec.md` -> `#### Step 17 — Run R1 baseline and lock first baseline`
-    - `docs/phase8_profiling_performance_acceptance_spec.md` -> `#### Step 18 — Run R0 acceptance and compare against R1`
-    - `docs/phase8_profiling_performance_acceptance_spec.md` -> `#### Step 19 — Add CI/nightly gates`
-    - `docs/phase8_profiling_performance_acceptance_spec.md` -> `#### Step 20 — Write the profiling operator guide`
-    - `docs/phase8_profiling_performance_acceptance_spec.md` -> `### Milestone P8.7 — Production-case acceptance`
-    - `docs/phase8_profiling_performance_acceptance_spec.md` -> `### Milestone P8.8 — CI/nightly integration`
+    - `docs/specs/phase8_profiling_performance_acceptance_spec.md` -> `#### Step 16 — Define default thresholds and baseline files`
+    - `docs/specs/phase8_profiling_performance_acceptance_spec.md` -> `#### Step 17 — Run R1 baseline and lock first baseline`
+    - `docs/specs/phase8_profiling_performance_acceptance_spec.md` -> `#### Step 18 — Run R0 acceptance and compare against R1`
+    - `docs/specs/phase8_profiling_performance_acceptance_spec.md` -> `#### Step 19 — Add CI/nightly gates`
+    - `docs/specs/phase8_profiling_performance_acceptance_spec.md` -> `#### Step 20 — Write the profiling operator guide`
+    - `docs/specs/phase8_profiling_performance_acceptance_spec.md` -> `### Milestone P8.7 — Production-case acceptance`
+    - `docs/specs/phase8_profiling_performance_acceptance_spec.md` -> `### Milestone P8.8 — CI/nightly integration`
   - Backlog scope:
     - "Run the formal `R1` / `R0` acceptance framework, lock the first approved baselines, and integrate the scheduled profiling/sanitizer jobs."
   - Backlog done_when:
@@ -486,8 +486,8 @@ Phase 8 pass A owns `P8-01..P8-08` and delivers the instrumentation and profilin
 
 ## open_discontinuities
 
-- `[tracked] phase3-wave4-coupling`: `P8-03` depends on `P3-05` and `P8-04` depends on `P3-07`; pass-A signoff requires those Phase 3 contracts to be available and reviewed in the same wave (`docs/planning/pr_expansion/pr_inventory.md` -> `## Cross-Section Dependency Edges (Canonical)`, impacted PR IDs: `P8-03`, `P8-04`, preferred reading: treat as wave-level integration gate, not a scope expansion).
-- `[tracked] ci-budget-retention-site-policy`: docs require operational retention policy for formal artifacts but leave concrete storage/runtime budgets to site policy; the Phase 8 workflow must enforce policy hooks without inventing local tuple thresholds. Impacted PR IDs: `P8-09`. Citations: `docs/phase8_profiling_performance_acceptance_spec.md` -> `6. CI runtime budget and artifact retention remain site-policy items`, `docs/phase8_profiling_performance_acceptance_spec.md` -> `### Milestone P8.8 — CI/nightly integration`, `docs/acceptance_manifest.md` -> `## Disposition Rules`. Preferred reading: tuple and gate logic stays authority-driven while budget numbers are set by deployment policy.
+- `[tracked] phase3-wave4-coupling`: `P8-03` depends on `P3-05` and `P8-04` depends on `P3-07`; pass-A signoff requires those Phase 3 contracts to be available and reviewed in the same wave (`docs/tasks/pr_inventory.md` -> `## Cross-Section Dependency Edges (Canonical)`, impacted PR IDs: `P8-03`, `P8-04`, preferred reading: treat as wave-level integration gate, not a scope expansion).
+- `[tracked] ci-budget-retention-site-policy`: docs require operational retention policy for formal artifacts but leave concrete storage/runtime budgets to site policy; the Phase 8 workflow must enforce policy hooks without inventing local tuple thresholds. Impacted PR IDs: `P8-09`. Citations: `docs/specs/phase8_profiling_performance_acceptance_spec.md` -> `6. CI runtime budget and artifact retention remain site-policy items`, `docs/specs/phase8_profiling_performance_acceptance_spec.md` -> `### Milestone P8.8 — CI/nightly integration`, `docs/authority/acceptance_manifest.md` -> `## Disposition Rules`. Preferred reading: tuple and gate logic stays authority-driven while budget numbers are set by deployment policy.
 
 ## validation_checks
 

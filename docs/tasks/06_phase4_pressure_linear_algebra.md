@@ -8,14 +8,14 @@ Phase 4 owns `P4-01..P4-09` and delivers the pressure solver bridge: dependency 
   - Freeze the Phase 4 dependency tuple and validate the AmgX stack with a trivial solve before OpenFOAM integration starts.
 - Exact citations:
   - Authority:
-    - `docs/master_pin_manifest.md` -> `## Frozen Defaults`
-    - `docs/master_pin_manifest.md` -> `## Consumption Rules`
-    - `docs/continuity_ledger.md` -> `# 1. Frozen global decisions` (canonical pressure path and toolchain pin ownership)
-    - `docs/planning/pr_expansion/03_phase1_blackwell_bringup.md` -> `## P1-07 PTX-JIT proof and Phase 1 acceptance bundle`
+    - `docs/authority/master_pin_manifest.md` -> `## Frozen Defaults`
+    - `docs/authority/master_pin_manifest.md` -> `## Consumption Rules`
+    - `docs/authority/continuity_ledger.md` -> `# 1. Frozen global decisions` (canonical pressure path and toolchain pin ownership)
+    - `docs/tasks/03_phase1_blackwell_bringup.md` -> `## P1-07 PTX-JIT proof and Phase 1 acceptance bundle`
   - Phase spec or `README_FIRST` authority-order note for `FND-*`:
-    - `docs/phase4_linear_algebra_spec.md` -> `### Entry criteria`
-    - `docs/phase4_linear_algebra_spec.md` -> `#### Step 1 — Freeze dependency versions and add a standalone AmgX smoke target`
-    - `docs/phase4_linear_algebra_spec.md` -> `## Milestone M4.1 — Dependency freeze and AMgX smoke`
+    - `docs/specs/phase4_linear_algebra_spec.md` -> `### Entry criteria`
+    - `docs/specs/phase4_linear_algebra_spec.md` -> `#### Step 1 — Freeze dependency versions and add a standalone AmgX smoke target`
+    - `docs/specs/phase4_linear_algebra_spec.md` -> `## Milestone M4.1 — Dependency freeze and AMgX smoke`
   - Backlog scope:
     - `Pin the SPUMA / foamExternalSolvers / AmgX dependency line for Phase 4 and build the standalone AmgX smoke test on the target workstation.`
   - Backlog done_when:
@@ -53,13 +53,13 @@ Phase 4 owns `P4-01..P4-09` and delivers the pressure solver bridge: dependency 
   - Add CPU/reference-side pressure snapshot capture at the exact pressure-solve boundary for replay harness use.
 - Exact citations:
   - Authority:
-    - `docs/continuity_ledger.md` -> `# 1. Frozen global decisions` (native pressure baseline and staged bring-up)
-    - `docs/planning/pr_expansion/02_phase0_reference_problem_freeze.md` -> `## P0-08 Baseline B nozzle freeze and sign-off package`
-    - `docs/planning/pr_expansion/boundary_matrix.md` -> `### Phase 4 -> Phase 5`
+    - `docs/authority/continuity_ledger.md` -> `# 1. Frozen global decisions` (native pressure baseline and staged bring-up)
+    - `docs/tasks/02_phase0_reference_problem_freeze.md` -> `## P0-08 Baseline B nozzle freeze and sign-off package`
+    - `docs/tasks/boundary_matrix.md` -> `### Phase 4 -> Phase 5`
   - Phase spec or `README_FIRST` authority-order note for `FND-*`:
-    - `docs/phase4_linear_algebra_spec.md` -> `### Entry criteria`
-    - `docs/phase4_linear_algebra_spec.md` -> `#### Step 2 — Add a pressure-system snapshot dump utility`
-    - `docs/phase4_linear_algebra_spec.md` -> `## Milestone M4.2 — Pressure snapshot dump`
+    - `docs/specs/phase4_linear_algebra_spec.md` -> `### Entry criteria`
+    - `docs/specs/phase4_linear_algebra_spec.md` -> `#### Step 2 — Add a pressure-system snapshot dump utility`
+    - `docs/specs/phase4_linear_algebra_spec.md` -> `## Milestone M4.2 — Pressure snapshot dump`
   - Backlog scope:
     - `Add the CPU/reference-side pressure snapshot utility so representative matrices, RHS vectors, and metadata can be captured from frozen cases.`
   - Backlog done_when:
@@ -96,14 +96,14 @@ Phase 4 owns `P4-01..P4-09` and delivers the pressure solver bridge: dependency 
   - Build deterministic topology-only CSR row/column mapping from OpenFOAM/SPUMA LDU addressing and cache by topology signature.
 - Exact citations:
   - Authority:
-    - `docs/continuity_ledger.md` -> `# 1. Frozen global decisions` (no post-warmup allocation churn, deterministic contracts)
-    - `docs/planning/pr_expansion/boundary_matrix.md` -> `### Phase 4 -> Phase 5`
+    - `docs/authority/continuity_ledger.md` -> `# 1. Frozen global decisions` (no post-warmup allocation churn, deterministic contracts)
+    - `docs/tasks/boundary_matrix.md` -> `### Phase 4 -> Phase 5`
   - Phase spec or `README_FIRST` authority-order note for `FND-*`:
-    - `docs/phase4_linear_algebra_spec.md` -> `#### Decision 4.2 — Cache topology in the object registry`
-    - `docs/phase4_linear_algebra_spec.md` -> `#### Decision 4.3 — Build a full CSR with diagonal embedded`
-    - `docs/phase4_linear_algebra_spec.md` -> `#### Decision 4.4 — Preserve asymmetric storage semantics`
-    - `docs/phase4_linear_algebra_spec.md` -> `#### Step 3 — Implement the topology-only LDU→CSR builder`
-    - `docs/phase4_linear_algebra_spec.md` -> `## Pattern-build algorithm`
+    - `docs/specs/phase4_linear_algebra_spec.md` -> `#### Decision 4.2 — Cache topology in the object registry`
+    - `docs/specs/phase4_linear_algebra_spec.md` -> `#### Decision 4.3 — Build a full CSR with diagonal embedded`
+    - `docs/specs/phase4_linear_algebra_spec.md` -> `#### Decision 4.4 — Preserve asymmetric storage semantics`
+    - `docs/specs/phase4_linear_algebra_spec.md` -> `#### Step 3 — Implement the topology-only LDU→CSR builder`
+    - `docs/specs/phase4_linear_algebra_spec.md` -> `## Pattern-build algorithm`
   - Backlog scope:
     - `Implement the topology conversion that builds CSR row offsets and column indices from the OpenFOAM/SPUMA LDU structure and caches it by topology.`
   - Backlog done_when:
@@ -138,13 +138,13 @@ Phase 4 owns `P4-01..P4-09` and delivers the pressure solver bridge: dependency 
   - Pack per-solve coefficients/vectors into CSR arrays and validate mapping by `A*x` equivalence before solver backend attachment.
 - Exact citations:
   - Authority:
-    - `docs/continuity_ledger.md` -> `# 1. Frozen global decisions` (correctness-first bring-up and explicit boundary behavior)
-    - `docs/acceptance_manifest.md` -> `## Exact Threshold Classes`
+    - `docs/authority/continuity_ledger.md` -> `# 1. Frozen global decisions` (correctness-first bring-up and explicit boundary behavior)
+    - `docs/authority/acceptance_manifest.md` -> `## Exact Threshold Classes`
   - Phase spec or `README_FIRST` authority-order note for `FND-*`:
-    - `docs/phase4_linear_algebra_spec.md` -> `### \`CsrValuePacker\``
-    - `docs/phase4_linear_algebra_spec.md` -> `## Value-pack algorithm`
-    - `docs/phase4_linear_algebra_spec.md` -> `#### U2 — A*x equivalence test`
-    - `docs/phase4_linear_algebra_spec.md` -> `#### Step 4 — Implement a pure-host CSR value packer`
+    - `docs/specs/phase4_linear_algebra_spec.md` -> `### \`CsrValuePacker\``
+    - `docs/specs/phase4_linear_algebra_spec.md` -> `## Value-pack algorithm`
+    - `docs/specs/phase4_linear_algebra_spec.md` -> `#### U2 — A*x equivalence test`
+    - `docs/specs/phase4_linear_algebra_spec.md` -> `#### Step 4 — Implement a pure-host CSR value packer`
   - Backlog scope:
     - `Add the value packer that fills CSR coefficients/RHS from live or snapshot data and validate the mapping with \`A*x\` equivalence checks.`
   - Backlog done_when:
@@ -179,15 +179,15 @@ Phase 4 owns `P4-01..P4-09` and delivers the pressure solver bridge: dependency 
   - Add a safe `AmgXContext` lifecycle wrapper plus standalone replay utility for upload/setup/solve/update decomposition.
 - Exact citations:
   - Authority:
-    - `docs/master_pin_manifest.md` -> `## Frozen Defaults`
-    - `docs/continuity_ledger.md` -> `# 1. Frozen global decisions` (secondary AmgX backend posture)
-    - `docs/support_matrix.md` -> `## Backend and Operational Policy`
+    - `docs/authority/master_pin_manifest.md` -> `## Frozen Defaults`
+    - `docs/authority/continuity_ledger.md` -> `# 1. Frozen global decisions` (secondary AmgX backend posture)
+    - `docs/authority/support_matrix.md` -> `## Backend and Operational Policy`
   - Phase spec or `README_FIRST` authority-order note for `FND-*`:
-    - `docs/phase4_linear_algebra_spec.md` -> `### \`AmgXContext\``
-    - `docs/phase4_linear_algebra_spec.md` -> `#### Step 6 — Implement \`AmgXContext\` RAII wrapper`
-    - `docs/phase4_linear_algebra_spec.md` -> `#### Step 7 — Implement first-call upload path`
-    - `docs/phase4_linear_algebra_spec.md` -> `#### Step 8 — Implement repeated-solve replace/setup/solve path`
-    - `docs/phase4_linear_algebra_spec.md` -> `#### Step 10 — Add debug validators and snapshot replay executable`
+    - `docs/specs/phase4_linear_algebra_spec.md` -> `### \`AmgXContext\``
+    - `docs/specs/phase4_linear_algebra_spec.md` -> `#### Step 6 — Implement \`AmgXContext\` RAII wrapper`
+    - `docs/specs/phase4_linear_algebra_spec.md` -> `#### Step 7 — Implement first-call upload path`
+    - `docs/specs/phase4_linear_algebra_spec.md` -> `#### Step 8 — Implement repeated-solve replace/setup/solve path`
+    - `docs/specs/phase4_linear_algebra_spec.md` -> `#### Step 10 — Add debug validators and snapshot replay executable`
   - Backlog scope:
     - `Implement the \`AmgXContext\` wrapper plus a replay tool that loads snapshots and exercises upload/setup/solve/update in isolation.`
   - Backlog done_when:
@@ -223,14 +223,14 @@ Phase 4 owns `P4-01..P4-09` and delivers the pressure solver bridge: dependency 
   - Persist pressure matrix cache and staging buffers across solves under unchanged topology.
 - Exact citations:
   - Authority:
-    - `docs/continuity_ledger.md` -> `# 1. Frozen global decisions` (post-warmup allocation and host-transfer constraints)
-    - `docs/planning/pr_expansion/04_phase2_gpu_memory_model.md` -> `## P2-04 Pinned stage allocator`
-    - `docs/support_matrix.md` -> `## Backend and Operational Policy` (`PinnedHost` correctness-only posture)
+    - `docs/authority/continuity_ledger.md` -> `# 1. Frozen global decisions` (post-warmup allocation and host-transfer constraints)
+    - `docs/tasks/04_phase2_gpu_memory_model.md` -> `## P2-04 Pinned stage allocator`
+    - `docs/authority/support_matrix.md` -> `## Backend and Operational Policy` (`PinnedHost` correctness-only posture)
   - Phase spec or `README_FIRST` authority-order note for `FND-*`:
-    - `docs/phase4_linear_algebra_spec.md` -> `### \`PressureMatrixCache\``
-    - `docs/phase4_linear_algebra_spec.md` -> `#### Step 5 — Implement \`PressureMatrixCache\` with persistent host staging buffers`
-    - `docs/phase4_linear_algebra_spec.md` -> `## Ownership and lifetime model`
-    - `docs/phase4_linear_algebra_spec.md` -> `## Mandatory memory rules`
+    - `docs/specs/phase4_linear_algebra_spec.md` -> `### \`PressureMatrixCache\``
+    - `docs/specs/phase4_linear_algebra_spec.md` -> `#### Step 5 — Implement \`PressureMatrixCache\` with persistent host staging buffers`
+    - `docs/specs/phase4_linear_algebra_spec.md` -> `## Ownership and lifetime model`
+    - `docs/specs/phase4_linear_algebra_spec.md` -> `## Mandatory memory rules`
   - Backlog scope:
     - `Add the persistent pressure-matrix cache object plus reusable host staging buffers that outlive individual solver objects.`
   - Backlog done_when:
@@ -268,16 +268,16 @@ Phase 4 owns `P4-01..P4-09` and delivers the pressure solver bridge: dependency 
   - Integrate runtime selectable native/AmgX pressure path into live solve boundary with deterministic fallback.
 - Exact citations:
   - Authority:
-    - `docs/continuity_ledger.md` -> `# 1. Frozen global decisions` (native baseline, secondary AmgX backend, no silent fallback)
-    - `docs/support_matrix.md` -> `## Global Policy`
-    - `docs/support_matrix.md` -> `## Backend and Operational Policy`
-    - `docs/graph_capture_support_matrix.md` -> `## Canonical Stage IDs`
-    - `docs/graph_capture_support_matrix.md` -> `## Global Capture Rules`
+    - `docs/authority/continuity_ledger.md` -> `# 1. Frozen global decisions` (native baseline, secondary AmgX backend, no silent fallback)
+    - `docs/authority/support_matrix.md` -> `## Global Policy`
+    - `docs/authority/support_matrix.md` -> `## Backend and Operational Policy`
+    - `docs/authority/graph_capture_support_matrix.md` -> `## Canonical Stage IDs`
+    - `docs/authority/graph_capture_support_matrix.md` -> `## Global Capture Rules`
   - Phase spec or `README_FIRST` authority-order note for `FND-*`:
-    - `docs/phase4_linear_algebra_spec.md` -> `#### Decision 4.5 — Support only uncoupled scalar systems in Phase 4`
-    - `docs/phase4_linear_algebra_spec.md` -> `#### Decision 4.12 — Native solver fallback is mandatory, not optional`
-    - `docs/phase4_linear_algebra_spec.md` -> `#### Step 9 — Implement runtime-selected \`AmgXSolver\` with fallback`
-    - `docs/phase4_linear_algebra_spec.md` -> `## Unsupported or failed path`
+    - `docs/specs/phase4_linear_algebra_spec.md` -> `#### Decision 4.5 — Support only uncoupled scalar systems in Phase 4`
+    - `docs/specs/phase4_linear_algebra_spec.md` -> `#### Decision 4.12 — Native solver fallback is mandatory, not optional`
+    - `docs/specs/phase4_linear_algebra_spec.md` -> `#### Step 9 — Implement runtime-selected \`AmgXSolver\` with fallback`
+    - `docs/specs/phase4_linear_algebra_spec.md` -> `## Unsupported or failed path`
   - Backlog scope:
     - `Wire native and AmgX pressure solver selection into the live solver path with clean fallback on unsupported interface conditions.`
   - Backlog done_when:
@@ -313,18 +313,18 @@ Phase 4 owns `P4-01..P4-09` and delivers the pressure solver bridge: dependency 
   - Add pressure telemetry and NVTX hooks, then run native-vs-AmgX reduced-case comparison with reviewable evidence.
 - Exact citations:
   - Authority:
-    - `docs/acceptance_manifest.md` -> `## Hard Gates`
-    - `docs/acceptance_manifest.md` -> `## Production Defaults`
-    - `docs/acceptance_manifest.json` -> `hard_gates`
-    - `docs/graph_capture_support_matrix.md` -> `## Canonical Stage IDs`
-    - `docs/planning/pr_expansion/05_phase3_execution_model.md` -> `## P3-05 Canonical stage scaffolding and parent NVTX ranges`
-    - `docs/planning/pr_expansion/10_phase8_profiling_performance_acceptance.md` -> `## P8-03 Solver-stage instrumentation coverage`
+    - `docs/authority/acceptance_manifest.md` -> `## Hard Gates`
+    - `docs/authority/acceptance_manifest.md` -> `## Production Defaults`
+    - `docs/authority/acceptance_manifest.json` -> `hard_gates`
+    - `docs/authority/graph_capture_support_matrix.md` -> `## Canonical Stage IDs`
+    - `docs/tasks/05_phase3_execution_model.md` -> `## P3-05 Canonical stage scaffolding and parent NVTX ranges`
+    - `docs/tasks/10_phase8_profiling_performance_acceptance.md` -> `## P8-03 Solver-stage instrumentation coverage`
   - Phase spec or `README_FIRST` authority-order note for `FND-*`:
-    - `docs/phase4_linear_algebra_spec.md` -> `#### Step 11 — Add NVTX3 ranges and telemetry counters`
-    - `docs/phase4_linear_algebra_spec.md` -> `#### Step 12 — Integrate with reduced live case and benchmark against native`
-    - `docs/phase4_linear_algebra_spec.md` -> `## NVTX3 ranges to add`
-    - `docs/phase4_linear_algebra_spec.md` -> `## Telemetry counters to persist`
-    - `docs/phase4_linear_algebra_spec.md` -> `## 3. Live reduced-case validation`
+    - `docs/specs/phase4_linear_algebra_spec.md` -> `#### Step 11 — Add NVTX3 ranges and telemetry counters`
+    - `docs/specs/phase4_linear_algebra_spec.md` -> `#### Step 12 — Integrate with reduced live case and benchmark against native`
+    - `docs/specs/phase4_linear_algebra_spec.md` -> `## NVTX3 ranges to add`
+    - `docs/specs/phase4_linear_algebra_spec.md` -> `## Telemetry counters to persist`
+    - `docs/specs/phase4_linear_algebra_spec.md` -> `## 3. Live reduced-case validation`
   - Backlog scope:
     - `Add pressure telemetry, NVTX boundaries, native-vs-AmgX benchmark scripts, and reduced-case validation for the Phase 4 live path.`
   - Backlog done_when:
@@ -363,16 +363,16 @@ Phase 4 owns `P4-01..P4-09` and delivers the pressure solver bridge: dependency 
   - Implement device-resident pressure staging (`csrValuesDev`, `rhsDev`, `xDev`) and bridge upload/replace semantics required for production-eligible AmgX claims.
 - Exact citations:
   - Authority:
-    - `docs/continuity_ledger.md` -> `# 1. Frozen global decisions` (PinnedHost correctness-only; DeviceDirect required for no field-scale host-transfer AmgX claims)
-    - `docs/support_matrix.md` -> `## Backend and Operational Policy`
-    - `docs/acceptance_manifest.json` -> `coverage_rules.amgx_required_pressure_bridge_mode`
-    - `docs/acceptance_manifest.json` -> `coverage_rules.amgx_without_required_bridge_classification`
-    - `docs/acceptance_manifest.json` -> `coverage_rules.pinned_host_policy`
-    - `docs/planning/pr_expansion/boundary_matrix.md` -> `### Phase 4 -> Phase 5`
+    - `docs/authority/continuity_ledger.md` -> `# 1. Frozen global decisions` (PinnedHost correctness-only; DeviceDirect required for no field-scale host-transfer AmgX claims)
+    - `docs/authority/support_matrix.md` -> `## Backend and Operational Policy`
+    - `docs/authority/acceptance_manifest.json` -> `coverage_rules.amgx_required_pressure_bridge_mode`
+    - `docs/authority/acceptance_manifest.json` -> `coverage_rules.amgx_without_required_bridge_classification`
+    - `docs/authority/acceptance_manifest.json` -> `coverage_rules.pinned_host_policy`
+    - `docs/tasks/boundary_matrix.md` -> `### Phase 4 -> Phase 5`
   - Phase spec or `README_FIRST` authority-order note for `FND-*`:
-    - `docs/phase4_linear_algebra_spec.md` -> `#### Decision 4.8 — Separate bring-up and production paths in the API now`
-    - `docs/phase4_linear_algebra_spec.md` -> `### Production path / mandatory bridge (defined now; completed before any later AmgX production claim of no field-scale host transfer)`
-    - `docs/phase4_linear_algebra_spec.md` -> `#### Step 13 — Complete the \`DeviceDirect\` pressure bridge`
+    - `docs/specs/phase4_linear_algebra_spec.md` -> `#### Decision 4.8 — Separate bring-up and production paths in the API now`
+    - `docs/specs/phase4_linear_algebra_spec.md` -> `### Production path / mandatory bridge (defined now; completed before any later AmgX production claim of no field-scale host transfer)`
+    - `docs/specs/phase4_linear_algebra_spec.md` -> `#### Step 13 — Complete the \`DeviceDirect\` pressure bridge`
   - Backlog scope:
     - `Implement the device-resident \`csrValuesDev\` / \`rhsDev\` / \`xDev\` bridge and the device-pointer upload/replace path required for later no-field-scale-host-transfer claims.`
   - Backlog done_when:
@@ -438,8 +438,8 @@ Phase 4 owns `P4-01..P4-09` and delivers the pressure solver bridge: dependency 
 
 ## open_discontinuities
 
-- `[tracked] coupled-interface-phase4-scope`: Phase 4 supports only uncoupled scalar pressure systems; coupled interface or unsupported patch/interface conditions must trigger native fallback. Impacted PR IDs: `P4-07`, `P5-10`. Citations: `docs/phase4_linear_algebra_spec.md` -> `#### Decision 4.5 — Support only uncoupled scalar systems in Phase 4`, `docs/support_matrix.md` -> `## Global Policy`. Preferred reading: keep coupled-interface support out of Phase 4 and require explicit support-matrix/acceptance change before widening.
-- `[tracked] pressure-stage-range-name-drift-risk`: Pressure telemetry and reduced-case comparison must use canonical stage IDs exactly as defined in stage and acceptance artifacts; no local aliases. Impacted PR IDs: `P4-08`, `P4-09`. Citations: `docs/graph_capture_support_matrix.md` -> `## Canonical Stage IDs`, `docs/acceptance_manifest.json` -> `accepted_tuples[*].required_stage_ids`. Preferred reading: fail validation on alias drift.
+- `[tracked] coupled-interface-phase4-scope`: Phase 4 supports only uncoupled scalar pressure systems; coupled interface or unsupported patch/interface conditions must trigger native fallback. Impacted PR IDs: `P4-07`, `P5-10`. Citations: `docs/specs/phase4_linear_algebra_spec.md` -> `#### Decision 4.5 — Support only uncoupled scalar systems in Phase 4`, `docs/authority/support_matrix.md` -> `## Global Policy`. Preferred reading: keep coupled-interface support out of Phase 4 and require explicit support-matrix/acceptance change before widening.
+- `[tracked] pressure-stage-range-name-drift-risk`: Pressure telemetry and reduced-case comparison must use canonical stage IDs exactly as defined in stage and acceptance artifacts; no local aliases. Impacted PR IDs: `P4-08`, `P4-09`. Citations: `docs/authority/graph_capture_support_matrix.md` -> `## Canonical Stage IDs`, `docs/authority/acceptance_manifest.json` -> `accepted_tuples[*].required_stage_ids`. Preferred reading: fail validation on alias drift.
 
 ## validation_checks
 

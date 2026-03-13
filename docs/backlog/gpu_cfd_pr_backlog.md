@@ -2,6 +2,12 @@
 
 This document is the **decomposition layer** between the finalized spec package and coding-agent execution. It is intentionally **not** a set of written PR bodies. It is the recommended PR list, with each PR sliced to keep the body of work atomic, reviewable, and benchmarkable.
 
+The canonical machine-readable backlog is `gpu_cfd_pr_backlog.json`. Use that JSON as the source of truth for PR IDs, dependencies, and counts.
+
+For assigned implementation work, use `docs/tasks/pr_inventory.md` to find the owning section doc, then read the matching `docs/tasks/NN_*.md` file as the scoped task brief. This Markdown file is an overview, not the execution contract for an individual PR.
+
+Authority docs now live under `docs/authority/`, and phase specs live under `docs/specs/`.
+
 ## Planning rules used to split the work
 
 - Keep runtime-schema parsing separate from solver semantics.

@@ -8,17 +8,17 @@ Phase 3 owns `P3-01..P3-08` and defines the execution substrate used by later so
   - Inventory all synchronization points and stream ownership in supported GPU paths, then freeze an explicit stream policy with no hidden owners.
 - Exact citations:
   - Authority:
-    - `docs/planning/pr_expansion/boundary_matrix.md` -> `### Phase 2 -> Phase 3`
-    - `docs/graph_capture_support_matrix.md` -> `## Global Capture Rules`
-    - `docs/graph_capture_support_matrix.json` -> `global_capture_rules`
-    - `docs/continuity_ledger.md` -> `# 1. Frozen global decisions` (forbidden hot-stage host fallback and post-warmup allocation churn in production acceptance)
-    - `docs/planning/pr_expansion/04_phase2_gpu_memory_model.md` -> `## P2-10 Compute-epoch enforcement`
+    - `docs/tasks/boundary_matrix.md` -> `### Phase 2 -> Phase 3`
+    - `docs/authority/graph_capture_support_matrix.md` -> `## Global Capture Rules`
+    - `docs/authority/graph_capture_support_matrix.json` -> `global_capture_rules`
+    - `docs/authority/continuity_ledger.md` -> `# 1. Frozen global decisions` (forbidden hot-stage host fallback and post-warmup allocation churn in production acceptance)
+    - `docs/tasks/04_phase2_gpu_memory_model.md` -> `## P2-10 Compute-epoch enforcement`
   - Phase spec or `README_FIRST` authority-order note for `FND-*`:
-    - `docs/phase3_execution_model_spec.md` -> `#### D3.3 — Make stream ownership explicit and minimal`
-    - `docs/phase3_execution_model_spec.md` -> `#### D3.4 — Remove unconditional \`cudaDeviceSynchronize()\` from normal-mode hot paths`
-    - `docs/phase3_execution_model_spec.md` -> `#### Step 1 — Inventory and gate all existing hot-path synchronization`
-    - `docs/phase3_execution_model_spec.md` -> `#### Step 2 — Introduce explicit stream ownership`
-    - `docs/phase3_execution_model_spec.md` -> `### Milestone M0 — Sync and stream inventory`
+    - `docs/specs/phase3_execution_model_spec.md` -> `#### D3.3 — Make stream ownership explicit and minimal`
+    - `docs/specs/phase3_execution_model_spec.md` -> `#### D3.4 — Remove unconditional \`cudaDeviceSynchronize()\` from normal-mode hot paths`
+    - `docs/specs/phase3_execution_model_spec.md` -> `#### Step 1 — Inventory and gate all existing hot-path synchronization`
+    - `docs/specs/phase3_execution_model_spec.md` -> `#### Step 2 — Introduce explicit stream ownership`
+    - `docs/specs/phase3_execution_model_spec.md` -> `### Milestone M0 — Sync and stream inventory`
   - Backlog scope:
     - "Inventory existing sync points, define explicit stream ownership, and lock down the initial stream policy."
   - Backlog done_when:
@@ -57,18 +57,18 @@ Phase 3 owns `P3-01..P3-08` and defines the execution substrate used by later so
   - Implement deterministic execution-mode parsing and selection under normalized runtime config, with explicit downgrade behavior to `async_no_graph`.
 - Exact citations:
   - Authority:
-    - `docs/graph_capture_support_matrix.md` -> `## Run Modes`
-    - `docs/graph_capture_support_matrix.json` -> `run_modes`
-    - `docs/graph_capture_support_matrix.json` -> `global_capture_rules.capture_failure_policy`
-    - `docs/continuity_ledger.md` -> `# 1. Frozen global decisions` (runtime normalization under `gpuRuntime`)
-    - `docs/planning/pr_expansion/01_foundation_authority_consumption.md` -> `## FND-06 Graph stage registry and graph-support-matrix loader`
-    - `docs/planning/pr_expansion/boundary_matrix.md` -> `### Phase 2 -> Phase 3` (fallback must downgrade explicitly to `async_no_graph`)
+    - `docs/authority/graph_capture_support_matrix.md` -> `## Run Modes`
+    - `docs/authority/graph_capture_support_matrix.json` -> `run_modes`
+    - `docs/authority/graph_capture_support_matrix.json` -> `global_capture_rules.capture_failure_policy`
+    - `docs/authority/continuity_ledger.md` -> `# 1. Frozen global decisions` (runtime normalization under `gpuRuntime`)
+    - `docs/tasks/01_foundation_authority_consumption.md` -> `## FND-06 Graph stage registry and graph-support-matrix loader`
+    - `docs/tasks/boundary_matrix.md` -> `### Phase 2 -> Phase 3` (fallback must downgrade explicitly to `async_no_graph`)
   - Phase spec or `README_FIRST` authority-order note for `FND-*`:
-    - `docs/phase3_execution_model_spec.md` -> `#### D3.1 — Introduce an explicit execution-mode ladder`
-    - `docs/phase3_execution_model_spec.md` -> `#### \`GpuExecutionConfig\``
-    - `docs/phase3_execution_model_spec.md` -> `#### Bring-up path versus production path`
-    - `docs/phase3_execution_model_spec.md` -> `#### Fallback/rollback behavior`
-    - `docs/phase3_execution_model_spec.md` -> `#### Step 3 — Add \`GpuExecutionConfig\` and execution-mode selection`
+    - `docs/specs/phase3_execution_model_spec.md` -> `#### D3.1 — Introduce an explicit execution-mode ladder`
+    - `docs/specs/phase3_execution_model_spec.md` -> `#### \`GpuExecutionConfig\``
+    - `docs/specs/phase3_execution_model_spec.md` -> `#### Bring-up path versus production path`
+    - `docs/specs/phase3_execution_model_spec.md` -> `#### Fallback/rollback behavior`
+    - `docs/specs/phase3_execution_model_spec.md` -> `#### Step 3 — Add \`GpuExecutionConfig\` and execution-mode selection`
   - Backlog scope:
     - "Implement runtime parsing and selection for the supported execution modes (including graph-disabled and graph-enabled lanes)."
   - Backlog done_when:
@@ -108,17 +108,17 @@ Phase 3 owns `P3-01..P3-08` and defines the execution substrate used by later so
   - Introduce one long-lived `GpuExecutionContext` owner and stage execution registry so all supported stages resolve execution state from a single authority.
 - Exact citations:
   - Authority:
-    - `docs/planning/pr_expansion/boundary_matrix.md` -> `### Phase 2 -> Phase 3`
-    - `docs/graph_capture_support_matrix.md` -> `## Canonical Stage IDs`
-    - `docs/graph_capture_support_matrix.json` -> `stages`
-    - `docs/planning/pr_expansion/04_phase2_gpu_memory_model.md` -> `## exports_to_next` (Phase 2 seam packet artifacts)
+    - `docs/tasks/boundary_matrix.md` -> `### Phase 2 -> Phase 3`
+    - `docs/authority/graph_capture_support_matrix.md` -> `## Canonical Stage IDs`
+    - `docs/authority/graph_capture_support_matrix.json` -> `stages`
+    - `docs/tasks/04_phase2_gpu_memory_model.md` -> `## exports_to_next` (Phase 2 seam packet artifacts)
   - Phase spec or `README_FIRST` authority-order note for `FND-*`:
-    - `docs/phase3_execution_model_spec.md` -> `#### D3.2 — Centralize execution state in a long-lived \`GpuExecutionContext\``
-    - `docs/phase3_execution_model_spec.md` -> `#### \`ExecutionStreams\``
-    - `docs/phase3_execution_model_spec.md` -> `#### \`DeviceResidencyRegistry\``
-    - `docs/phase3_execution_model_spec.md` -> `#### \`GpuExecutionContext\``
-    - `docs/phase3_execution_model_spec.md` -> `#### \`HostStageController\``
-    - `docs/phase3_execution_model_spec.md` -> `#### Step 4 — Create \`GpuExecutionContext\` and residency registry`
+    - `docs/specs/phase3_execution_model_spec.md` -> `#### D3.2 — Centralize execution state in a long-lived \`GpuExecutionContext\``
+    - `docs/specs/phase3_execution_model_spec.md` -> `#### \`ExecutionStreams\``
+    - `docs/specs/phase3_execution_model_spec.md` -> `#### \`DeviceResidencyRegistry\``
+    - `docs/specs/phase3_execution_model_spec.md` -> `#### \`GpuExecutionContext\``
+    - `docs/specs/phase3_execution_model_spec.md` -> `#### \`HostStageController\``
+    - `docs/specs/phase3_execution_model_spec.md` -> `#### Step 4 — Create \`GpuExecutionContext\` and residency registry`
   - Backlog scope:
     - "Add the central `GpuExecutionContext` and registry that own stream handles, mode selection, and stage execution state."
   - Backlog done_when:
@@ -157,17 +157,17 @@ Phase 3 owns `P3-01..P3-08` and defines the execution substrate used by later so
   - Add consistent graph-ready async launch wrappers and remove implicit hot-path `cudaDeviceSynchronize()` behavior from wrapped stages.
 - Exact citations:
   - Authority:
-    - `docs/graph_capture_support_matrix.md` -> `## Global Capture Rules`
-    - `docs/graph_capture_support_matrix.json` -> `global_capture_rules`
-    - `docs/acceptance_manifest.md` -> `## Hard Gates` (`cudaDeviceSynchronize_calls == 0` inside steady-state inner ranges)
-    - `docs/planning/pr_expansion/boundary_matrix.md` -> `### Phase 2 -> Phase 3`
+    - `docs/authority/graph_capture_support_matrix.md` -> `## Global Capture Rules`
+    - `docs/authority/graph_capture_support_matrix.json` -> `global_capture_rules`
+    - `docs/authority/acceptance_manifest.md` -> `## Hard Gates` (`cudaDeviceSynchronize_calls == 0` inside steady-state inner ranges)
+    - `docs/tasks/boundary_matrix.md` -> `### Phase 2 -> Phase 3`
   - Phase spec or `README_FIRST` authority-order note for `FND-*`:
-    - `docs/phase3_execution_model_spec.md` -> `#### D3.3 — Make stream ownership explicit and minimal`
-    - `docs/phase3_execution_model_spec.md` -> `#### D3.4 — Remove unconditional \`cudaDeviceSynchronize()\` from normal-mode hot paths`
-    - `docs/phase3_execution_model_spec.md` -> `#### D3.5 — Use stream-capture-built graphs first, with whole-graph update`
-    - `docs/phase3_execution_model_spec.md` -> `#### Synchronization policy`
-    - `docs/phase3_execution_model_spec.md` -> `#### Step 5 — Convert launch wrappers to graph-safe async behavior`
-    - `docs/phase3_execution_model_spec.md` -> `### Milestone M2 — Async no-graph baseline`
+    - `docs/specs/phase3_execution_model_spec.md` -> `#### D3.3 — Make stream ownership explicit and minimal`
+    - `docs/specs/phase3_execution_model_spec.md` -> `#### D3.4 — Remove unconditional \`cudaDeviceSynchronize()\` from normal-mode hot paths`
+    - `docs/specs/phase3_execution_model_spec.md` -> `#### D3.5 — Use stream-capture-built graphs first, with whole-graph update`
+    - `docs/specs/phase3_execution_model_spec.md` -> `#### Synchronization policy`
+    - `docs/specs/phase3_execution_model_spec.md` -> `#### Step 5 — Convert launch wrappers to graph-safe async behavior`
+    - `docs/specs/phase3_execution_model_spec.md` -> `### Milestone M2 — Async no-graph baseline`
   - Backlog scope:
     - "Introduce graph-ready async launch wrappers and remove implicit hot-path device-wide synchronization from the wrapped stages."
   - Backlog done_when:
@@ -205,18 +205,18 @@ Phase 3 owns `P3-01..P3-08` and defines the execution substrate used by later so
   - Land canonical stage boundaries and parent NVTX scaffolding from the shared graph stage registry before first capture.
 - Exact citations:
   - Authority:
-    - `docs/graph_capture_support_matrix.md` -> `## Canonical Stage IDs`
-    - `docs/graph_capture_support_matrix.md` -> `## Run Modes`
-    - `docs/graph_capture_support_matrix.json` -> `stages`
-    - `docs/graph_capture_support_matrix.json` -> `required_orchestration_ranges`
-    - `docs/graph_capture_support_matrix.json` -> `stage_level_range_rule`
-    - `docs/acceptance_manifest.md` -> `## Tuple-Specific NVTX Contract`
-    - `docs/planning/pr_expansion/01_foundation_authority_consumption.md` -> `## FND-06 Graph stage registry and graph-support-matrix loader`
+    - `docs/authority/graph_capture_support_matrix.md` -> `## Canonical Stage IDs`
+    - `docs/authority/graph_capture_support_matrix.md` -> `## Run Modes`
+    - `docs/authority/graph_capture_support_matrix.json` -> `stages`
+    - `docs/authority/graph_capture_support_matrix.json` -> `required_orchestration_ranges`
+    - `docs/authority/graph_capture_support_matrix.json` -> `stage_level_range_rule`
+    - `docs/authority/acceptance_manifest.md` -> `## Tuple-Specific NVTX Contract`
+    - `docs/tasks/01_foundation_authority_consumption.md` -> `## FND-06 Graph stage registry and graph-support-matrix loader`
   - Phase spec or `README_FIRST` authority-order note for `FND-*`:
-    - `docs/phase3_execution_model_spec.md` -> `#### Canonical stage taxonomy and graph-support ownership`
-    - `docs/phase3_execution_model_spec.md` -> `#### Graph-safe stage composition rules`
-    - `docs/phase3_execution_model_spec.md` -> `#### NVTX3 ranges`
-    - `docs/phase3_execution_model_spec.md` -> `#### Step 6 — Add NVTX3 domains and coarse solver-stage annotation`
+    - `docs/specs/phase3_execution_model_spec.md` -> `#### Canonical stage taxonomy and graph-support ownership`
+    - `docs/specs/phase3_execution_model_spec.md` -> `#### Graph-safe stage composition rules`
+    - `docs/specs/phase3_execution_model_spec.md` -> `#### NVTX3 ranges`
+    - `docs/specs/phase3_execution_model_spec.md` -> `#### Step 6 — Add NVTX3 domains and coarse solver-stage annotation`
   - Backlog scope:
     - "Add the canonical stage boundaries and parent-stage NVTX scaffolding imported from the graph support matrix."
   - Backlog done_when:
@@ -255,18 +255,18 @@ Phase 3 owns `P3-01..P3-08` and defines the execution substrate used by later so
   - Capture and replay the first approved Phase 3 stage in `graph_fixed` mode with stable addresses and strict capture-safety rules.
 - Exact citations:
   - Authority:
-    - `docs/graph_capture_support_matrix.md` -> `## Canonical Stage IDs`
-    - `docs/graph_capture_support_matrix.md` -> `## Global Capture Rules`
-    - `docs/graph_capture_support_matrix.json` -> `stages` (capture-safe-now rows)
-    - `docs/graph_capture_support_matrix.json` -> `global_capture_rules`
-    - `docs/planning/pr_expansion/boundary_matrix.md` -> `### Phase 2 -> Phase 3`
+    - `docs/authority/graph_capture_support_matrix.md` -> `## Canonical Stage IDs`
+    - `docs/authority/graph_capture_support_matrix.md` -> `## Global Capture Rules`
+    - `docs/authority/graph_capture_support_matrix.json` -> `stages` (capture-safe-now rows)
+    - `docs/authority/graph_capture_support_matrix.json` -> `global_capture_rules`
+    - `docs/tasks/boundary_matrix.md` -> `### Phase 2 -> Phase 3`
   - Phase spec or `README_FIRST` authority-order note for `FND-*`:
-    - `docs/phase3_execution_model_spec.md` -> `#### D3.5 — Use stream-capture-built graphs first, with whole-graph update`
-    - `docs/phase3_execution_model_spec.md` -> `#### D3.6 — Use stable device-resident launch-parameter blocks`
-    - `docs/phase3_execution_model_spec.md` -> `#### D3.9 — Use graph upload in warm-up and keep upload/launch stream consistent`
-    - `docs/phase3_execution_model_spec.md` -> `#### Graph-safe stage composition rules`
-    - `docs/phase3_execution_model_spec.md` -> `#### Step 7 — Build the first capture-enabled stage on a supported solver`
-    - `docs/phase3_execution_model_spec.md` -> `### Milestone M4 — First graph-enabled stage`
+    - `docs/specs/phase3_execution_model_spec.md` -> `#### D3.5 — Use stream-capture-built graphs first, with whole-graph update`
+    - `docs/specs/phase3_execution_model_spec.md` -> `#### D3.6 — Use stable device-resident launch-parameter blocks`
+    - `docs/specs/phase3_execution_model_spec.md` -> `#### D3.9 — Use graph upload in warm-up and keep upload/launch stream consistent`
+    - `docs/specs/phase3_execution_model_spec.md` -> `#### Graph-safe stage composition rules`
+    - `docs/specs/phase3_execution_model_spec.md` -> `#### Step 7 — Build the first capture-enabled stage on a supported solver`
+    - `docs/specs/phase3_execution_model_spec.md` -> `### Milestone M4 — First graph-enabled stage`
   - Backlog scope:
     - "Capture and replay the first approved graph-enabled stage using the Phase 3 execution contract."
   - Backlog done_when:
@@ -308,21 +308,21 @@ Phase 3 owns `P3-01..P3-08` and defines the execution substrate used by later so
   - Implement deterministic graph fingerprinting, cache reuse, and rebuild/update policy with explicit parameter-mirror handling.
 - Exact citations:
   - Authority:
-    - `docs/graph_capture_support_matrix.md` -> `## Global Capture Rules`
-    - `docs/graph_capture_support_matrix.json` -> `graph_lifecycle_markers`
-    - `docs/graph_capture_support_matrix.json` -> `stages`
-    - `docs/planning/pr_expansion/boundary_matrix.md` -> `### Phase 2 -> Phase 3`
-    - `docs/acceptance_manifest.md` -> `## Hard Gates` (`post_warmup_alloc_calls == 0`)
+    - `docs/authority/graph_capture_support_matrix.md` -> `## Global Capture Rules`
+    - `docs/authority/graph_capture_support_matrix.json` -> `graph_lifecycle_markers`
+    - `docs/authority/graph_capture_support_matrix.json` -> `stages`
+    - `docs/tasks/boundary_matrix.md` -> `### Phase 2 -> Phase 3`
+    - `docs/authority/acceptance_manifest.md` -> `## Hard Gates` (`post_warmup_alloc_calls == 0`)
   - Phase spec or `README_FIRST` authority-order note for `FND-*`:
-    - `docs/phase3_execution_model_spec.md` -> `#### D3.10 — Add a graph build fingerprint and deterministic rebuild policy`
-    - `docs/phase3_execution_model_spec.md` -> `#### D3.6 — Use stable device-resident launch-parameter blocks`
-    - `docs/phase3_execution_model_spec.md` -> `#### \`GraphBuildFingerprint\``
-    - `docs/phase3_execution_model_spec.md` -> `#### \`GpuGraphManager\``
-    - `docs/phase3_execution_model_spec.md` -> `#### Graph build/update algorithm`
-    - `docs/phase3_execution_model_spec.md` -> `#### Graph rebuild triggers`
-    - `docs/phase3_execution_model_spec.md` -> `#### Step 8 — Add graph fingerprinting and cache lookup`
-    - `docs/phase3_execution_model_spec.md` -> `#### Step 9 — Add whole-graph update and deterministic rebuild`
-    - `docs/phase3_execution_model_spec.md` -> `### Milestone M5 — Graph cache, update, rebuild policy`
+    - `docs/specs/phase3_execution_model_spec.md` -> `#### D3.10 — Add a graph build fingerprint and deterministic rebuild policy`
+    - `docs/specs/phase3_execution_model_spec.md` -> `#### D3.6 — Use stable device-resident launch-parameter blocks`
+    - `docs/specs/phase3_execution_model_spec.md` -> `#### \`GraphBuildFingerprint\``
+    - `docs/specs/phase3_execution_model_spec.md` -> `#### \`GpuGraphManager\``
+    - `docs/specs/phase3_execution_model_spec.md` -> `#### Graph build/update algorithm`
+    - `docs/specs/phase3_execution_model_spec.md` -> `#### Graph rebuild triggers`
+    - `docs/specs/phase3_execution_model_spec.md` -> `#### Step 8 — Add graph fingerprinting and cache lookup`
+    - `docs/specs/phase3_execution_model_spec.md` -> `#### Step 9 — Add whole-graph update and deterministic rebuild`
+    - `docs/specs/phase3_execution_model_spec.md` -> `### Milestone M5 — Graph cache, update, rebuild policy`
   - Backlog scope:
     - "Implement graph fingerprinting, cache lookup, update/rebuild policy, and parameter mirror handling for capture reuse."
   - Backlog done_when:
@@ -361,25 +361,25 @@ Phase 3 owns `P3-01..P3-08` and defines the execution substrate used by later so
   - Integrate explicit write-boundary staging with execution modes, enforce production residency assertions, and produce the Phase 3 acceptance packet.
 - Exact citations:
   - Authority:
-    - `docs/graph_capture_support_matrix.md` -> `## Canonical Stage IDs` (`write_stage` as graph-external boundary)
-    - `docs/graph_capture_support_matrix.md` -> `## Global Capture Rules`
-    - `docs/graph_capture_support_matrix.json` -> `stages` (`write_stage`)
-    - `docs/acceptance_manifest.md` -> `## Tuple-Specific NVTX Contract`
-    - `docs/acceptance_manifest.md` -> `## Hard Gates`
-    - `docs/acceptance_manifest.md` -> `## Disposition Rules`
-    - `docs/acceptance_manifest.md` -> `## Production Defaults`
-    - `docs/continuity_ledger.md` -> `# 1. Frozen global decisions` (allowed write-time staging and forbidden silent host fallback)
-    - `docs/planning/pr_expansion/boundary_matrix.md` -> `### Phase 2 -> Phase 3`
-    - `docs/planning/pr_expansion/04_phase2_gpu_memory_model.md` -> `## P2-09 Explicit visibility APIs and output stager`
+    - `docs/authority/graph_capture_support_matrix.md` -> `## Canonical Stage IDs` (`write_stage` as graph-external boundary)
+    - `docs/authority/graph_capture_support_matrix.md` -> `## Global Capture Rules`
+    - `docs/authority/graph_capture_support_matrix.json` -> `stages` (`write_stage`)
+    - `docs/authority/acceptance_manifest.md` -> `## Tuple-Specific NVTX Contract`
+    - `docs/authority/acceptance_manifest.md` -> `## Hard Gates`
+    - `docs/authority/acceptance_manifest.md` -> `## Disposition Rules`
+    - `docs/authority/acceptance_manifest.md` -> `## Production Defaults`
+    - `docs/authority/continuity_ledger.md` -> `# 1. Frozen global decisions` (allowed write-time staging and forbidden silent host fallback)
+    - `docs/tasks/boundary_matrix.md` -> `### Phase 2 -> Phase 3`
+    - `docs/tasks/04_phase2_gpu_memory_model.md` -> `## P2-09 Explicit visibility APIs and output stager`
   - Phase spec or `README_FIRST` authority-order note for `FND-*`:
-    - `docs/phase3_execution_model_spec.md` -> `#### D3.11 — Keep write/output staging outside the hot compute graph`
-    - `docs/phase3_execution_model_spec.md` -> `#### D3.12 — Fail fast on accidental host access in production mode`
-    - `docs/phase3_execution_model_spec.md` -> `#### Step 11 — Add write-boundary staging path`
-    - `docs/phase3_execution_model_spec.md` -> `#### Step 12 — Add production residency assertions`
-    - `docs/phase3_execution_model_spec.md` -> `#### Step 13 — Add profiling scripts and trace configuration`
-    - `docs/phase3_execution_model_spec.md` -> `#### Step 14 — Benchmark stop gate before any Phase 4 or Phase 5 work`
-    - `docs/phase3_execution_model_spec.md` -> `### Milestone M6 — Write-boundary staging and production residency checks`
-    - `docs/phase3_execution_model_spec.md` -> `### Milestone M7 — Acceptance packet`
+    - `docs/specs/phase3_execution_model_spec.md` -> `#### D3.11 — Keep write/output staging outside the hot compute graph`
+    - `docs/specs/phase3_execution_model_spec.md` -> `#### D3.12 — Fail fast on accidental host access in production mode`
+    - `docs/specs/phase3_execution_model_spec.md` -> `#### Step 11 — Add write-boundary staging path`
+    - `docs/specs/phase3_execution_model_spec.md` -> `#### Step 12 — Add production residency assertions`
+    - `docs/specs/phase3_execution_model_spec.md` -> `#### Step 13 — Add profiling scripts and trace configuration`
+    - `docs/specs/phase3_execution_model_spec.md` -> `#### Step 14 — Benchmark stop gate before any Phase 4 or Phase 5 work`
+    - `docs/specs/phase3_execution_model_spec.md` -> `### Milestone M6 — Write-boundary staging and production residency checks`
+    - `docs/specs/phase3_execution_model_spec.md` -> `### Milestone M7 — Acceptance packet`
   - Backlog scope:
     - "Integrate explicit write-boundary staging with execution modes, add production residency assertions, and generate the Phase 3 acceptance packet."
   - Backlog done_when:
@@ -451,7 +451,7 @@ Phase 3 owns `P3-01..P3-08` and defines the execution substrate used by later so
 
 ## open_discontinuities
 
-- `[tracked] first-capture-stage-selection`: Phase 3 authority allows either `pre_solve` or `outer_iter_body` as an initial capture-safe target, but downstream profiling comparability improves if one canonical first-capture target is frozen before Phase 8 pass-A baselines; impacted PR IDs: `P3-06`, `P8-04`; citations: `docs/graph_capture_support_matrix.md` -> `## Canonical Stage IDs`, `docs/phase3_execution_model_spec.md` -> `#### Step 7 — Build the first capture-enabled stage on a supported solver`; preferred reading: freeze `pre_solve` as the minimum canonical first-capture target and treat `outer_iter_body` capture as an additive expansion once cache/rebuild policy is green.
+- `[tracked] first-capture-stage-selection`: Phase 3 authority allows either `pre_solve` or `outer_iter_body` as an initial capture-safe target, but downstream profiling comparability improves if one canonical first-capture target is frozen before Phase 8 pass-A baselines; impacted PR IDs: `P3-06`, `P8-04`; citations: `docs/authority/graph_capture_support_matrix.md` -> `## Canonical Stage IDs`, `docs/specs/phase3_execution_model_spec.md` -> `#### Step 7 — Build the first capture-enabled stage on a supported solver`; preferred reading: freeze `pre_solve` as the minimum canonical first-capture target and treat `outer_iter_body` capture as an additive expansion once cache/rebuild policy is green.
 
 ## validation_checks
 

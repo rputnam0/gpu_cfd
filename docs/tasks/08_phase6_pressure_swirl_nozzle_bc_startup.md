@@ -8,20 +8,20 @@ Phase 6 owns `P6-01..P6-10` for nozzle-specific boundary conditions and startup 
   - Implement deterministic startup support classification and boundary manifest substrate for the frozen `R1`/`R0` nozzle patch tuple with fail-fast rejection of unsupported configurations.
 - Exact citations:
   - Authority:
-    - `docs/support_matrix.md` -> `## Global Policy`
-    - `docs/support_matrix.md` -> `## Phase 6 Nozzle-Specific Envelope`
-    - `docs/support_matrix.json` -> `phase6_nozzle_specific_envelope`
-    - `docs/support_matrix.json` -> `accepted_nozzle_case_family_boundary_tuple`
-    - `docs/continuity_ledger.md` -> `# 1. Frozen global decisions` (support-matrix ownership, forbidden host patch polymorphism in production acceptance)
-    - `docs/reference_case_contract.md` -> `## Phase-Gate Mapping` (Phase 6 accepted case = `R1`)
-    - `docs/planning/pr_expansion/boundary_matrix.md` -> `### Phase 5 -> Phase 6`
-    - `docs/planning/pr_expansion/07_phase5_generic_vof_core.md` -> `## P5-11 Write-time commit, validation artifacts, and Phase 5 baseline freeze`
+    - `docs/authority/support_matrix.md` -> `## Global Policy`
+    - `docs/authority/support_matrix.md` -> `## Phase 6 Nozzle-Specific Envelope`
+    - `docs/authority/support_matrix.json` -> `phase6_nozzle_specific_envelope`
+    - `docs/authority/support_matrix.json` -> `accepted_nozzle_case_family_boundary_tuple`
+    - `docs/authority/continuity_ledger.md` -> `# 1. Frozen global decisions` (support-matrix ownership, forbidden host patch polymorphism in production acceptance)
+    - `docs/authority/reference_case_contract.md` -> `## Phase-Gate Mapping` (Phase 6 accepted case = `R1`)
+    - `docs/tasks/boundary_matrix.md` -> `### Phase 5 -> Phase 6`
+    - `docs/tasks/07_phase5_generic_vof_core.md` -> `## P5-11 Write-time commit, validation artifacts, and Phase 5 baseline freeze`
   - Phase spec or `README_FIRST` authority-order note for `FND-*`:
-    - `docs/phase6_pressure_swirl_nozzle_bc_spec.md` -> `### Design decisions` (`D3`, `D4`, `D9`)
-    - `docs/phase6_pressure_swirl_nozzle_bc_spec.md` -> `#### Supported boundary-condition matrix`
-    - `docs/phase6_pressure_swirl_nozzle_bc_spec.md` -> `#### 1. Module boundaries`
-    - `docs/phase6_pressure_swirl_nozzle_bc_spec.md` -> `#### Step 1 — Add startup validation and support reporting`
-    - `docs/phase6_pressure_swirl_nozzle_bc_spec.md` -> `### Acceptance checklist`
+    - `docs/specs/phase6_pressure_swirl_nozzle_bc_spec.md` -> `### Design decisions` (`D3`, `D4`, `D9`)
+    - `docs/specs/phase6_pressure_swirl_nozzle_bc_spec.md` -> `#### Supported boundary-condition matrix`
+    - `docs/specs/phase6_pressure_swirl_nozzle_bc_spec.md` -> `#### 1. Module boundaries`
+    - `docs/specs/phase6_pressure_swirl_nozzle_bc_spec.md` -> `#### Step 1 — Add startup validation and support reporting`
+    - `docs/specs/phase6_pressure_swirl_nozzle_bc_spec.md` -> `### Acceptance checklist`
   - Backlog scope:
     - "Implement the boundary support report, patch classifier, and manifest substrate for the frozen nozzle patch set."
   - Backlog done_when:
@@ -62,17 +62,17 @@ Phase 6 owns `P6-01..P6-10` for nozzle-specific boundary conditions and startup 
   - Expose contiguous device boundary spans and uploadable metadata views so all Phase 6 boundary execution writes directly into authoritative field storage without host patch polymorphism.
 - Exact citations:
   - Authority:
-    - `docs/continuity_ledger.md` -> `# 1. Frozen global decisions` (no field-scale host evaluation in hot stages; normalized runtime ownership)
-    - `docs/support_matrix.md` -> `## Global Policy`
-    - `docs/graph_capture_support_matrix.md` -> `## Global Capture Rules`
-    - `docs/planning/pr_expansion/boundary_matrix.md` -> `### Phase 5 -> Phase 6`
-    - `docs/planning/pr_expansion/04_phase2_gpu_memory_model.md` -> `## P2-08 Mesh mirror and startup registration`
+    - `docs/authority/continuity_ledger.md` -> `# 1. Frozen global decisions` (no field-scale host evaluation in hot stages; normalized runtime ownership)
+    - `docs/authority/support_matrix.md` -> `## Global Policy`
+    - `docs/authority/graph_capture_support_matrix.md` -> `## Global Capture Rules`
+    - `docs/tasks/boundary_matrix.md` -> `### Phase 5 -> Phase 6`
+    - `docs/tasks/04_phase2_gpu_memory_model.md` -> `## P2-08 Mesh mirror and startup registration`
   - Phase spec or `README_FIRST` authority-order note for `FND-*`:
-    - `docs/phase6_pressure_swirl_nozzle_bc_spec.md` -> `### Design decisions` (`D4`, `D5`, `D11`, `D12`)
-    - `docs/phase6_pressure_swirl_nozzle_bc_spec.md` -> `#### 2. Required immutable device arrays`
-    - `docs/phase6_pressure_swirl_nozzle_bc_spec.md` -> `#### 4. Data-layout decisions`
-    - `docs/phase6_pressure_swirl_nozzle_bc_spec.md` -> `#### Step 2 — Expose flat boundary spans in the device field layer`
-    - `docs/phase6_pressure_swirl_nozzle_bc_spec.md` -> `#### Step 3 — Implement host-side patch manifest builder`
+    - `docs/specs/phase6_pressure_swirl_nozzle_bc_spec.md` -> `### Design decisions` (`D4`, `D5`, `D11`, `D12`)
+    - `docs/specs/phase6_pressure_swirl_nozzle_bc_spec.md` -> `#### 2. Required immutable device arrays`
+    - `docs/specs/phase6_pressure_swirl_nozzle_bc_spec.md` -> `#### 4. Data-layout decisions`
+    - `docs/specs/phase6_pressure_swirl_nozzle_bc_spec.md` -> `#### Step 2 — Expose flat boundary spans in the device field layer`
+    - `docs/specs/phase6_pressure_swirl_nozzle_bc_spec.md` -> `#### Step 3 — Implement host-side patch manifest builder`
   - Backlog scope:
     - "Add the flat boundary-span representation and uploadable metadata views required by device-side boundary execution."
   - Backlog done_when:
@@ -112,18 +112,18 @@ Phase 6 owns `P6-01..P6-10` for nozzle-specific boundary conditions and startup 
   - Implement deterministic parser/compiler for the frozen inlet profile subset used by nozzle swirl boundary execution and CPU/GPU snapshot parity.
 - Exact citations:
   - Authority:
-    - `docs/support_matrix.md` -> `## Phase 6 Nozzle-Specific Envelope`
-    - `docs/support_matrix.md` -> `## Global Policy` (phase-local support widening forbidden)
-    - `docs/continuity_ledger.md` -> `# 1. Frozen global decisions` (phase docs consume centralized support scope)
-    - `docs/reference_case_contract.md` -> `## Frozen Cases` (`R1`/`R0` nozzle family ownership)
+    - `docs/authority/support_matrix.md` -> `## Phase 6 Nozzle-Specific Envelope`
+    - `docs/authority/support_matrix.md` -> `## Global Policy` (phase-local support widening forbidden)
+    - `docs/authority/continuity_ledger.md` -> `# 1. Frozen global decisions` (phase docs consume centralized support scope)
+    - `docs/authority/reference_case_contract.md` -> `## Frozen Cases` (`R1`/`R0` nozzle family ownership)
   - Phase spec or `README_FIRST` authority-order note for `FND-*`:
-    - `docs/phase6_pressure_swirl_nozzle_bc_spec.md` -> `### Design decisions` (`D7`)
-    - `docs/phase6_pressure_swirl_nozzle_bc_spec.md` -> `#### 5. How profiles are represented`
-    - `docs/phase6_pressure_swirl_nozzle_bc_spec.md` -> `##### 5.1 \`constant\``
-    - `docs/phase6_pressure_swirl_nozzle_bc_spec.md` -> `##### 5.2 \`radialPolynomial\``
-    - `docs/phase6_pressure_swirl_nozzle_bc_spec.md` -> `##### 5.3 \`radialTable\``
-    - `docs/phase6_pressure_swirl_nozzle_bc_spec.md` -> `##### 5.4 \`separableProfile\``
-    - `docs/phase6_pressure_swirl_nozzle_bc_spec.md` -> `#### Step 4 — Implement constrained profile parser/compiler`
+    - `docs/specs/phase6_pressure_swirl_nozzle_bc_spec.md` -> `### Design decisions` (`D7`)
+    - `docs/specs/phase6_pressure_swirl_nozzle_bc_spec.md` -> `#### 5. How profiles are represented`
+    - `docs/specs/phase6_pressure_swirl_nozzle_bc_spec.md` -> `##### 5.1 \`constant\``
+    - `docs/specs/phase6_pressure_swirl_nozzle_bc_spec.md` -> `##### 5.2 \`radialPolynomial\``
+    - `docs/specs/phase6_pressure_swirl_nozzle_bc_spec.md` -> `##### 5.3 \`radialTable\``
+    - `docs/specs/phase6_pressure_swirl_nozzle_bc_spec.md` -> `##### 5.4 \`separableProfile\``
+    - `docs/specs/phase6_pressure_swirl_nozzle_bc_spec.md` -> `#### Step 4 — Implement constrained profile parser/compiler`
   - Backlog scope:
     - "Implement the constrained inlet-profile grammar/parser/compiler used by the frozen nozzle boundary contract."
   - Backlog done_when:
@@ -160,16 +160,16 @@ Phase 6 owns `P6-01..P6-10` for nozzle-specific boundary conditions and startup 
   - Add custom nozzle inlet runtime type with CPU snapshot/reference execution so inlet semantics are frozen before GPU kernel integration.
 - Exact citations:
   - Authority:
-    - `docs/support_matrix.md` -> `## Phase 6 Nozzle-Specific Envelope`
-    - `docs/support_matrix.json` -> `accepted_nozzle_case_family_boundary_tuple.swirl_inlet`
-    - `docs/reference_case_contract.md` -> `## Frozen Cases` (`R1` and `R0` nozzle-specific boundary behavior)
-    - `docs/planning/pr_expansion/07_phase5_generic_vof_core.md` -> `## P5-01 Runtime schema, support scanner integration, and field-state contract`
+    - `docs/authority/support_matrix.md` -> `## Phase 6 Nozzle-Specific Envelope`
+    - `docs/authority/support_matrix.json` -> `accepted_nozzle_case_family_boundary_tuple.swirl_inlet`
+    - `docs/authority/reference_case_contract.md` -> `## Frozen Cases` (`R1` and `R0` nozzle-specific boundary behavior)
+    - `docs/tasks/07_phase5_generic_vof_core.md` -> `## P5-01 Runtime schema, support scanner integration, and field-state contract`
   - Phase spec or `README_FIRST` authority-order note for `FND-*`:
-    - `docs/phase6_pressure_swirl_nozzle_bc_spec.md` -> `### Design decisions` (`D1`, `D6`)
-    - `docs/phase6_pressure_swirl_nozzle_bc_spec.md` -> `##### 7.1 Required boundary dictionary for nozzle inlet \`U\``
-    - `docs/phase6_pressure_swirl_nozzle_bc_spec.md` -> `#### 3. Detailed algorithm for \`gpuPressureSwirlInletVelocity\``
-    - `docs/phase6_pressure_swirl_nozzle_bc_spec.md` -> `#### Step 5 — Add the custom patch type \`gpuPressureSwirlInletVelocity\``
-    - `docs/phase6_pressure_swirl_nozzle_bc_spec.md` -> `##### 2.1 Swirl inlet patch snapshot test`
+    - `docs/specs/phase6_pressure_swirl_nozzle_bc_spec.md` -> `### Design decisions` (`D1`, `D6`)
+    - `docs/specs/phase6_pressure_swirl_nozzle_bc_spec.md` -> `##### 7.1 Required boundary dictionary for nozzle inlet \`U\``
+    - `docs/specs/phase6_pressure_swirl_nozzle_bc_spec.md` -> `#### 3. Detailed algorithm for \`gpuPressureSwirlInletVelocity\``
+    - `docs/specs/phase6_pressure_swirl_nozzle_bc_spec.md` -> `#### Step 5 — Add the custom patch type \`gpuPressureSwirlInletVelocity\``
+    - `docs/specs/phase6_pressure_swirl_nozzle_bc_spec.md` -> `##### 2.1 Swirl inlet patch snapshot test`
   - Backlog scope:
     - "Add the custom nozzle inlet runtime type plumbing together with the CPU snapshot/reference path used to validate inlet semantics before device execution."
   - Backlog done_when:
@@ -208,19 +208,19 @@ Phase 6 owns `P6-01..P6-10` for nozzle-specific boundary conditions and startup 
   - Implement device-side alpha boundary execution for the admitted nozzle tuple (`fixedValue`, `zeroGradient`, `inletOutlet`) with no host patch evaluation in the hot loop.
 - Exact citations:
   - Authority:
-    - `docs/support_matrix.md` -> `## Phase 6 Nozzle-Specific Envelope`
-    - `docs/support_matrix.json` -> `phase6_nozzle_specific_envelope`
-    - `docs/support_matrix.md` -> `## Global Policy` (contact-angle out of milestone-1 scope unless authority changes)
-    - `docs/continuity_ledger.md` -> `# 1. Frozen global decisions` (contact-angle scope and support-matrix ownership)
-    - `docs/planning/pr_expansion/boundary_matrix.md` -> `### Phase 5 -> Phase 6`
+    - `docs/authority/support_matrix.md` -> `## Phase 6 Nozzle-Specific Envelope`
+    - `docs/authority/support_matrix.json` -> `phase6_nozzle_specific_envelope`
+    - `docs/authority/support_matrix.md` -> `## Global Policy` (contact-angle out of milestone-1 scope unless authority changes)
+    - `docs/authority/continuity_ledger.md` -> `# 1. Frozen global decisions` (contact-angle scope and support-matrix ownership)
+    - `docs/tasks/boundary_matrix.md` -> `### Phase 5 -> Phase 6`
   - Phase spec or `README_FIRST` authority-order note for `FND-*`:
-    - `docs/phase6_pressure_swirl_nozzle_bc_spec.md` -> `##### 7.3 Alpha patch policies`
-    - `docs/phase6_pressure_swirl_nozzle_bc_spec.md` -> `#### 5. Detailed algorithm for alpha BCs`
-    - `docs/phase6_pressure_swirl_nozzle_bc_spec.md` -> `##### 5.1 \`fixedValue\``
-    - `docs/phase6_pressure_swirl_nozzle_bc_spec.md` -> `##### 5.2 \`zeroGradient\``
-    - `docs/phase6_pressure_swirl_nozzle_bc_spec.md` -> `##### 5.3 \`inletOutlet\``
-    - `docs/phase6_pressure_swirl_nozzle_bc_spec.md` -> `#### Step 6 — Implement alpha boundary kernels`
-    - `docs/phase6_pressure_swirl_nozzle_bc_spec.md` -> `##### 2.4 Alpha boundary snapshot tests`
+    - `docs/specs/phase6_pressure_swirl_nozzle_bc_spec.md` -> `##### 7.3 Alpha patch policies`
+    - `docs/specs/phase6_pressure_swirl_nozzle_bc_spec.md` -> `#### 5. Detailed algorithm for alpha BCs`
+    - `docs/specs/phase6_pressure_swirl_nozzle_bc_spec.md` -> `##### 5.1 \`fixedValue\``
+    - `docs/specs/phase6_pressure_swirl_nozzle_bc_spec.md` -> `##### 5.2 \`zeroGradient\``
+    - `docs/specs/phase6_pressure_swirl_nozzle_bc_spec.md` -> `##### 5.3 \`inletOutlet\``
+    - `docs/specs/phase6_pressure_swirl_nozzle_bc_spec.md` -> `#### Step 6 — Implement alpha boundary kernels`
+    - `docs/specs/phase6_pressure_swirl_nozzle_bc_spec.md` -> `##### 2.4 Alpha boundary snapshot tests`
   - Backlog scope:
     - "Implement the accepted alpha BC kernels (`fixedValue`, `zeroGradient`, `inletOutlet`) for the nozzle envelope."
   - Backlog done_when:
@@ -257,16 +257,16 @@ Phase 6 owns `P6-01..P6-10` for nozzle-specific boundary conditions and startup 
   - Implement device-side ambient/open velocity boundary execution for the admitted nozzle tuple using `pressureInletOutletVelocity` semantics only.
 - Exact citations:
   - Authority:
-    - `docs/support_matrix.md` -> `## Phase 6 Nozzle-Specific Envelope`
-    - `docs/support_matrix.json` -> `accepted_nozzle_case_family_boundary_tuple.ambient_open`
-    - `docs/reference_case_contract.md` -> `## Phase-Gate Mapping` (Phase 6 uses `R1` and `R0`)
-    - `docs/planning/pr_expansion/boundary_matrix.md` -> `### Phase 5 -> Phase 6`
+    - `docs/authority/support_matrix.md` -> `## Phase 6 Nozzle-Specific Envelope`
+    - `docs/authority/support_matrix.json` -> `accepted_nozzle_case_family_boundary_tuple.ambient_open`
+    - `docs/authority/reference_case_contract.md` -> `## Phase-Gate Mapping` (Phase 6 uses `R1` and `R0`)
+    - `docs/tasks/boundary_matrix.md` -> `### Phase 5 -> Phase 6`
   - Phase spec or `README_FIRST` authority-order note for `FND-*`:
-    - `docs/phase6_pressure_swirl_nozzle_bc_spec.md` -> `##### 7.2A Accepted ambient/open velocity configuration`
-    - `docs/phase6_pressure_swirl_nozzle_bc_spec.md` -> `#### 4. Detailed algorithm for ambient/open-boundary velocity BCs`
-    - `docs/phase6_pressure_swirl_nozzle_bc_spec.md` -> `##### 4.2 \`pressureInletOutletVelocity\``
-    - `docs/phase6_pressure_swirl_nozzle_bc_spec.md` -> `#### Step 7 — Implement ambient/open velocity kernels`
-    - `docs/phase6_pressure_swirl_nozzle_bc_spec.md` -> `##### 2.2 Ambient/open boundary snapshot tests`
+    - `docs/specs/phase6_pressure_swirl_nozzle_bc_spec.md` -> `##### 7.2A Accepted ambient/open velocity configuration`
+    - `docs/specs/phase6_pressure_swirl_nozzle_bc_spec.md` -> `#### 4. Detailed algorithm for ambient/open-boundary velocity BCs`
+    - `docs/specs/phase6_pressure_swirl_nozzle_bc_spec.md` -> `##### 4.2 \`pressureInletOutletVelocity\``
+    - `docs/specs/phase6_pressure_swirl_nozzle_bc_spec.md` -> `#### Step 7 — Implement ambient/open velocity kernels`
+    - `docs/specs/phase6_pressure_swirl_nozzle_bc_spec.md` -> `##### 2.2 Ambient/open boundary snapshot tests`
   - Backlog scope:
     - "Implement the standard ambient/open velocity kernels admitted by the support matrix for nozzle cases."
   - Backlog done_when:
@@ -302,17 +302,17 @@ Phase 6 owns `P6-01..P6-10` for nozzle-specific boundary conditions and startup 
   - Implement custom swirl inlet device kernel with basis regularization and integrated-flux invariance checks against frozen CPU inlet semantics.
 - Exact citations:
   - Authority:
-    - `docs/support_matrix.md` -> `## Phase 6 Nozzle-Specific Envelope`
-    - `docs/support_matrix.json` -> `accepted_nozzle_case_family_boundary_tuple.swirl_inlet`
-    - `docs/acceptance_manifest.md` -> `## Exact Threshold Classes` (`TC_R1_NOZZLE` flux/pressure/QoI guidance consumed by later acceptance)
-    - `docs/planning/pr_expansion/boundary_matrix.md` -> `### Phase 5 -> Phase 6`
+    - `docs/authority/support_matrix.md` -> `## Phase 6 Nozzle-Specific Envelope`
+    - `docs/authority/support_matrix.json` -> `accepted_nozzle_case_family_boundary_tuple.swirl_inlet`
+    - `docs/authority/acceptance_manifest.md` -> `## Exact Threshold Classes` (`TC_R1_NOZZLE` flux/pressure/QoI guidance consumed by later acceptance)
+    - `docs/tasks/boundary_matrix.md` -> `### Phase 5 -> Phase 6`
   - Phase spec or `README_FIRST` authority-order note for `FND-*`:
-    - `docs/phase6_pressure_swirl_nozzle_bc_spec.md` -> `### Design decisions` (`D6`, `D10`)
-    - `docs/phase6_pressure_swirl_nozzle_bc_spec.md` -> `#### 3. Detailed algorithm for \`gpuPressureSwirlInletVelocity\``
-    - `docs/phase6_pressure_swirl_nozzle_bc_spec.md` -> `#### Step 8 — Implement the custom swirl inlet kernel`
-    - `docs/phase6_pressure_swirl_nozzle_bc_spec.md` -> `##### 2.1 Swirl inlet patch snapshot test`
-    - `docs/phase6_pressure_swirl_nozzle_bc_spec.md` -> `##### 1.2 Cylindrical basis construction`
-    - `docs/phase6_pressure_swirl_nozzle_bc_spec.md` -> `##### 1.3 Flux sign convention`
+    - `docs/specs/phase6_pressure_swirl_nozzle_bc_spec.md` -> `### Design decisions` (`D6`, `D10`)
+    - `docs/specs/phase6_pressure_swirl_nozzle_bc_spec.md` -> `#### 3. Detailed algorithm for \`gpuPressureSwirlInletVelocity\``
+    - `docs/specs/phase6_pressure_swirl_nozzle_bc_spec.md` -> `#### Step 8 — Implement the custom swirl inlet kernel`
+    - `docs/specs/phase6_pressure_swirl_nozzle_bc_spec.md` -> `##### 2.1 Swirl inlet patch snapshot test`
+    - `docs/specs/phase6_pressure_swirl_nozzle_bc_spec.md` -> `##### 1.2 Cylindrical basis construction`
+    - `docs/specs/phase6_pressure_swirl_nozzle_bc_spec.md` -> `##### 1.3 Flux sign convention`
   - Backlog scope:
     - "Implement the custom swirl inlet device kernel, including basis regularization and integrated-flux invariance checks."
   - Backlog done_when:
@@ -351,22 +351,22 @@ Phase 6 owns `P6-01..P6-10` for nozzle-specific boundary conditions and startup 
   - Implement admitted `prgh*` pressure boundary kernels and coupled `fixedFluxPressure` `snGradp` update path integrated with pressure assembly on the named Phase 5 boundary-state contract.
 - Exact citations:
   - Authority:
-    - `docs/support_matrix.md` -> `## Phase 6 Nozzle-Specific Envelope`
-    - `docs/support_matrix.json` -> `accepted_nozzle_case_family_boundary_tuple`
-    - `docs/continuity_ledger.md` -> `# 1. Frozen global decisions` (native pressure baseline and no hidden host pressure staging in accepted paths)
-    - `docs/graph_capture_support_matrix.md` -> `## Canonical Stage IDs` (`pressure_assembly`, `pressure_post`, `nozzle_bc_update`)
-    - `docs/planning/pr_expansion/boundary_matrix.md` -> `### Phase 5 -> Phase 6`
-    - `docs/planning/pr_expansion/07_phase5_generic_vof_core.md` -> `## P5-09 Generic momentum and pressure stage integration`
-    - `docs/planning/pr_expansion/07_phase5_generic_vof_core.md` -> `## exports_to_next` (pressure boundary-state handoff)
+    - `docs/authority/support_matrix.md` -> `## Phase 6 Nozzle-Specific Envelope`
+    - `docs/authority/support_matrix.json` -> `accepted_nozzle_case_family_boundary_tuple`
+    - `docs/authority/continuity_ledger.md` -> `# 1. Frozen global decisions` (native pressure baseline and no hidden host pressure staging in accepted paths)
+    - `docs/authority/graph_capture_support_matrix.md` -> `## Canonical Stage IDs` (`pressure_assembly`, `pressure_post`, `nozzle_bc_update`)
+    - `docs/tasks/boundary_matrix.md` -> `### Phase 5 -> Phase 6`
+    - `docs/tasks/07_phase5_generic_vof_core.md` -> `## P5-09 Generic momentum and pressure stage integration`
+    - `docs/tasks/07_phase5_generic_vof_core.md` -> `## exports_to_next` (pressure boundary-state handoff)
   - Phase spec or `README_FIRST` authority-order note for `FND-*`:
-    - `docs/phase6_pressure_swirl_nozzle_bc_spec.md` -> `#### 3. Phase 6 dependencies on previous phases`
-    - `docs/phase6_pressure_swirl_nozzle_bc_spec.md` -> `#### 4. Hidden coupling points that must be called out explicitly`
-    - `docs/phase6_pressure_swirl_nozzle_bc_spec.md` -> `#### 6. Detailed algorithm for \`prghPressure\``
-    - `docs/phase6_pressure_swirl_nozzle_bc_spec.md` -> `#### 7. Detailed algorithm for \`prghTotalHydrostaticPressure\``
-    - `docs/phase6_pressure_swirl_nozzle_bc_spec.md` -> `#### 8. Detailed algorithm for \`fixedFluxPressure\` gradient update`
-    - `docs/phase6_pressure_swirl_nozzle_bc_spec.md` -> `#### Step 9 — Implement \`prghPressure\` and \`prghTotalHydrostaticPressure\` kernels`
-    - `docs/phase6_pressure_swirl_nozzle_bc_spec.md` -> `#### Step 10 — Implement fixed-flux pressure gradient kernel and assembly hook`
-    - `docs/phase6_pressure_swirl_nozzle_bc_spec.md` -> `#### Step 13 — Wire stage calls into pressure corrector`
+    - `docs/specs/phase6_pressure_swirl_nozzle_bc_spec.md` -> `#### 3. Phase 6 dependencies on previous phases`
+    - `docs/specs/phase6_pressure_swirl_nozzle_bc_spec.md` -> `#### 4. Hidden coupling points that must be called out explicitly`
+    - `docs/specs/phase6_pressure_swirl_nozzle_bc_spec.md` -> `#### 6. Detailed algorithm for \`prghPressure\``
+    - `docs/specs/phase6_pressure_swirl_nozzle_bc_spec.md` -> `#### 7. Detailed algorithm for \`prghTotalHydrostaticPressure\``
+    - `docs/specs/phase6_pressure_swirl_nozzle_bc_spec.md` -> `#### 8. Detailed algorithm for \`fixedFluxPressure\` gradient update`
+    - `docs/specs/phase6_pressure_swirl_nozzle_bc_spec.md` -> `#### Step 9 — Implement \`prghPressure\` and \`prghTotalHydrostaticPressure\` kernels`
+    - `docs/specs/phase6_pressure_swirl_nozzle_bc_spec.md` -> `#### Step 10 — Implement fixed-flux pressure gradient kernel and assembly hook`
+    - `docs/specs/phase6_pressure_swirl_nozzle_bc_spec.md` -> `#### Step 13 — Wire stage calls into pressure corrector`
   - Backlog scope:
     - "Implement the accepted `prgh*` pressure kernels plus the `fixedFluxPressure` gradient update and the associated pressure-assembly hook as one coupled change."
   - Backlog done_when:
@@ -405,24 +405,24 @@ Phase 6 owns `P6-01..P6-10` for nozzle-specific boundary conditions and startup 
   - Implement canonical startup seeding DSL/parser, device seed kernel, and post-seed refresh flow for accepted nozzle startup behavior without host `setFields` in accepted path.
 - Exact citations:
   - Authority:
-    - `docs/support_matrix.md` -> `## Canonical Startup-Seed DSL`
-    - `docs/support_matrix.json` -> `startup_seed_dsl`
-    - `docs/support_matrix.json` -> `startup_seed_dsl.canonical_owner`
-    - `docs/support_matrix.json` -> `startup_seed_dsl.application_policy`
-    - `docs/continuity_ledger.md` -> `# 1. Frozen global decisions` (startup scope + normalized `gpuRuntime.*` ownership)
-    - `docs/acceptance_manifest.md` -> `## Hard Gates` (`host_setFields_startup_events == 0` in accepted startup path)
-    - `docs/reference_case_contract.md` -> `## Frozen Cases` (`R1`/`R0` startup conditioning context)
-    - `docs/planning/pr_expansion/boundary_matrix.md` -> `### Phase 5 -> Phase 6`
-    - `docs/planning/pr_expansion/07_phase5_generic_vof_core.md` -> `## P5-11 Write-time commit, validation artifacts, and Phase 5 baseline freeze`
+    - `docs/authority/support_matrix.md` -> `## Canonical Startup-Seed DSL`
+    - `docs/authority/support_matrix.json` -> `startup_seed_dsl`
+    - `docs/authority/support_matrix.json` -> `startup_seed_dsl.canonical_owner`
+    - `docs/authority/support_matrix.json` -> `startup_seed_dsl.application_policy`
+    - `docs/authority/continuity_ledger.md` -> `# 1. Frozen global decisions` (startup scope + normalized `gpuRuntime.*` ownership)
+    - `docs/authority/acceptance_manifest.md` -> `## Hard Gates` (`host_setFields_startup_events == 0` in accepted startup path)
+    - `docs/authority/reference_case_contract.md` -> `## Frozen Cases` (`R1`/`R0` startup conditioning context)
+    - `docs/tasks/boundary_matrix.md` -> `### Phase 5 -> Phase 6`
+    - `docs/tasks/07_phase5_generic_vof_core.md` -> `## P5-11 Write-time commit, validation artifacts, and Phase 5 baseline freeze`
   - Phase spec or `README_FIRST` authority-order note for `FND-*`:
-    - `docs/phase6_pressure_swirl_nozzle_bc_spec.md` -> `### Design decisions` (`D8`)
-    - `docs/phase6_pressure_swirl_nozzle_bc_spec.md` -> `#### 6. Dictionary sources and ownership`
-    - `docs/phase6_pressure_swirl_nozzle_bc_spec.md` -> `##### 7.5 \`gpuStartupSeedDict\``
-    - `docs/phase6_pressure_swirl_nozzle_bc_spec.md` -> `#### 9. Detailed algorithm for startup seeding`
-    - `docs/phase6_pressure_swirl_nozzle_bc_spec.md` -> `#### Step 14 — Implement startup seeding grammar and host parser`
-    - `docs/phase6_pressure_swirl_nozzle_bc_spec.md` -> `#### Step 15 — Implement device seed kernel`
-    - `docs/phase6_pressure_swirl_nozzle_bc_spec.md` -> `#### Step 16 — Add post-seeding refresh sequence`
-    - `docs/phase6_pressure_swirl_nozzle_bc_spec.md` -> `#### 3. Startup seeding regression`
+    - `docs/specs/phase6_pressure_swirl_nozzle_bc_spec.md` -> `### Design decisions` (`D8`)
+    - `docs/specs/phase6_pressure_swirl_nozzle_bc_spec.md` -> `#### 6. Dictionary sources and ownership`
+    - `docs/specs/phase6_pressure_swirl_nozzle_bc_spec.md` -> `##### 7.5 \`gpuStartupSeedDict\``
+    - `docs/specs/phase6_pressure_swirl_nozzle_bc_spec.md` -> `#### 9. Detailed algorithm for startup seeding`
+    - `docs/specs/phase6_pressure_swirl_nozzle_bc_spec.md` -> `#### Step 14 — Implement startup seeding grammar and host parser`
+    - `docs/specs/phase6_pressure_swirl_nozzle_bc_spec.md` -> `#### Step 15 — Implement device seed kernel`
+    - `docs/specs/phase6_pressure_swirl_nozzle_bc_spec.md` -> `#### Step 16 — Add post-seeding refresh sequence`
+    - `docs/specs/phase6_pressure_swirl_nozzle_bc_spec.md` -> `#### 3. Startup seeding regression`
   - Backlog scope:
     - "Implement the canonical startup-seed DSL/parser, the seed-region kernel, and the post-seed refresh sequence used by the accepted nozzle path."
   - Backlog done_when:
@@ -462,35 +462,35 @@ Phase 6 owns `P6-01..P6-10` for nozzle-specific boundary conditions and startup 
   - Integrate all Phase 6 nozzle BC/startup components into alpha/momentum/pressure stage sequencing, harden graph-safety constraints, and deliver formal Phase 6 acceptance package for `R1` with `R0` regression readiness.
 - Exact citations:
   - Authority:
-    - `docs/graph_capture_support_matrix.md` -> `## Run Modes`
-    - `docs/graph_capture_support_matrix.md` -> `## Canonical Stage IDs`
-    - `docs/graph_capture_support_matrix.md` -> `## Global Capture Rules`
-    - `docs/graph_capture_support_matrix.json` -> `stages[stage_id=nozzle_bc_update]`
-    - `docs/acceptance_manifest.md` -> `## Coverage Rules`
-    - `docs/acceptance_manifest.md` -> `## Hard Gates`
-    - `docs/acceptance_manifest.md` -> `## Exact Threshold Classes`
-    - `docs/acceptance_manifest.json` -> `accepted_tuples[*].required_stage_ids`
-    - `docs/acceptance_manifest.json` -> `hard_gates`
-    - `docs/acceptance_manifest.json` -> `threshold_classes.field_qoi.TC_R1_NOZZLE`
-    - `docs/acceptance_manifest.json` -> `threshold_classes.field_qoi.TC_R0_NOZZLE`
-    - `docs/acceptance_manifest.json` -> `threshold_classes.parity_replay.RP_STRICT`
-    - `docs/continuity_ledger.md` -> `# 1. Frozen global decisions` (GPU-only operational contract; no silent fallback)
-    - `docs/planning/pr_expansion/boundary_matrix.md` -> `### Phase 5 -> Phase 6`
-    - `docs/planning/pr_expansion/boundary_matrix.md` -> `### Phase 6 -> Phase 7`
-    - `docs/planning/pr_expansion/10_phase8_profiling_performance_acceptance.md` -> `## P8-03 Solver-stage instrumentation coverage`
-    - `docs/planning/pr_expansion/10_phase8_profiling_performance_acceptance.md` -> `## P8-05 Nsight Systems capture scripts and artifact layout`
+    - `docs/authority/graph_capture_support_matrix.md` -> `## Run Modes`
+    - `docs/authority/graph_capture_support_matrix.md` -> `## Canonical Stage IDs`
+    - `docs/authority/graph_capture_support_matrix.md` -> `## Global Capture Rules`
+    - `docs/authority/graph_capture_support_matrix.json` -> `stages[stage_id=nozzle_bc_update]`
+    - `docs/authority/acceptance_manifest.md` -> `## Coverage Rules`
+    - `docs/authority/acceptance_manifest.md` -> `## Hard Gates`
+    - `docs/authority/acceptance_manifest.md` -> `## Exact Threshold Classes`
+    - `docs/authority/acceptance_manifest.json` -> `accepted_tuples[*].required_stage_ids`
+    - `docs/authority/acceptance_manifest.json` -> `hard_gates`
+    - `docs/authority/acceptance_manifest.json` -> `threshold_classes.field_qoi.TC_R1_NOZZLE`
+    - `docs/authority/acceptance_manifest.json` -> `threshold_classes.field_qoi.TC_R0_NOZZLE`
+    - `docs/authority/acceptance_manifest.json` -> `threshold_classes.parity_replay.RP_STRICT`
+    - `docs/authority/continuity_ledger.md` -> `# 1. Frozen global decisions` (GPU-only operational contract; no silent fallback)
+    - `docs/tasks/boundary_matrix.md` -> `### Phase 5 -> Phase 6`
+    - `docs/tasks/boundary_matrix.md` -> `### Phase 6 -> Phase 7`
+    - `docs/tasks/10_phase8_profiling_performance_acceptance.md` -> `## P8-03 Solver-stage instrumentation coverage`
+    - `docs/tasks/10_phase8_profiling_performance_acceptance.md` -> `## P8-05 Nsight Systems capture scripts and artifact layout`
   - Phase spec or `README_FIRST` authority-order note for `FND-*`:
-    - `docs/phase6_pressure_swirl_nozzle_bc_spec.md` -> `#### 1. High-level orchestration`
-    - `docs/phase6_pressure_swirl_nozzle_bc_spec.md` -> `#### 2. Stage ordering relative to PIMPLE and alpha subcycling`
-    - `docs/phase6_pressure_swirl_nozzle_bc_spec.md` -> `#### 10. Graph-capture-safe control flow`
-    - `docs/phase6_pressure_swirl_nozzle_bc_spec.md` -> `#### Step 11 — Wire stage calls into alpha predictor`
-    - `docs/phase6_pressure_swirl_nozzle_bc_spec.md` -> `#### Step 12 — Wire stage calls into momentum predictor`
-    - `docs/phase6_pressure_swirl_nozzle_bc_spec.md` -> `#### Step 13 — Wire stage calls into pressure corrector`
-    - `docs/phase6_pressure_swirl_nozzle_bc_spec.md` -> `#### Step 17 — Add NVTX, counters, and debug controls`
-    - `docs/phase6_pressure_swirl_nozzle_bc_spec.md` -> `#### Step 18 — Add component tests`
-    - `docs/phase6_pressure_swirl_nozzle_bc_spec.md` -> `#### Step 19 — Add end-to-end reference-case regression`
-    - `docs/phase6_pressure_swirl_nozzle_bc_spec.md` -> `#### Step 20 — Profile and remove remaining fallback paths`
-    - `docs/phase6_pressure_swirl_nozzle_bc_spec.md` -> `### Acceptance checklist`
+    - `docs/specs/phase6_pressure_swirl_nozzle_bc_spec.md` -> `#### 1. High-level orchestration`
+    - `docs/specs/phase6_pressure_swirl_nozzle_bc_spec.md` -> `#### 2. Stage ordering relative to PIMPLE and alpha subcycling`
+    - `docs/specs/phase6_pressure_swirl_nozzle_bc_spec.md` -> `#### 10. Graph-capture-safe control flow`
+    - `docs/specs/phase6_pressure_swirl_nozzle_bc_spec.md` -> `#### Step 11 — Wire stage calls into alpha predictor`
+    - `docs/specs/phase6_pressure_swirl_nozzle_bc_spec.md` -> `#### Step 12 — Wire stage calls into momentum predictor`
+    - `docs/specs/phase6_pressure_swirl_nozzle_bc_spec.md` -> `#### Step 13 — Wire stage calls into pressure corrector`
+    - `docs/specs/phase6_pressure_swirl_nozzle_bc_spec.md` -> `#### Step 17 — Add NVTX, counters, and debug controls`
+    - `docs/specs/phase6_pressure_swirl_nozzle_bc_spec.md` -> `#### Step 18 — Add component tests`
+    - `docs/specs/phase6_pressure_swirl_nozzle_bc_spec.md` -> `#### Step 19 — Add end-to-end reference-case regression`
+    - `docs/specs/phase6_pressure_swirl_nozzle_bc_spec.md` -> `#### Step 20 — Profile and remove remaining fallback paths`
+    - `docs/specs/phase6_pressure_swirl_nozzle_bc_spec.md` -> `### Acceptance checklist`
   - Backlog scope:
     - "Wire the nozzle boundary and startup subsystem into alpha/momentum/pressure stages, add runtime-parameter update handling, remove transient allocations, and run the Phase 6 acceptance pass."
   - Backlog done_when:
@@ -579,10 +579,10 @@ Phase 6 owns `P6-01..P6-10` for nozzle-specific boundary conditions and startup 
 
 ## open_discontinuities
 
-- `[tracked] phase5_phase6_pressure_boundary_state_shape`: Phase 5 exports `PressureBoundaryStateView`, but exact member-level freeze remains distributed across phase prose and seam docs. Impacted PR IDs: `P6-08`, `P6-10`. Citations: `docs/planning/pr_expansion/07_phase5_generic_vof_core.md` -> `## open_discontinuities`, `docs/planning/pr_expansion/boundary_matrix.md` -> `### Phase 5 -> Phase 6`, `docs/phase6_pressure_swirl_nozzle_bc_spec.md` -> `#### 4. Hidden coupling points that must be called out explicitly`. Preferred reading: consume Phase 5 boundary-state contract unchanged; do not create a second `snGradp` ownership path.
-- `[tracked] startup_seed_compatibility_shim_precedence`: Canonical startup-seed ownership is `gpuRuntime.startupSeed` while legacy `gpuStartupSeedDict` remains compatibility input; parser precedence and conflict resolution must stay deterministic. Impacted PR IDs: `P6-09`, `P6-10`. Citations: `docs/support_matrix.json` -> `startup_seed_dsl.canonical_owner`, `docs/phase6_pressure_swirl_nozzle_bc_spec.md` -> `##### 7.5 \`gpuStartupSeedDict\``, `docs/continuity_ledger.md` -> `# 1. Frozen global decisions` (normalized `gpuRuntime.*` ownership). Preferred reading: canonical tree wins; shim maps into canonical schema and cannot add new semantics.
-- `[tracked] phase6_phase7_hotspot_scope_lock`: Phase 7 optimization work may replace kernels but cannot change admitted BC kinds, contact-angle scope, scheme tuple, or graph semantics. Impacted PR IDs: `P6-10`, `P7-01`, `P7-02`, `P7-03`, `P7-04`. Citations: `docs/planning/pr_expansion/boundary_matrix.md` -> `### Phase 6 -> Phase 7`, `docs/support_matrix.md` -> `## Phase 6 Nozzle-Specific Envelope`, `docs/support_matrix.md` -> `## Exact Audited Scheme Tuple`, `docs/acceptance_manifest.md` -> `## Coverage Rules`. Preferred reading: treat Phase 6 semantics as frozen contracts and Phase 7 as replaceable backend implementation only.
-- `[tracked] contact_angle_conditionality_guard`: Support matrix freezes contact-angle out of milestone-1 scope unless explicitly required; Phase 6 wall alpha handling is therefore `zeroGradient` by default and must not be widened ad hoc. Impacted PR IDs: `P6-05`, `P6-10`. Citations: `docs/support_matrix.md` -> `## Global Policy`, `docs/continuity_ledger.md` -> `# 1. Frozen global decisions`, `docs/phase6_pressure_swirl_nozzle_bc_spec.md` -> `#### Supported boundary-condition matrix` (wall alpha conditional note). Preferred reading: keep contact-angle path out unless authority docs are revised.
+- `[tracked] phase5_phase6_pressure_boundary_state_shape`: Phase 5 exports `PressureBoundaryStateView`, but exact member-level freeze remains distributed across phase prose and seam docs. Impacted PR IDs: `P6-08`, `P6-10`. Citations: `docs/tasks/07_phase5_generic_vof_core.md` -> `## open_discontinuities`, `docs/tasks/boundary_matrix.md` -> `### Phase 5 -> Phase 6`, `docs/specs/phase6_pressure_swirl_nozzle_bc_spec.md` -> `#### 4. Hidden coupling points that must be called out explicitly`. Preferred reading: consume Phase 5 boundary-state contract unchanged; do not create a second `snGradp` ownership path.
+- `[tracked] startup_seed_compatibility_shim_precedence`: Canonical startup-seed ownership is `gpuRuntime.startupSeed` while legacy `gpuStartupSeedDict` remains compatibility input; parser precedence and conflict resolution must stay deterministic. Impacted PR IDs: `P6-09`, `P6-10`. Citations: `docs/authority/support_matrix.json` -> `startup_seed_dsl.canonical_owner`, `docs/specs/phase6_pressure_swirl_nozzle_bc_spec.md` -> `##### 7.5 \`gpuStartupSeedDict\``, `docs/authority/continuity_ledger.md` -> `# 1. Frozen global decisions` (normalized `gpuRuntime.*` ownership). Preferred reading: canonical tree wins; shim maps into canonical schema and cannot add new semantics.
+- `[tracked] phase6_phase7_hotspot_scope_lock`: Phase 7 optimization work may replace kernels but cannot change admitted BC kinds, contact-angle scope, scheme tuple, or graph semantics. Impacted PR IDs: `P6-10`, `P7-01`, `P7-02`, `P7-03`, `P7-04`. Citations: `docs/tasks/boundary_matrix.md` -> `### Phase 6 -> Phase 7`, `docs/authority/support_matrix.md` -> `## Phase 6 Nozzle-Specific Envelope`, `docs/authority/support_matrix.md` -> `## Exact Audited Scheme Tuple`, `docs/authority/acceptance_manifest.md` -> `## Coverage Rules`. Preferred reading: treat Phase 6 semantics as frozen contracts and Phase 7 as replaceable backend implementation only.
+- `[tracked] contact_angle_conditionality_guard`: Support matrix freezes contact-angle out of milestone-1 scope unless explicitly required; Phase 6 wall alpha handling is therefore `zeroGradient` by default and must not be widened ad hoc. Impacted PR IDs: `P6-05`, `P6-10`. Citations: `docs/authority/support_matrix.md` -> `## Global Policy`, `docs/authority/continuity_ledger.md` -> `# 1. Frozen global decisions`, `docs/specs/phase6_pressure_swirl_nozzle_bc_spec.md` -> `#### Supported boundary-condition matrix` (wall alpha conditional note). Preferred reading: keep contact-angle path out unless authority docs are revised.
 
 ## validation_checks
 

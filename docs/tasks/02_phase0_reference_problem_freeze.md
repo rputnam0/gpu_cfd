@@ -8,14 +8,14 @@ Phase 0 owns `P0-01..P0-08` and freezes CPU reference truth for `R2`, `R1-core`,
   - Harden environment probing so both Baseline A and Baseline B resolve to machine-readable manifests with no hard-coded `/opt/openfoam12` assumptions.
 - Exact citations:
   - Authority:
-    - `docs/master_pin_manifest.md` -> `## Consumption Rules`
-    - `docs/master_pin_manifest.md` -> `## Frozen Defaults`
-    - `docs/planning/pr_expansion/01_foundation_authority_consumption.md` -> `## FND-02 Pin-manifest consumption and environment manifest emission`
+    - `docs/authority/master_pin_manifest.md` -> `## Consumption Rules`
+    - `docs/authority/master_pin_manifest.md` -> `## Frozen Defaults`
+    - `docs/tasks/01_foundation_authority_consumption.md` -> `## FND-02 Pin-manifest consumption and environment manifest emission`
   - Phase spec or `README_FIRST` authority-order note for `FND-*`:
-    - `docs/phase0_reference_problem_spec.md` -> `### Decision I — remove hard-coded OpenFOAM-12 environment assumptions from generated scripts and runners`
-    - `docs/phase0_reference_problem_spec.md` -> `#### D0.8 — remove hard-coded environment sourcing from generated scripts`
-    - `docs/phase0_reference_problem_spec.md` -> `#### 1. scripts/cfd/openfoam_env_probe.py`
-    - `docs/phase0_reference_problem_spec.md` -> `### Milestone M1 — environment hardening`
+    - `docs/specs/phase0_reference_problem_spec.md` -> `### Decision I — remove hard-coded OpenFOAM-12 environment assumptions from generated scripts and runners`
+    - `docs/specs/phase0_reference_problem_spec.md` -> `#### D0.8 — remove hard-coded environment sourcing from generated scripts`
+    - `docs/specs/phase0_reference_problem_spec.md` -> `#### 1. scripts/cfd/openfoam_env_probe.py`
+    - `docs/specs/phase0_reference_problem_spec.md` -> `### Milestone M1 — environment hardening`
   - Backlog scope:
     - "Extend the existing OpenFOAM environment probe so both Baseline A and Baseline B resolve into machine-readable manifests, with no hard-coded `/opt/openfoam12` assumptions left in tooling."
   - Backlog done_when:
@@ -49,13 +49,13 @@ Phase 0 owns `P0-01..P0-08` and freezes CPU reference truth for `R2`, `R1-core`,
   - Add wrappers that source probed environment data explicitly and run staged workflows without hidden baseline coupling.
 - Exact citations:
   - Authority:
-    - `docs/master_pin_manifest.md` -> `## Consumption Rules`
-    - `docs/planning/pr_expansion/01_foundation_authority_consumption.md` -> `## FND-02 Pin-manifest consumption and environment manifest emission`
+    - `docs/authority/master_pin_manifest.md` -> `## Consumption Rules`
+    - `docs/tasks/01_foundation_authority_consumption.md` -> `## FND-02 Pin-manifest consumption and environment manifest emission`
   - Phase spec or `README_FIRST` authority-order note for `FND-*`:
-    - `docs/phase0_reference_problem_spec.md` -> `#### D0.8 — remove hard-coded environment sourcing from generated scripts`
-    - `docs/phase0_reference_problem_spec.md` -> `#### Pseudocode 2 — environment-neutral stage runner`
-    - `docs/phase0_reference_problem_spec.md` -> `#### 3. scripts/cfd/run_manifest.py`
-    - `docs/phase0_reference_problem_spec.md` -> `### Milestone M1 — environment hardening`
+    - `docs/specs/phase0_reference_problem_spec.md` -> `#### D0.8 — remove hard-coded environment sourcing from generated scripts`
+    - `docs/specs/phase0_reference_problem_spec.md` -> `#### Pseudocode 2 — environment-neutral stage runner`
+    - `docs/specs/phase0_reference_problem_spec.md` -> `#### 3. scripts/cfd/run_manifest.py`
+    - `docs/specs/phase0_reference_problem_spec.md` -> `### Milestone M1 — environment hardening`
   - Backlog scope:
     - "Add runner wrappers that source the probed environment explicitly and execute the staged workflow in a baseline-neutral way."
   - Backlog done_when:
@@ -89,18 +89,18 @@ Phase 0 owns `P0-01..P0-08` and freezes CPU reference truth for `R2`, `R1-core`,
   - Extend orchestration outputs so every generated case carries complete machine-readable execution plan and resolved metadata.
 - Exact citations:
   - Authority:
-    - `docs/reference_case_contract.md` -> `## Frozen Cases`
-    - `docs/reference_case_contract.md` -> `## Phase-Gate Mapping`
-    - `docs/reference_case_contract.json` -> `frozen_cases`, `phase_gate_mapping`, `locked_defaults`
-    - `docs/validation_ladder.md` -> `## Frozen Ladder`
-    - `docs/planning/pr_expansion/01_foundation_authority_consumption.md` -> `## FND-03 Reference-case and validation-ladder utilities`
+    - `docs/authority/reference_case_contract.md` -> `## Frozen Cases`
+    - `docs/authority/reference_case_contract.md` -> `## Phase-Gate Mapping`
+    - `docs/authority/reference_case_contract.json` -> `frozen_cases`, `phase_gate_mapping`, `locked_defaults`
+    - `docs/authority/validation_ladder.md` -> `## Frozen Ladder`
+    - `docs/tasks/01_foundation_authority_consumption.md` -> `## FND-03 Reference-case and validation-ladder utilities`
   - Phase spec or `README_FIRST` authority-order note for `FND-*`:
-    - `docs/phase0_reference_problem_spec.md` -> `#### D0.1 — Freeze case intent separately from execution resolution`
-    - `docs/phase0_reference_problem_spec.md` -> `#### D0.5 — use JSON-row manifests for Phase 0, not only shared DOE CSVs`
-    - `docs/phase0_reference_problem_spec.md` -> `#### D0.6 — extend existing case_meta.json; do not invent a parallel metadata format`
-    - `docs/phase0_reference_problem_spec.md` -> `#### Mandatory case_meta.json additions`
-    - `docs/phase0_reference_problem_spec.md` -> `#### Mandatory stage_plan.json`
-    - `docs/phase0_reference_problem_spec.md` -> `### Milestone M2 — metadata and artifact hardening`
+    - `docs/specs/phase0_reference_problem_spec.md` -> `#### D0.1 — Freeze case intent separately from execution resolution`
+    - `docs/specs/phase0_reference_problem_spec.md` -> `#### D0.5 — use JSON-row manifests for Phase 0, not only shared DOE CSVs`
+    - `docs/specs/phase0_reference_problem_spec.md` -> `#### D0.6 — extend existing case_meta.json; do not invent a parallel metadata format`
+    - `docs/specs/phase0_reference_problem_spec.md` -> `#### Mandatory case_meta.json additions`
+    - `docs/specs/phase0_reference_problem_spec.md` -> `#### Mandatory stage_plan.json`
+    - `docs/specs/phase0_reference_problem_spec.md` -> `### Milestone M2 — metadata and artifact hardening`
   - Backlog scope:
     - "Extend the builder/orchestrator to emit `stage_plan.json`, richer `case_meta.json`, resolved numerics, startup-seed metadata, and provenance fields needed by later comparisons."
   - Backlog done_when:
@@ -134,12 +134,12 @@ Phase 0 owns `P0-01..P0-08` and freezes CPU reference truth for `R2`, `R1-core`,
   - Implement non-physics output normalization so comparison artifacts remain stable across reruns.
 - Exact citations:
   - Authority:
-    - `docs/planning/pr_expansion/01_foundation_authority_consumption.md` -> `## FND-03 Reference-case and validation-ladder utilities`
+    - `docs/tasks/01_foundation_authority_consumption.md` -> `## FND-03 Reference-case and validation-ladder utilities`
   - Phase spec or `README_FIRST` authority-order note for `FND-*`:
-    - `docs/phase0_reference_problem_spec.md` -> `#### D0.7 — add a non-physics I/O normalization overlay for Phase 0`
-    - `docs/phase0_reference_problem_spec.md` -> `#### 3. scripts/cfd/run_manifest.py`
-    - `docs/phase0_reference_problem_spec.md` -> `### Validation strategy -> C. Run determinism validation`
-    - `docs/phase0_reference_problem_spec.md` -> `### Milestone M2 — metadata and artifact hardening`
+    - `docs/specs/phase0_reference_problem_spec.md` -> `#### D0.7 — add a non-physics I/O normalization overlay for Phase 0`
+    - `docs/specs/phase0_reference_problem_spec.md` -> `#### 3. scripts/cfd/run_manifest.py`
+    - `docs/specs/phase0_reference_problem_spec.md` -> `### Validation strategy -> C. Run determinism validation`
+    - `docs/specs/phase0_reference_problem_spec.md` -> `### Milestone M2 — metadata and artifact hardening`
   - Backlog scope:
     - "Implement the non-physics output normalization layer for ASCII/uncompressed/fixed-precision output so comparison artifacts are stable across reruns."
   - Backlog done_when:
@@ -172,15 +172,15 @@ Phase 0 owns `P0-01..P0-08` and freezes CPU reference truth for `R2`, `R1-core`,
   - Add non-interactive fingerprint and field-signature extraction outputs for automated comparison workflows.
 - Exact citations:
   - Authority:
-    - `docs/reference_case_contract.md` -> `## Frozen Cases`
-    - `docs/validation_ladder.md` -> `## Frozen Ladder`
-    - `docs/planning/pr_expansion/01_foundation_authority_consumption.md` -> `## FND-03 Reference-case and validation-ladder utilities`
+    - `docs/authority/reference_case_contract.md` -> `## Frozen Cases`
+    - `docs/authority/validation_ladder.md` -> `## Frozen Ladder`
+    - `docs/tasks/01_foundation_authority_consumption.md` -> `## FND-03 Reference-case and validation-ladder utilities`
   - Phase spec or `README_FIRST` authority-order note for `FND-*`:
-    - `docs/phase0_reference_problem_spec.md` -> `#### Field-signature logic`
-    - `docs/phase0_reference_problem_spec.md` -> `#### Mesh/patch fingerprint logic`
-    - `docs/phase0_reference_problem_spec.md` -> `#### 4. scripts/cfd/extract_openfoam_case_features.py`
-    - `docs/phase0_reference_problem_spec.md` -> `### Validation strategy -> A. Unit validation`
-    - `docs/phase0_reference_problem_spec.md` -> `### Milestone M2 — metadata and artifact hardening`
+    - `docs/specs/phase0_reference_problem_spec.md` -> `#### Field-signature logic`
+    - `docs/specs/phase0_reference_problem_spec.md` -> `#### Mesh/patch fingerprint logic`
+    - `docs/specs/phase0_reference_problem_spec.md` -> `#### 4. scripts/cfd/extract_openfoam_case_features.py`
+    - `docs/specs/phase0_reference_problem_spec.md` -> `### Validation strategy -> A. Unit validation`
+    - `docs/specs/phase0_reference_problem_spec.md` -> `### Milestone M2 — metadata and artifact hardening`
   - Backlog scope:
     - "Add mesh/patch fingerprints, selected field-signature extraction, and JSON output from the feature extractor for automated comparison workflows."
   - Backlog done_when:
@@ -214,22 +214,22 @@ Phase 0 owns `P0-01..P0-08` and freezes CPU reference truth for `R2`, `R1-core`,
   - Freeze Baseline A reference bundles for all ladder cases as initial control truth.
 - Exact citations:
   - Authority:
-    - `docs/reference_case_contract.md` -> `## Frozen Cases`
-    - `docs/reference_case_contract.md` -> `## Phase-Gate Mapping`
-    - `docs/reference_case_contract.md` -> `## Locked Defaults`
-    - `docs/reference_case_contract.json` -> `frozen_cases`, `phase_gate_mapping`, `locked_defaults`
-    - `docs/validation_ladder.md` -> `## Frozen Ladder`
-    - `docs/validation_ladder.md` -> `## Usage Rule`
+    - `docs/authority/reference_case_contract.md` -> `## Frozen Cases`
+    - `docs/authority/reference_case_contract.md` -> `## Phase-Gate Mapping`
+    - `docs/authority/reference_case_contract.md` -> `## Locked Defaults`
+    - `docs/authority/reference_case_contract.json` -> `frozen_cases`, `phase_gate_mapping`, `locked_defaults`
+    - `docs/authority/validation_ladder.md` -> `## Frozen Ladder`
+    - `docs/authority/validation_ladder.md` -> `## Usage Rule`
   - Phase spec or `README_FIRST` authority-order note for `FND-*`:
-    - `docs/phase0_reference_problem_spec.md` -> `### Decision A — use dual baselines, not a single migration target`
-    - `docs/phase0_reference_problem_spec.md` -> `### Decision C — Phase 0 is single-rank CPU only`
-    - `docs/phase0_reference_problem_spec.md` -> `#### D0.2 — R0 hard-gate default is a fully specified 57-28 @ 1000 psi algebraic reference`
-    - `docs/phase0_reference_problem_spec.md` -> `#### D0.3 — R1 default is a reduced internal-only nozzle case`
-    - `docs/phase0_reference_problem_spec.md` -> `#### D0.4 — R2 default is the existing damBreak_amgx asset with an allowed CPU fallback`
-    - `docs/phase0_reference_problem_spec.md` -> `### Validation strategy -> D. R2 validation`
-    - `docs/phase0_reference_problem_spec.md` -> `### Validation strategy -> E. R1 validation`
-    - `docs/phase0_reference_problem_spec.md` -> `### Validation strategy -> F. R0 validation`
-    - `docs/phase0_reference_problem_spec.md` -> `### Milestone M3 — Baseline A freeze`
+    - `docs/specs/phase0_reference_problem_spec.md` -> `### Decision A — use dual baselines, not a single migration target`
+    - `docs/specs/phase0_reference_problem_spec.md` -> `### Decision C — Phase 0 is single-rank CPU only`
+    - `docs/specs/phase0_reference_problem_spec.md` -> `#### D0.2 — R0 hard-gate default is a fully specified 57-28 @ 1000 psi algebraic reference`
+    - `docs/specs/phase0_reference_problem_spec.md` -> `#### D0.3 — R1 default is a reduced internal-only nozzle case`
+    - `docs/specs/phase0_reference_problem_spec.md` -> `#### D0.4 — R2 default is the existing damBreak_amgx asset with an allowed CPU fallback`
+    - `docs/specs/phase0_reference_problem_spec.md` -> `### Validation strategy -> D. R2 validation`
+    - `docs/specs/phase0_reference_problem_spec.md` -> `### Validation strategy -> E. R1 validation`
+    - `docs/specs/phase0_reference_problem_spec.md` -> `### Validation strategy -> F. R0 validation`
+    - `docs/specs/phase0_reference_problem_spec.md` -> `### Milestone M3 — Baseline A freeze`
   - Backlog scope:
     - "Generate and freeze the Baseline A reference bundles for `R2`, `R1-core`, `R1`, and `R0`, including artifacts, metadata, and initial tolerance checks."
   - Backlog done_when:
@@ -266,16 +266,16 @@ Phase 0 owns `P0-01..P0-08` and freezes CPU reference truth for `R2`, `R1-core`,
   - Bring up Baseline B in build-first mode, remove legacy path coupling, and complete `R2` smoke execution before nozzle-case freeze.
 - Exact citations:
   - Authority:
-    - `docs/master_pin_manifest.md` -> `## Resolved Frozen Source Tuple`
-    - `docs/master_pin_manifest.md` -> `## Consumption Rules`
-    - `docs/reference_case_contract.md` -> `## Frozen Cases`
-    - `docs/reference_case_contract.md` -> `## Phase-Gate Mapping`
+    - `docs/authority/master_pin_manifest.md` -> `## Resolved Frozen Source Tuple`
+    - `docs/authority/master_pin_manifest.md` -> `## Consumption Rules`
+    - `docs/authority/reference_case_contract.md` -> `## Frozen Cases`
+    - `docs/authority/reference_case_contract.md` -> `## Phase-Gate Mapping`
   - Phase spec or `README_FIRST` authority-order note for `FND-*`:
-    - `docs/phase0_reference_problem_spec.md` -> `### Decision A — use dual baselines, not a single migration target`
-    - `docs/phase0_reference_problem_spec.md` -> `### Decision I — remove hard-coded OpenFOAM-12 environment assumptions from generated scripts and runners`
-    - `docs/phase0_reference_problem_spec.md` -> `### Risk 2 — hard-coded /opt/openfoam12 path breaks Baseline B silently`
-    - `docs/phase0_reference_problem_spec.md` -> `### Milestone M4 — Baseline B build-only bring-up`
-    - `docs/phase0_reference_problem_spec.md` -> `### Milestone M5 — Baseline B R2 smoke`
+    - `docs/specs/phase0_reference_problem_spec.md` -> `### Decision A — use dual baselines, not a single migration target`
+    - `docs/specs/phase0_reference_problem_spec.md` -> `### Decision I — remove hard-coded OpenFOAM-12 environment assumptions from generated scripts and runners`
+    - `docs/specs/phase0_reference_problem_spec.md` -> `### Risk 2 — hard-coded /opt/openfoam12 path breaks Baseline B silently`
+    - `docs/specs/phase0_reference_problem_spec.md` -> `### Milestone M4 — Baseline B build-only bring-up`
+    - `docs/specs/phase0_reference_problem_spec.md` -> `### Milestone M5 — Baseline B R2 smoke`
   - Backlog scope:
     - "Bring up Baseline B in build-only mode first, validate that no legacy OpenFOAM-12 coupling remains, then run the `R2` smoke case with documented backend policy."
   - Backlog done_when:
@@ -310,20 +310,20 @@ Phase 0 owns `P0-01..P0-08` and freezes CPU reference truth for `R2`, `R1-core`,
   - Freeze Baseline B `R1` and `R0`, compare to Baseline A, and produce the complete Phase 0 sign-off packet.
 - Exact citations:
   - Authority:
-    - `docs/reference_case_contract.md` -> `## Frozen Cases`
-    - `docs/reference_case_contract.md` -> `## Phase-Gate Mapping`
-    - `docs/reference_case_contract.json` -> `frozen_cases`, `phase_gate_mapping`, `locked_defaults`
-    - `docs/validation_ladder.md` -> `## Frozen Ladder`
-    - `docs/validation_ladder.md` -> `## Usage Rule`
+    - `docs/authority/reference_case_contract.md` -> `## Frozen Cases`
+    - `docs/authority/reference_case_contract.md` -> `## Phase-Gate Mapping`
+    - `docs/authority/reference_case_contract.json` -> `frozen_cases`, `phase_gate_mapping`, `locked_defaults`
+    - `docs/authority/validation_ladder.md` -> `## Frozen Ladder`
+    - `docs/authority/validation_ladder.md` -> `## Usage Rule`
   - Phase spec or `README_FIRST` authority-order note for `FND-*`:
-    - `docs/phase0_reference_problem_spec.md` -> `### Decision F — Phase 0 acceptance is numerical and provenance-based, not performance-based`
-    - `docs/phase0_reference_problem_spec.md` -> `### Validation strategy -> E. R1 validation`
-    - `docs/phase0_reference_problem_spec.md` -> `### Validation strategy -> F. R0 validation`
-    - `docs/phase0_reference_problem_spec.md` -> `### Acceptance checklist`
-    - `docs/phase0_reference_problem_spec.md` -> `### Artifacts to produce`
-    - `docs/phase0_reference_problem_spec.md` -> `### Milestone M6 — Baseline B R1 nozzle freeze`
-    - `docs/phase0_reference_problem_spec.md` -> `### Milestone M7 — Baseline B R0 nozzle freeze`
-    - `docs/phase0_reference_problem_spec.md` -> `### Milestone M8 — sign-off package`
+    - `docs/specs/phase0_reference_problem_spec.md` -> `### Decision F — Phase 0 acceptance is numerical and provenance-based, not performance-based`
+    - `docs/specs/phase0_reference_problem_spec.md` -> `### Validation strategy -> E. R1 validation`
+    - `docs/specs/phase0_reference_problem_spec.md` -> `### Validation strategy -> F. R0 validation`
+    - `docs/specs/phase0_reference_problem_spec.md` -> `### Acceptance checklist`
+    - `docs/specs/phase0_reference_problem_spec.md` -> `### Artifacts to produce`
+    - `docs/specs/phase0_reference_problem_spec.md` -> `### Milestone M6 — Baseline B R1 nozzle freeze`
+    - `docs/specs/phase0_reference_problem_spec.md` -> `### Milestone M7 — Baseline B R0 nozzle freeze`
+    - `docs/specs/phase0_reference_problem_spec.md` -> `### Milestone M8 — sign-off package`
   - Backlog scope:
     - "Run and freeze `R1` and `R0` on Baseline B, compare against Baseline A, and generate the Phase 0 sign-off packet with compare JSON and Markdown and archived artifacts."
   - Backlog done_when:
@@ -378,7 +378,7 @@ Phase 0 owns `P0-01..P0-08` and freezes CPU reference truth for `R2`, `R1-core`,
 
 ## open_discontinuities
 
-- `[tracked] env-artifact-alias-policy`: Foundation tracks `host_env.json` as canonical while `master_pin_manifest.md` still mentions `env.json`; Phase 0 will consume `host_env.json` and accept `env.json` only as compatibility alias where required (`docs/planning/pr_expansion/01_foundation_authority_consumption.md` -> `## open_discontinuities`, impacted PR IDs: `P0-01`, `P0-02`, preferred reading: preserve `host_env.json` in Phase 0 outputs and logs).
+- `[tracked] env-artifact-alias-policy`: Foundation tracks `host_env.json` as canonical while `master_pin_manifest.md` still mentions `env.json`; Phase 0 will consume `host_env.json` and accept `env.json` only as compatibility alias where required (`docs/tasks/01_foundation_authority_consumption.md` -> `## open_discontinuities`, impacted PR IDs: `P0-01`, `P0-02`, preferred reading: preserve `host_env.json` in Phase 0 outputs and logs).
 
 ## validation_checks
 
