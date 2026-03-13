@@ -73,13 +73,14 @@ Execution contract:
 - Treat the assigned PR ID as a hard scope boundary. Do not absorb neighboring backlog items.
 - Respect dependency edges from `docs/backlog/gpu_cfd_pr_backlog.json` and `docs/tasks/pr_inventory.md`.
 - Keep one persistent Linear workpad comment up to date if the runtime exposes `linear_graphql` or Linear MCP access.
+- Record structured telemetry for important transitions with `uv run python scripts/symphony/telemetry.py event ...`; at minimum log issue start, blockers, PR open/update, review wait, review action required, and merge.
 - If the issue state is `Todo`, move it to `In Progress` before implementation work.
 - If the issue already has a PR attached, start with a review-feedback sweep before new edits.
 - Use the issue branch name when available; otherwise create a `codex/` branch derived from the issue identifier.
 - Run the smallest relevant validation first, then broader checks when the scope requires it.
-- Before opening or marking a PR ready for review, run `uv run python scripts/symphony/review_loop.py codex-review --base origin/main`, inspect the saved review artifact, fix material findings, and rerun the review gate once.
+- Before opening or marking a PR ready for review, run `uv run python scripts/symphony/review_loop.py codex-review --issue {{ issue.identifier }} --base origin/main`, inspect the saved review artifact, fix material findings, and rerun the review gate once.
 - When the task is implementation-complete, open or update the GitHub PR, attach it to the Linear issue, and move the issue to `In Review`.
-- While the issue is `In Review`, treat review handling as active work: run `uv run python scripts/symphony/review_loop.py wait --reviewer devin-ai-integration[bot] --timeout-seconds 900`.
+- While the issue is `In Review`, treat review handling as active work: run `uv run python scripts/symphony/review_loop.py wait --issue {{ issue.identifier }} --reviewer devin-ai-integration[bot] --timeout-seconds 900`.
 - If the GitHub review loop reports `action_required`, fix valid findings, rerun the smallest relevant validation, rerun the local Codex review gate, push the update, and then wait for a fresh Devin review on the new head.
 - If the GitHub review loop reports `pending_initial_review` or `pending_rereview`, leave the issue in `In Review`, add a concise workpad note, and keep waiting rather than widening scope.
 - If the GitHub review loop reports `clean`, merge the PR with GitHub CLI, confirm the default branch contains the change, and then move the Linear issue to `Done`.

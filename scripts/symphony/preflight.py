@@ -48,6 +48,7 @@ def run_repo_checks(root: pathlib.Path) -> list[Check]:
         root / "docs/ops/symphony_runbook.md",
         root / ".github/workflows/review-loop-harness.yml",
         root / "scripts/symphony/review_loop.py",
+        root / "scripts/symphony/telemetry.py",
     ]
 
     for path in required_files:
@@ -169,6 +170,13 @@ def run_runtime_checks() -> list[Check]:
         add_check(results, "ok", "codex auth", codex_auth.as_posix())
     else:
         add_check(results, "missing", "codex auth", codex_auth.as_posix())
+
+    telemetry_root = pathlib.Path(
+        os.environ.get("GPU_CFD_TELEMETRY_ROOT")
+        or os.environ.get("SYMPHONY_LOGS_ROOT")
+        or str(pathlib.Path.home() / "projects" / "symphony-logs" / "gpu_cfd")
+    ).expanduser()
+    add_check(results, "ok", "telemetry root", telemetry_root.as_posix())
 
     if shutil.which("gh"):
         gh_auth = subprocess.run(

@@ -9,6 +9,7 @@ project.
 - `.codex/skills/gpu-cfd-symphony/SKILL.md`: project-specific execution skill
 - `scripts/symphony/preflight.py`: preflight checker for repo and worker-host readiness
 - `scripts/symphony/review_loop.py`: local Codex review gate plus GitHub review polling helper
+- `scripts/symphony/telemetry.py`: structured event logger for launcher, blocker, and review-loop telemetry
 
 ## Supported board contract
 
@@ -101,6 +102,20 @@ merge-time enforcement point that GitHub can actually block on.
 Run Symphony on the `wsl` workstation instead of the local Mac so issue workspaces live next to the
 GPU environment and long-running jobs can use the existing `tmux` and `task-spooler` workflow.
 
+## Required entrypoint
+
+For autonomous operation, treat `./scripts/symphony/run_wsl_symphony.sh` as the only supported way
+to start Symphony for this repository.
+
+- It sources `~/projects/symphony/.env`
+- It exports the runtime paths expected by the workflow
+- It runs the worker-host preflight
+- It emits launcher telemetry
+- It starts Symphony with the required preview acknowledgement flag
+
+Do not start the runtime with direct `bin/symphony` or ad hoc `mise exec -- ./bin/symphony`
+commands. Those bypass the repo-owned safety and observability layer.
+
 ## First-time launch on `wsl`
 
 1. Clone or sync this repository on `wsl`.
@@ -154,6 +169,38 @@ runtime preflight, and then starts Symphony from the checked-out `~/projects/sym
 directory. It also passes the required preview acknowledgement flag for the current Symphony
 reference implementation.
 
+## Telemetry and operator visibility
+
+The launcher and agent workflow now emit structured telemetry under the Symphony logs root.
+
+- Global event stream: `~/projects/symphony-logs/gpu_cfd/events.jsonl`
+- Per-issue event streams: `~/projects/symphony-logs/gpu_cfd/issues/<ISSUE>.jsonl`
+- Blocker-focused stream: `~/projects/symphony-logs/gpu_cfd/blockers.jsonl`
+
+Recommended event types:
+
+- `symphony_launcher_invoked`
+- `issue_started`
+- `blocker`
+- `pr_opened`
+- `review_wait`
+- `review_action_required`
+- `review_clean`
+- `merged`
+
+Manual usage example:
+
+```bash
+cd ~/projects/gpu_cfd
+uv run python scripts/symphony/telemetry.py event \
+  --event-type blocker \
+  --issue PRO-5 \
+  --state "In Progress" \
+  --message "Missing external credential for downstream system" \
+  --detail subsystem=github \
+  --detail severity=error
+```
+
 ## Automated review loop
 
 This repository now expects a two-stage automated review flow for every Symphony-driven PR.
@@ -174,6 +221,7 @@ review.
 ```bash
 cd ~/projects/gpu_cfd
 uv run python scripts/symphony/review_loop.py wait \
+  --issue PRO-5 \
   --reviewer devin-ai-integration[bot] \
   --timeout-seconds 900
 ```

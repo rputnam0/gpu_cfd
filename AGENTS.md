@@ -54,6 +54,7 @@ Primary development may happen on a local Mac, but GPU-heavy work should run on 
 - Prefer running long experiments, training jobs, large batch scripts, and other GPU-bound workflows on the workstation instead of the local laptop.
 - Use SSH for one-off remote commands, for example: `ssh wsl 'cd /path/to/repo && uv run python <entrypoint>.py'`.
 - Start a `tmux` session on the workstation before launching long-running jobs so work survives disconnects. Typical flow: `ssh wsl`, `tmux new -s gpu`, run commands, detach with `Ctrl-b` then `d`, and later reattach with `tmux attach -t gpu`.
+- For Symphony orchestration on WSL, the only supported launcher is `./scripts/symphony/run_wsl_symphony.sh` from the repository root. Do not invoke `~/projects/symphony/elixir/bin/symphony`, `mise exec -- ./bin/symphony`, or ad hoc launch commands directly; the launcher is the policy gate that sources `.env`, exports runtime paths, runs preflight, and emits telemetry.
 - Use `task-spooler` (`ts`) on the workstation to queue experiments instead of manually juggling multiple concurrent jobs. Typical flow: `ts uv run python <entrypoint>.py ...` and `ts` to inspect queue status.
 - Keep large artifacts, caches, datasets, and intermediate outputs on the workstation when possible; only sync back the files needed for review or commit.
 - If a dashboard or notebook is needed, prefer SSH port forwarding rather than exposing services directly on the network.
