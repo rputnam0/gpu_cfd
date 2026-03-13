@@ -89,14 +89,29 @@ def run_repo_checks(root: pathlib.Path) -> list[Check]:
 def run_runtime_checks() -> list[Check]:
     results: list[Check] = []
 
-    required_bins = ["git", "gh", "codex"]
+    required_bins = ["git", "gh"]
     optional_bins = ["ssh", "tmux", "ts", "mise", "elixir"]
+    codex_candidates = [
+        shutil.which("codex"),
+        str(pathlib.Path.home() / ".npm-global" / "bin" / "codex"),
+    ]
 
     for name in required_bins:
         if shutil.which(name):
             add_check(results, "ok", f"binary:{name}", "found")
         else:
             add_check(results, "missing", f"binary:{name}", "not on PATH")
+
+    resolved_codex = next((path for path in codex_candidates if path and pathlib.Path(path).exists()), None)
+    if resolved_codex:
+        add_check(results, "ok", "binary:codex", resolved_codex)
+    else:
+        add_check(
+            results,
+            "missing",
+            "binary:codex",
+            "not on PATH and not found at ~/.npm-global/bin/codex",
+        )
 
     for name in optional_bins:
         if shutil.which(name):

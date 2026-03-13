@@ -32,7 +32,7 @@ agent:
     todo: 1
     in progress: 1
 codex:
-  command: codex --config shell_environment_policy.inherit=all app-server
+  command: "$HOME/.npm-global/bin/codex --config shell_environment_policy.inherit=all app-server"
   approval_policy: never
   thread_sandbox: workspace-write
   turn_sandbox_policy:

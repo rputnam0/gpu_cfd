@@ -55,6 +55,11 @@ codex login
 codex --version
 ```
 
+On this WSL host, `codex` is installed under `~/.npm-global/bin/codex`. Interactive shells see it,
+but non-interactive login shells may not inherit that path automatically. The checked-in
+`WORKFLOW.md` therefore uses the explicit `$HOME/.npm-global/bin/codex` path so Symphony does not
+depend on shell-specific `PATH` setup.
+
 ## Preflight
 
 Run these checks from the repository root.
