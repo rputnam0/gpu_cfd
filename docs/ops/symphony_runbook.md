@@ -78,6 +78,24 @@ uv run python scripts/symphony/preflight.py --mode runtime
 The runtime preflight now checks both Codex auth and GitHub CLI auth because the automated review
 loop needs to open PRs, poll review threads, and merge clean PRs without manual handoffs.
 
+## GitHub-side enforcement
+
+For a stronger merge guarantee, this repository now includes a GitHub Actions workflow at
+`.github/workflows/review-loop-harness.yml`. It runs the deterministic checks that should never be
+skipped on a PR:
+
+- `uv run python -m unittest discover -s tests`
+- `uv run python scripts/symphony/preflight.py --mode repo`
+
+Recommended GitHub setting:
+
+- Protect `main`
+- Require pull requests before merging
+- Mark `review-loop-harness` as a required status check
+
+That does not replace the local Codex review or the Devin review loop. It complements them with a
+merge-time enforcement point that GitHub can actually block on.
+
 ## Recommended worker host
 
 Run Symphony on the `wsl` workstation instead of the local Mac so issue workspaces live next to the

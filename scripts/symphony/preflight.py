@@ -46,6 +46,7 @@ def run_repo_checks(root: pathlib.Path) -> list[Check]:
         root / "docs/tasks/pr_inventory.md",
         root / "docs/backlog/gpu_cfd_pr_backlog.json",
         root / "docs/ops/symphony_runbook.md",
+        root / ".github/workflows/review-loop-harness.yml",
         root / "scripts/symphony/review_loop.py",
     ]
 
