@@ -956,7 +956,7 @@ Every profile run emits a directory:
 ```text
 profiles/
   <date>_<case>_<mode>_<gitsha>/
-    env.json
+    host_env.json
     command.txt
     run.log
     report.nsys-rep
@@ -2686,7 +2686,7 @@ This section preserves enough project-wide context to keep Phase 8 operationally
 ### 6.3 Required benchmark outputs
 
 For every acceptance run:
-- `env.json`
+- `host_env.json`
 - `command.txt`
 - `run.log`
 - raw `.nsys-rep`
@@ -2774,7 +2774,7 @@ The coding agent must stop and benchmark before proceeding past each of these ch
 
 ### 7.4 Environment manifest collection
 
-`env.json` must include:
+`host_env.json` must include:
 - `nvidia-smi -q` subset or equivalent queried GPU metadata
 - `nvcc --version`
 - `nsys --version`

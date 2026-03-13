@@ -37,8 +37,8 @@ The reviewed tuple ID above resolves to the exact upstream refs below. Later pha
 - Historical references to CUDA 12.8 or 570.xx drivers are compatibility background only; they are not the active project pin set.
 - Native pressure is the frozen default backend. AmgX is a supported secondary lane and may count as production-eligible only for tuples explicitly admitted by [acceptance_manifest.md](acceptance_manifest.md).
 - The reviewed source tuple ID above is a frozen archive identifier, not shorthand for “current `develop`” or “current `main`”. Any different branch tip, local fork head, or repinned mirror is a different dependency tuple and requires a manifest revision first.
-- The exact local mirror SHAs used by an implementation branch must realize the resolved refs above; record those mirror SHAs plus the exact toolkit/profiler binaries actually invoked in `env.json` and `manifest_refs.json`.
-- `env.json` and `manifest_refs.json` are execution-trace artifacts for the already-frozen tuple above, not a mechanism for selecting a different SPUMA / `foamExternalSolvers` / AmgX / profiler combination per run.
+- The exact local mirror SHAs used by an implementation branch must realize the resolved refs above; record those mirror SHAs plus the exact toolkit/profiler binaries actually invoked in `host_env.json` and `manifest_refs.json`.
+- `host_env.json` and `manifest_refs.json` are execution-trace artifacts for the already-frozen tuple above, not a mechanism for selecting a different SPUMA / `foamExternalSolvers` / AmgX / profiler combination per run.
 
 ## Required Revalidation If This Manifest Changes
 
