@@ -5,6 +5,7 @@ tracker:
   active_states:
     - Todo
     - In Progress
+    - In Review
   terminal_states:
     - Done
     - Canceled
@@ -27,10 +28,11 @@ hooks:
     git status --short --branch >/dev/null
 agent:
   max_concurrent_agents: 1
-  max_turns: 20
+  max_turns: 40
   max_concurrent_agents_by_state:
     todo: 1
     in progress: 1
+    in review: 1
 codex:
   command: "$HOME/.npm-global/bin/codex --config shell_environment_policy.inherit=all app-server"
   approval_policy: never
@@ -75,9 +77,13 @@ Execution contract:
 - If the issue already has a PR attached, start with a review-feedback sweep before new edits.
 - Use the issue branch name when available; otherwise create a `codex/` branch derived from the issue identifier.
 - Run the smallest relevant validation first, then broader checks when the scope requires it.
-- When the task is complete, open or update a GitHub PR, attach the PR to the Linear issue, and move the issue to `In Review`.
+- Before opening or marking a PR ready for review, run `uv run python scripts/symphony/review_loop.py codex-review --base origin/main`, inspect the saved review artifact, fix material findings, and rerun the review gate once.
+- When the task is implementation-complete, open or update the GitHub PR, attach it to the Linear issue, and move the issue to `In Review`.
+- While the issue is `In Review`, treat review handling as active work: run `uv run python scripts/symphony/review_loop.py wait --reviewer devin-ai-integration[bot] --timeout-seconds 900`.
+- If the GitHub review loop reports `action_required`, fix valid findings, rerun the smallest relevant validation, rerun the local Codex review gate, push the update, and then wait for a fresh Devin review on the new head.
+- If the GitHub review loop reports `pending_initial_review` or `pending_rereview`, leave the issue in `In Review`, add a concise workpad note, and keep waiting rather than widening scope.
+- If the GitHub review loop reports `clean`, merge the PR with GitHub CLI, confirm the default branch contains the change, and then move the Linear issue to `Done`.
 - `Backlog` means parked or blocked work and is out of scope for this run.
-- `In Review` is a human hold state in this repository. Do not modify issues parked there unless they are moved back to `Todo` or `In Progress`.
 - If required auth, secrets, or external tools are missing, record a concise blocker note and stop instead of widening scope.
 
 Completion bar:
@@ -85,4 +91,5 @@ Completion bar:
 - The exact task card's objective, validation, and done criteria are satisfied.
 - Repo changes are limited to the assigned PR card.
 - Validation evidence is recorded in the Linear workpad.
-- The PR is ready for human review, not just local completion.
+- The PR has passed one local Codex review loop and any valid Devin review findings on the current head are addressed.
+- The PR is merged, not just opened.

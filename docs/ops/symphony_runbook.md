@@ -8,6 +8,7 @@ project.
 - `WORKFLOW.md`: repo-owned Symphony workflow contract
 - `.codex/skills/gpu-cfd-symphony/SKILL.md`: project-specific execution skill
 - `scripts/symphony/preflight.py`: preflight checker for repo and worker-host readiness
+- `scripts/symphony/review_loop.py`: local Codex review gate plus GitHub review polling helper
 
 ## Supported board contract
 
@@ -16,18 +17,16 @@ This repository can run correctly with the Linear statuses that already exist to
 - `Backlog`: parked or dependency-blocked work; Symphony should not pick this up
 - `Todo`: ready for Symphony to start
 - `In Progress`: active implementation or retry loop
-- `In Review`: human review hold state; Symphony stops touching the issue
+- `In Review`: active PR review loop; Symphony waits for Devin review, fixes valid findings, and merges when clean
 - `Done`: terminal state
 
-Review rework loop:
+Review loop:
 
-- If review requests changes, move the issue back to `Todo` or `In Progress`.
-- Symphony will pick it up again on the next poll.
-
-Optional future upgrade:
-
-- Add `Rework` and `Merging` statuses in Linear if you want a richer automatic review/merge loop.
-- The current repository setup does not require those extra states to begin execution safely.
+- Before a PR is opened or marked ready, the agent must run one local Codex review pass.
+- After the PR enters `In Review`, the agent waits for Devin GitHub review feedback.
+- Valid findings are fixed on-branch, revalidated locally, rerun through the Codex review gate, and pushed.
+- The agent waits for a fresh Devin review on the new head before merging.
+- Merge completes the Linear issue and moves it to `Done`.
 
 ## Remaining external prerequisites
 
@@ -75,6 +74,9 @@ Worker-host runtime readiness:
 ```bash
 uv run python scripts/symphony/preflight.py --mode runtime
 ```
+
+The runtime preflight now checks both Codex auth and GitHub CLI auth because the automated review
+loop needs to open PRs, poll review threads, and merge clean PRs without manual handoffs.
 
 ## Recommended worker host
 
@@ -133,6 +135,43 @@ The launcher script reads `~/projects/symphony/.env`, fills in sane defaults for
 runtime preflight, and then starts Symphony from the checked-out `~/projects/symphony/elixir`
 directory. It also passes the required preview acknowledgement flag for the current Symphony
 reference implementation.
+
+## Automated review loop
+
+This repository now expects a two-stage automated review flow for every Symphony-driven PR.
+
+1. Local review gate before PR submission:
+
+```bash
+cd ~/projects/gpu_cfd
+uv run python scripts/symphony/review_loop.py codex-review --base origin/main
+```
+
+This stores Codex review artifacts under `.codex/review_artifacts/<branch>/`. The agent must inspect
+the latest report, fix material findings, and rerun the gate once before sending the PR to GitHub
+review.
+
+2. GitHub review polling after PR submission:
+
+```bash
+cd ~/projects/gpu_cfd
+uv run python scripts/symphony/review_loop.py wait \
+  --reviewer devin-ai-integration[bot] \
+  --timeout-seconds 900
+```
+
+The helper classifies the PR head as one of:
+
+- `pending_initial_review`: no Devin review has landed on this PR yet
+- `pending_rereview`: previous Devin feedback exists, but only on an older head commit
+- `action_required`: the current head still has actionable Devin review feedback
+- `clean`: the current head has no actionable Devin review feedback
+
+Recommended agent behavior:
+
+- `action_required`: fix valid comments, rerun targeted validation, rerun the local Codex review gate, push
+- `pending_*`: stay in `In Review`, leave a brief Linear workpad note, keep waiting
+- `clean`: merge the PR and move the Linear issue to `Done`
 
 ## Recommended rollout
 

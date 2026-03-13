@@ -9,6 +9,7 @@ import os
 import pathlib
 import re
 import shutil
+import subprocess
 import sys
 from dataclasses import dataclass
 
@@ -45,6 +46,7 @@ def run_repo_checks(root: pathlib.Path) -> list[Check]:
         root / "docs/tasks/pr_inventory.md",
         root / "docs/backlog/gpu_cfd_pr_backlog.json",
         root / "docs/ops/symphony_runbook.md",
+        root / "scripts/symphony/review_loop.py",
     ]
 
     for path in required_files:
@@ -61,8 +63,11 @@ def run_repo_checks(root: pathlib.Path) -> list[Check]:
         else:
             add_check(results, "missing", "WORKFLOW project slug", EXPECTED_PROJECT_SLUG)
 
-        if re.search(r"active_states:\s*\n\s*-\s*Todo\s*\n\s*-\s*In Progress", workflow_text):
-            add_check(results, "ok", "WORKFLOW active states", "Todo/In Progress")
+        if re.search(
+            r"active_states:\s*\n\s*-\s*Todo\s*\n\s*-\s*In Progress\s*\n\s*-\s*In Review",
+            workflow_text,
+        ):
+            add_check(results, "ok", "WORKFLOW active states", "Todo/In Progress/In Review")
         else:
             add_check(results, "warn", "WORKFLOW active states", "unexpected active state list")
 
@@ -163,6 +168,18 @@ def run_runtime_checks() -> list[Check]:
         add_check(results, "ok", "codex auth", codex_auth.as_posix())
     else:
         add_check(results, "missing", "codex auth", codex_auth.as_posix())
+
+    if shutil.which("gh"):
+        gh_auth = subprocess.run(
+            ["gh", "auth", "status", "--hostname", "github.com"],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        if gh_auth.returncode == 0:
+            add_check(results, "ok", "gh auth", "github.com")
+        else:
+            add_check(results, "missing", "gh auth", "github.com")
 
     return results
 
