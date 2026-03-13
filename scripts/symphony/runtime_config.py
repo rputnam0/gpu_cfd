@@ -73,7 +73,7 @@ def build_codex_command(
 ) -> list[str]:
     profile = load_codex_profile(profile_name)
     command = [codex_binary or resolve_codex_binary(), "-m", profile.model]
-    command.extend(["-c", f'model_reasoning_effort="{profile.reasoning_effort}"'])
+    command.extend(["-c", f"model_reasoning_effort={profile.reasoning_effort}"])
     for config_override in profile.extra_configs:
         command.extend(["-c", config_override])
     command.extend(codex_args)

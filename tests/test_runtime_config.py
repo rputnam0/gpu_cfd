@@ -24,7 +24,7 @@ class RuntimeConfigTests(unittest.TestCase):
 
         self.assertEqual(command[0], "/tmp/codex")
         self.assertIn("gpt-5.4", command)
-        self.assertIn('model_reasoning_effort="xhigh"', command)
+        self.assertIn("model_reasoning_effort=xhigh", command)
         self.assertEqual(command[-3:], ["review", "--base", "origin/main"])
 
 
