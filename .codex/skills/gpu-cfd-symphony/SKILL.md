@@ -1,3 +1,8 @@
+---
+name: gpu-cfd-symphony
+description: Use this skill when working a gpu_cfd Linear issue under Symphony orchestration.
+---
+
 # GPU CFD Symphony
 
 Use this skill when working a `gpu_cfd` Linear issue under Symphony orchestration.
@@ -31,20 +36,22 @@ authority docs, backlog dependencies, and PR-card scope.
 3. Confirm the branch state and reproduce the current behavior before editing.
 4. Implement with TDD where practical, following `AGENTS.md`.
 5. Keep the workpad current as plan, risks, and validation evolve.
+   Linear MCP on the worker host is required for state changes, comments, and review follow-up.
 6. Record structured telemetry with `uv run python scripts/symphony/telemetry.py event ...` for issue start, blockers, PR open/update, review waiting, review findings, and merge.
 7. Use the telemetry log for external blockers too, not just code defects, so operator follow-up is visible outside Linear.
 8. Run the smallest direct validation first, then any broader checks required by the card.
 9. Before opening or marking a PR ready for review, run `uv run python scripts/symphony/review_loop.py codex-review --issue <LINEAR-ISSUE> --base origin/main`, inspect the saved report in `.codex/review_artifacts/`, fix material findings, and rerun the review gate once.
 10. Open or update the PR only when the card's validation and done criteria are satisfied.
-11. Once the PR is in `In Review`, run `uv run python scripts/symphony/review_loop.py wait --issue <LINEAR-ISSUE> --reviewer 'devin-ai-integration[bot]' --timeout-seconds 900` and use the result to drive the GitHub follow-up loop.
-12. If Devin feedback is actionable, fix valid findings, rerun targeted validation, rerun the local Codex review gate, push, and wait for a fresh review on the new head.
-13. Merge the PR only when the current head is clean according to the GitHub review loop and the PR is otherwise mergeable.
+11. Once the PR is ready, record the PR URL in a Linear comment, emit a `review_requested` telemetry event, move the issue to `In Review`, and stop. Do not stay alive in a local sleep loop.
+12. `In Review` is a dormant queue. Let Linear and GitHub integrations move the issue into `Rework` when fixes are needed or `Ready to Merge` when it is clear to land.
+13. On a `Rework` run, start with the latest Devin-authored Linear comments, fix valid findings, rerun targeted validation, rerun the local Codex review gate, push, emit `review_requested`, and move back to `In Review`.
+14. On a `Ready to Merge` run, confirm the linked PR is clean on the current head, merge it, and move the issue to `Done`.
 
 ## Handoff rules
 
-- Attach the PR to the Linear issue.
+- Record the PR URL in a Linear comment on the issue.
 - Move the issue to `In Review` after validation is complete and the local Codex review loop is clean enough for external review.
-- Keep `In Review` as an active automation state for Devin review polling and merge follow-through.
-- If a fresh Devin review has not arrived yet, wait and keep concise notes rather than moving the issue backward.
+- Treat `In Review` as a dormant queue controlled by Linear workflow transitions, not as a worker sleep loop.
+- If a fresh Devin review has not arrived yet, leave concise notes and stop. Symphony should resume work only when the issue re-enters an active state like `Rework` or `Ready to Merge`.
 - If blocked by missing auth, missing secrets, or missing external tools, leave a concise blocker
   note instead of guessing.

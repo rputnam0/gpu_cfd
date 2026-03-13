@@ -13,7 +13,6 @@ import subprocess
 import sys
 from dataclasses import dataclass
 
-
 EXPECTED_PROJECT_SLUG = "gpu-cfd-6e45c39a4350"
 EXPECTED_PR_COUNT = 88
 
@@ -37,6 +36,50 @@ def add_check(results: list[Check], level: str, label: str, detail: str) -> None
     results.append(Check(level=level, label=label, detail=detail))
 
 
+def parse_mcp_list(output: str) -> list[dict[str, str]]:
+    rows: list[dict[str, str]] = []
+    for line in output.splitlines():
+        stripped = line.strip()
+        if not stripped or stripped.startswith("Name"):
+            continue
+        parts = re.split(r"\s{2,}", stripped)
+        if len(parts) < 5:
+            continue
+        rows.append(
+            {
+                "name": parts[0],
+                "url": parts[1],
+                "bearer_token_env_var": parts[2],
+                "status": parts[3],
+                "auth": parts[4],
+            }
+        )
+    return rows
+
+
+def linear_mcp_check(codex_binary: str) -> Check:
+    completed = subprocess.run(
+        [codex_binary, "mcp", "list"],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    if completed.returncode != 0:
+        return Check("missing", "codex mcp", "failed to list MCP servers")
+
+    rows = parse_mcp_list(completed.stdout)
+    linear_row = next((row for row in rows if row["name"] == "linear"), None)
+    if linear_row is None:
+        return Check("missing", "mcp:linear", "not configured")
+    if linear_row["status"] != "enabled":
+        return Check(
+            "missing", "mcp:linear", f"configured but status={linear_row['status']}"
+        )
+    if linear_row["auth"] == "Not logged in":
+        return Check("missing", "mcp:linear", "configured but not logged in")
+    return Check("ok", "mcp:linear", f"{linear_row['status']} / {linear_row['auth']}")
+
+
 def run_repo_checks(root: pathlib.Path) -> list[Check]:
     results: list[Check] = []
     required_files = [
@@ -47,6 +90,8 @@ def run_repo_checks(root: pathlib.Path) -> list[Check]:
         root / "docs/backlog/gpu_cfd_pr_backlog.json",
         root / "docs/ops/symphony_runbook.md",
         root / ".github/workflows/review-loop-harness.yml",
+        root / "scripts/symphony/runtime_config.toml",
+        root / "scripts/symphony/codex_runner.py",
         root / "scripts/symphony/review_loop.py",
         root / "scripts/symphony/telemetry.py",
     ]
@@ -63,15 +108,27 @@ def run_repo_checks(root: pathlib.Path) -> list[Check]:
         if EXPECTED_PROJECT_SLUG in workflow_text:
             add_check(results, "ok", "WORKFLOW project slug", EXPECTED_PROJECT_SLUG)
         else:
-            add_check(results, "missing", "WORKFLOW project slug", EXPECTED_PROJECT_SLUG)
+            add_check(
+                results, "missing", "WORKFLOW project slug", EXPECTED_PROJECT_SLUG
+            )
 
         if re.search(
-            r"active_states:\s*\n\s*-\s*Todo\s*\n\s*-\s*In Progress\s*\n\s*-\s*In Review",
+            r"active_states:\s*\n\s*-\s*Todo\s*\n\s*-\s*In Progress\s*\n\s*-\s*Rework\s*\n\s*-\s*Ready to Merge",
             workflow_text,
         ):
-            add_check(results, "ok", "WORKFLOW active states", "Todo/In Progress/In Review")
+            add_check(
+                results,
+                "ok",
+                "WORKFLOW active states",
+                "Todo/In Progress/Rework/Ready to Merge",
+            )
         else:
-            add_check(results, "warn", "WORKFLOW active states", "unexpected active state list")
+            add_check(
+                results,
+                "warn",
+                "WORKFLOW active states",
+                "unexpected active state list",
+            )
 
     backlog_path = root / "docs/backlog/gpu_cfd_pr_backlog.json"
     if backlog_path.exists():
@@ -99,7 +156,10 @@ def run_runtime_checks() -> list[Check]:
     required_bins = ["git", "gh"]
     optional_bins = ["ssh", "tmux", "ts", "elixir"]
     optional_candidates = {
-        "mise": [shutil.which("mise"), str(pathlib.Path.home() / ".local" / "bin" / "mise")],
+        "mise": [
+            shutil.which("mise"),
+            str(pathlib.Path.home() / ".local" / "bin" / "mise"),
+        ],
     }
     codex_candidates = [
         shutil.which("codex"),
@@ -112,9 +172,13 @@ def run_runtime_checks() -> list[Check]:
         else:
             add_check(results, "missing", f"binary:{name}", "not on PATH")
 
-    resolved_codex = next((path for path in codex_candidates if path and pathlib.Path(path).exists()), None)
+    resolved_codex = next(
+        (path for path in codex_candidates if path and pathlib.Path(path).exists()),
+        None,
+    )
     if resolved_codex:
         add_check(results, "ok", "binary:codex", resolved_codex)
+        results.append(linear_mcp_check(resolved_codex))
     else:
         add_check(
             results,
@@ -130,7 +194,9 @@ def run_runtime_checks() -> list[Check]:
             add_check(results, "warn", f"binary:{name}", "not on PATH")
 
     for name, candidates in optional_candidates.items():
-        resolved = next((path for path in candidates if path and pathlib.Path(path).exists()), None)
+        resolved = next(
+            (path for path in candidates if path and pathlib.Path(path).exists()), None
+        )
         if resolved:
             add_check(results, "ok", f"binary:{name}", resolved)
         else:

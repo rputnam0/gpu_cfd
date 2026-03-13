@@ -20,14 +20,24 @@ def parse_args() -> argparse.Namespace:
     subparsers = parser.add_subparsers(dest="command", required=True)
 
     event_parser = subparsers.add_parser("event", help="Append a telemetry event.")
-    event_parser.add_argument("--event-type", required=True, help="Structured event type label.")
-    event_parser.add_argument("--message", default="", help="Short human-readable event summary.")
+    event_parser.add_argument(
+        "--event-type", required=True, help="Structured event type label."
+    )
+    event_parser.add_argument(
+        "--message", default="", help="Short human-readable event summary."
+    )
     event_parser.add_argument("--issue", help="Linear issue identifier, if known.")
-    event_parser.add_argument("--pr", type=int, help="GitHub pull request number, if known.")
-    event_parser.add_argument("--state", help="Linear or workflow state associated with the event.")
+    event_parser.add_argument(
+        "--pr", type=int, help="GitHub pull request number, if known."
+    )
+    event_parser.add_argument(
+        "--state", help="Linear or workflow state associated with the event."
+    )
     event_parser.add_argument("--branch", help="Git branch associated with the event.")
     event_parser.add_argument("--commit", help="Git commit associated with the event.")
-    event_parser.add_argument("--root", help="Telemetry root. Defaults to the configured logs root.")
+    event_parser.add_argument(
+        "--root", help="Telemetry root. Defaults to the configured logs root."
+    )
     event_parser.add_argument(
         "--detail",
         action="append",
@@ -143,7 +153,9 @@ def event_command(args: argparse.Namespace) -> int:
         commit=args.commit,
         details=details,
     )
-    root = pathlib.Path(args.root).expanduser() if args.root else default_telemetry_root()
+    root = (
+        pathlib.Path(args.root).expanduser() if args.root else default_telemetry_root()
+    )
     paths = write_event(root, event)
     payload = {
         "root": root.as_posix(),

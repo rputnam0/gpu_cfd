@@ -61,7 +61,9 @@ class TelemetryWriteTests(unittest.TestCase):
 
             events_payload = [
                 json.loads(line)
-                for line in (root / "events.jsonl").read_text(encoding="utf-8").splitlines()
+                for line in (root / "events.jsonl")
+                .read_text(encoding="utf-8")
+                .splitlines()
             ]
             self.assertEqual(events_payload[0]["event_type"], "blocker")
             self.assertEqual(events_payload[0]["issue"], "PRO-5")

@@ -55,6 +55,8 @@ Primary development may happen on a local Mac, but GPU-heavy work should run on 
 - Use SSH for one-off remote commands, for example: `ssh wsl 'cd /path/to/repo && uv run python <entrypoint>.py'`.
 - Start a `tmux` session on the workstation before launching long-running jobs so work survives disconnects. Typical flow: `ssh wsl`, `tmux new -s gpu`, run commands, detach with `Ctrl-b` then `d`, and later reattach with `tmux attach -t gpu`.
 - For Symphony orchestration on WSL, the only supported launcher is `./scripts/symphony/run_wsl_symphony.sh` from the repository root. Do not invoke `~/projects/symphony/elixir/bin/symphony`, `mise exec -- ./bin/symphony`, or ad hoc launch commands directly; the launcher is the policy gate that sources `.env`, exports runtime paths, runs preflight, and emits telemetry.
+- For Symphony review handoffs, use Linear workflow states as the only control plane. `In Review` is dormant, and work resumes only when Linear moves the issue into an active state such as `Rework` or `Ready to Merge`. Do not add repo-side watcher daemons or local sleep/poll loops.
+- The WSL Codex runtime must have the Linear MCP server configured and logged in. Treat missing Linear MCP auth as a blocker rather than introducing repo-local API fallbacks.
 - Use `task-spooler` (`ts`) on the workstation to queue experiments instead of manually juggling multiple concurrent jobs. Typical flow: `ts uv run python <entrypoint>.py ...` and `ts` to inspect queue status.
 - Keep large artifacts, caches, datasets, and intermediate outputs on the workstation when possible; only sync back the files needed for review or commit.
 - If a dashboard or notebook is needed, prefer SSH port forwarding rather than exposing services directly on the network.

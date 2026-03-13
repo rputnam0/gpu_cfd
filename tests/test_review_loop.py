@@ -48,6 +48,12 @@ class EvaluateReviewStateTests(unittest.TestCase):
         )
         self.assertEqual(summary.review_state, "pending_initial_review")
 
+    def test_normalizes_devin_aliases(self) -> None:
+        self.assertEqual(
+            review_loop.expand_reviewer_aliases(["devin-ai-integration[bot]"]),
+            {"devin-ai-integration[bot]", "devin-ai-integration"},
+        )
+
     def test_action_required_for_unresolved_target_thread(self) -> None:
         pull_request = self.make_pull_request()
         pull_request["reviewThreads"]["nodes"].append(
@@ -75,6 +81,24 @@ class EvaluateReviewStateTests(unittest.TestCase):
         )
         self.assertEqual(summary.review_state, "action_required")
         self.assertEqual(len(summary.actionable_threads), 1)
+
+    def test_action_required_for_fresh_changes_requested_without_body(self) -> None:
+        pull_request = self.make_pull_request()
+        pull_request["reviews"]["nodes"].append(
+            {
+                "author": {"login": "devin-ai-integration"},
+                "state": "CHANGES_REQUESTED",
+                "submittedAt": "2026-03-13T20:05:00Z",
+                "body": "",
+                "url": "https://example.com/review",
+            }
+        )
+        summary = review_loop.evaluate_review_state(
+            pull_request,
+            review_loop.expand_reviewer_aliases(["devin-ai-integration[bot]"]),
+        )
+        self.assertEqual(summary.review_state, "action_required")
+        self.assertEqual(len(summary.actionable_reviews), 1)
 
     def test_pending_rereview_when_only_stale_review_exists(self) -> None:
         pull_request = self.make_pull_request()
@@ -110,6 +134,60 @@ class EvaluateReviewStateTests(unittest.TestCase):
             {"devin-ai-integration[bot]"},
         )
         self.assertEqual(summary.review_state, "clean")
+
+    def test_clean_when_only_resolved_target_threads_exist(self) -> None:
+        pull_request = self.make_pull_request()
+        pull_request["reviewThreads"]["nodes"].append(
+            {
+                "isResolved": True,
+                "isOutdated": False,
+                "path": "src/core.py",
+                "comments": {
+                    "nodes": [
+                        {
+                            "author": {"login": "devin-ai-integration"},
+                            "body": "Fixed in latest pass.",
+                            "createdAt": "2026-03-13T20:01:00Z",
+                            "url": "https://example.com/thread",
+                            "line": 42,
+                            "originalLine": 42,
+                        }
+                    ]
+                },
+            }
+        )
+        summary = review_loop.evaluate_review_state(
+            pull_request,
+            review_loop.expand_reviewer_aliases(["devin-ai-integration[bot]"]),
+        )
+        self.assertEqual(summary.review_state, "clean")
+
+    def test_pending_rereview_when_only_stale_resolved_threads_exist(self) -> None:
+        pull_request = self.make_pull_request()
+        pull_request["reviewThreads"]["nodes"].append(
+            {
+                "isResolved": True,
+                "isOutdated": False,
+                "path": "src/core.py",
+                "comments": {
+                    "nodes": [
+                        {
+                            "author": {"login": "devin-ai-integration"},
+                            "body": "Old resolved note.",
+                            "createdAt": "2026-03-13T19:59:00Z",
+                            "url": "https://example.com/thread",
+                            "line": 42,
+                            "originalLine": 42,
+                        }
+                    ]
+                },
+            }
+        )
+        summary = review_loop.evaluate_review_state(
+            pull_request,
+            review_loop.expand_reviewer_aliases(["devin-ai-integration[bot]"]),
+        )
+        self.assertEqual(summary.review_state, "pending_rereview")
 
 
 if __name__ == "__main__":

@@ -89,6 +89,7 @@ emit_telemetry \
   --detail logs_root="$logs_root" \
   --detail workspace_root="$SYMPHONY_WORKSPACE_ROOT"
 
+mkdir -p "$logs_root"
 "$mise_bin" exec -- ./bin/symphony \
   --i-understand-that-this-will-be-running-without-the-usual-guardrails \
   "$workflow_path" \
