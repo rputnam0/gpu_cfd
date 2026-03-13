@@ -8,24 +8,24 @@ Phase 7 owns `P7-01..P7-08` and delivers the custom CUDA hotspot replacement lay
   - Freeze a reviewed Phase 7 source-audit note and profiling-backed hotspot ranking so custom-kernel scope is bounded to support-matrix-admitted families only.
 - Exact citations:
   - Authority:
-    - `docs/semantic_source_map.md` -> `## Frozen Mapping`
-    - `docs/semantic_source_map.md` -> `## Implementation Rule`
-    - `docs/continuity_ledger.md` -> `# 1. Frozen global decisions` (support-matrix ownership and contact-angle conditional scope)
-    - `docs/support_matrix.md` -> `## Global Policy`
-    - `docs/support_matrix.md` -> `## Exact Audited Scheme Tuple`
-    - `docs/support_matrix.md` -> `## Phase 6 Nozzle-Specific Envelope`
-    - `docs/support_matrix.json` -> `exact_audited_scheme_tuple`
-    - `docs/support_matrix.json` -> `phase6_nozzle_specific_envelope`
-    - `docs/reference_case_contract.md` -> `## Phase-Gate Mapping`
-    - `docs/planning/pr_expansion/boundary_matrix.md` -> `### Phase 6 -> Phase 7`
-    - `docs/planning/pr_expansion/boundary_matrix.md` -> `### Phase 7 -> Phase 8`
-    - `docs/planning/pr_expansion/08_phase6_pressure_swirl_nozzle_bc_startup.md` -> `## P6-10 Solver-stage integration, graph-safety hardening, and Phase 6 acceptance`
-    - `docs/planning/pr_expansion/10_phase8_profiling_performance_acceptance.md` -> `## P8-05 Nsight Systems capture scripts and artifact layout`
+    - `docs/authority/semantic_source_map.md` -> `## Frozen Mapping`
+    - `docs/authority/semantic_source_map.md` -> `## Implementation Rule`
+    - `docs/authority/continuity_ledger.md` -> `# 1. Frozen global decisions` (support-matrix ownership and contact-angle conditional scope)
+    - `docs/authority/support_matrix.md` -> `## Global Policy`
+    - `docs/authority/support_matrix.md` -> `## Exact Audited Scheme Tuple`
+    - `docs/authority/support_matrix.md` -> `## Phase 6 Nozzle-Specific Envelope`
+    - `docs/authority/support_matrix.json` -> `exact_audited_scheme_tuple`
+    - `docs/authority/support_matrix.json` -> `phase6_nozzle_specific_envelope`
+    - `docs/authority/reference_case_contract.md` -> `## Phase-Gate Mapping`
+    - `docs/tasks/boundary_matrix.md` -> `### Phase 6 -> Phase 7`
+    - `docs/tasks/boundary_matrix.md` -> `### Phase 7 -> Phase 8`
+    - `docs/tasks/08_phase6_pressure_swirl_nozzle_bc_startup.md` -> `## P6-10 Solver-stage integration, graph-safety hardening, and Phase 6 acceptance`
+    - `docs/tasks/10_phase8_profiling_performance_acceptance.md` -> `## P8-05 Nsight Systems capture scripts and artifact layout`
   - Phase spec or `README_FIRST` authority-order note for `FND-*`:
-    - `docs/phase7_custom_cuda_kernel_spec.md` -> `#### DD7.1 — Custom-kernel scope is limited to support-matrix-approved hotspot families ranked by interim profiling`
-    - `docs/phase7_custom_cuda_kernel_spec.md` -> `#### Step 1 — Audit the exact local v2412 source, consume the frozen support matrix, and freeze the hotspot ranking`
-    - `docs/phase7_custom_cuda_kernel_spec.md` -> `### Entry criteria`
-    - `docs/phase7_custom_cuda_kernel_spec.md` -> `### M7.0 — Source audit and scope freeze`
+    - `docs/specs/phase7_custom_cuda_kernel_spec.md` -> `#### DD7.1 — Custom-kernel scope is limited to support-matrix-approved hotspot families ranked by interim profiling`
+    - `docs/specs/phase7_custom_cuda_kernel_spec.md` -> `#### Step 1 — Audit the exact local v2412 source, consume the frozen support matrix, and freeze the hotspot ranking`
+    - `docs/specs/phase7_custom_cuda_kernel_spec.md` -> `### Entry criteria`
+    - `docs/specs/phase7_custom_cuda_kernel_spec.md` -> `### M7.0 — Source audit and scope freeze`
   - Backlog scope:
     - `Generate the reviewed Phase 7 source-audit note and produce the hotspot ranking artifact that bounds custom-kernel scope.`
   - Backlog done_when:
@@ -64,20 +64,20 @@ Phase 7 owns `P7-01..P7-08` and delivers the custom CUDA hotspot replacement lay
   - Implement the narrow runtime control plane, POD device views, and host-side facade so custom kernels are selectable without exposing solver code to launch internals.
 - Exact citations:
   - Authority:
-    - `docs/continuity_ledger.md` -> `# 1. Frozen global decisions` (runtime normalization under `gpuRuntime`)
-    - `docs/graph_capture_support_matrix.md` -> `## Global Capture Rules`
-    - `docs/support_matrix.md` -> `## Global Policy`
-    - `docs/support_matrix.md` -> `## Backend and Operational Policy`
-    - `docs/support_matrix.json` -> `backend_operational_policy`
-    - `docs/semantic_source_map.md` -> `## Frozen Mapping`
-    - `docs/planning/pr_expansion/boundary_matrix.md` -> `### Phase 6 -> Phase 7`
+    - `docs/authority/continuity_ledger.md` -> `# 1. Frozen global decisions` (runtime normalization under `gpuRuntime`)
+    - `docs/authority/graph_capture_support_matrix.md` -> `## Global Capture Rules`
+    - `docs/authority/support_matrix.md` -> `## Global Policy`
+    - `docs/authority/support_matrix.md` -> `## Backend and Operational Policy`
+    - `docs/authority/support_matrix.json` -> `backend_operational_policy`
+    - `docs/authority/semantic_source_map.md` -> `## Frozen Mapping`
+    - `docs/tasks/boundary_matrix.md` -> `### Phase 6 -> Phase 7`
   - Phase spec or `README_FIRST` authority-order note for `FND-*`:
-    - `docs/phase7_custom_cuda_kernel_spec.md` -> `#### DD7.3 — Use a narrow host-side facade and POD device views`
-    - `docs/phase7_custom_cuda_kernel_spec.md` -> `#### DD7.4 — Default to persistent device allocations with stable addresses`
-    - `docs/phase7_custom_cuda_kernel_spec.md` -> `#### Step 2 — Add runtime controls and fallback switches`
-    - `docs/phase7_custom_cuda_kernel_spec.md` -> `#### Step 3 — Introduce POD device views and facade skeleton`
-    - `docs/phase7_custom_cuda_kernel_spec.md` -> `#### 2. New public host-side API`
-    - `docs/phase7_custom_cuda_kernel_spec.md` -> `#### 7. Runtime control object`
+    - `docs/specs/phase7_custom_cuda_kernel_spec.md` -> `#### DD7.3 — Use a narrow host-side facade and POD device views`
+    - `docs/specs/phase7_custom_cuda_kernel_spec.md` -> `#### DD7.4 — Default to persistent device allocations with stable addresses`
+    - `docs/specs/phase7_custom_cuda_kernel_spec.md` -> `#### Step 2 — Add runtime controls and fallback switches`
+    - `docs/specs/phase7_custom_cuda_kernel_spec.md` -> `#### Step 3 — Introduce POD device views and facade skeleton`
+    - `docs/specs/phase7_custom_cuda_kernel_spec.md` -> `#### 2. New public host-side API`
+    - `docs/specs/phase7_custom_cuda_kernel_spec.md` -> `#### 7. Runtime control object`
   - Backlog scope:
     - `Implement the Phase 7 controls parser, POD device views, and the host-side facade that hides kernel-launch details from solver code.`
   - Backlog done_when:
@@ -114,16 +114,16 @@ Phase 7 owns `P7-01..P7-08` and delivers the custom CUDA hotspot replacement lay
   - Build reusable adjacency preprocessing for segmented/gather execution without mixing it with correctness-kernel behavior.
 - Exact citations:
   - Authority:
-    - `docs/continuity_ledger.md` -> `# 1. Frozen global decisions` (device-resident hot path and no post-warmup churn)
-    - `docs/graph_capture_support_matrix.md` -> `## Global Capture Rules`
-    - `docs/support_matrix.md` -> `## Global Policy` (static mesh/no processor patch assumptions)
-    - `docs/planning/pr_expansion/05_phase3_execution_model.md` -> `## P3-07 Graph fingerprint, cache, and rebuild policy`
-    - `docs/planning/pr_expansion/boundary_matrix.md` -> `### Phase 6 -> Phase 7`
+    - `docs/authority/continuity_ledger.md` -> `# 1. Frozen global decisions` (device-resident hot path and no post-warmup churn)
+    - `docs/authority/graph_capture_support_matrix.md` -> `## Global Capture Rules`
+    - `docs/authority/support_matrix.md` -> `## Global Policy` (static mesh/no processor patch assumptions)
+    - `docs/tasks/05_phase3_execution_model.md` -> `## P3-07 Graph fingerprint, cache, and rebuild policy`
+    - `docs/tasks/boundary_matrix.md` -> `### Phase 6 -> Phase 7`
   - Phase spec or `README_FIRST` authority-order note for `FND-*`:
-    - `docs/phase7_custom_cuda_kernel_spec.md` -> `#### DD7.6 — Implement two limiter backends: atomic baseline and segmented/gather production backend`
-    - `docs/phase7_custom_cuda_kernel_spec.md` -> `#### Step 4 — Build adjacency preprocessing`
-    - `docs/phase7_custom_cuda_kernel_spec.md` -> `#### 2. Adjacency views for segmented/gather backend`
-    - `docs/phase7_custom_cuda_kernel_spec.md` -> `### M7.2 — Adjacency + scratch infrastructure`
+    - `docs/specs/phase7_custom_cuda_kernel_spec.md` -> `#### DD7.6 — Implement two limiter backends: atomic baseline and segmented/gather production backend`
+    - `docs/specs/phase7_custom_cuda_kernel_spec.md` -> `#### Step 4 — Build adjacency preprocessing`
+    - `docs/specs/phase7_custom_cuda_kernel_spec.md` -> `#### 2. Adjacency views for segmented/gather backend`
+    - `docs/specs/phase7_custom_cuda_kernel_spec.md` -> `### M7.2 — Adjacency + scratch infrastructure`
   - Backlog scope:
     - `Build the adjacency preprocessing needed by segmented/gather execution, keeping it separate from kernel correctness work.`
   - Backlog done_when:
@@ -159,16 +159,16 @@ Phase 7 owns `P7-01..P7-08` and delivers the custom CUDA hotspot replacement lay
   - Implement persistent scratch ownership and lifecycle rules for Phase 7 hotspots so hot-loop allocations are eliminated.
 - Exact citations:
   - Authority:
-    - `docs/continuity_ledger.md` -> `# 1. Frozen global decisions` (forbidden post-warmup dynamic allocation)
-    - `docs/graph_capture_support_matrix.md` -> `## Global Capture Rules` (no post-warmup allocation)
-    - `docs/planning/pr_expansion/04_phase2_gpu_memory_model.md` -> `## P2-11 Scratch catalog and Phase 2 gate bundle`
-    - `docs/planning/pr_expansion/04_phase2_gpu_memory_model.md` -> `## validation_checks` (Phase 2 -> Phase 3 seam includes `ScratchCatalog`)
+    - `docs/authority/continuity_ledger.md` -> `# 1. Frozen global decisions` (forbidden post-warmup dynamic allocation)
+    - `docs/authority/graph_capture_support_matrix.md` -> `## Global Capture Rules` (no post-warmup allocation)
+    - `docs/tasks/04_phase2_gpu_memory_model.md` -> `## P2-11 Scratch catalog and Phase 2 gate bundle`
+    - `docs/tasks/04_phase2_gpu_memory_model.md` -> `## validation_checks` (Phase 2 -> Phase 3 seam includes `ScratchCatalog`)
   - Phase spec or `README_FIRST` authority-order note for `FND-*`:
-    - `docs/phase7_custom_cuda_kernel_spec.md` -> `#### DD7.4 — Default to persistent device allocations with stable addresses`
-    - `docs/phase7_custom_cuda_kernel_spec.md` -> `#### Step 5 — Implement persistent scratch arena`
-    - `docs/phase7_custom_cuda_kernel_spec.md` -> `#### 6. Scratch arena`
-    - `docs/phase7_custom_cuda_kernel_spec.md` -> `#### 7. Memory lifetime rules`
-    - `docs/phase7_custom_cuda_kernel_spec.md` -> `#### 8. Memory budget rule`
+    - `docs/specs/phase7_custom_cuda_kernel_spec.md` -> `#### DD7.4 — Default to persistent device allocations with stable addresses`
+    - `docs/specs/phase7_custom_cuda_kernel_spec.md` -> `#### Step 5 — Implement persistent scratch arena`
+    - `docs/specs/phase7_custom_cuda_kernel_spec.md` -> `#### 6. Scratch arena`
+    - `docs/specs/phase7_custom_cuda_kernel_spec.md` -> `#### 7. Memory lifetime rules`
+    - `docs/specs/phase7_custom_cuda_kernel_spec.md` -> `#### 8. Memory budget rule`
   - Backlog scope:
     - `Implement the persistent scratch arena and its ownership/lifetime rules for custom-kernel hot paths.`
   - Backlog done_when:
@@ -206,24 +206,24 @@ Phase 7 owns `P7-01..P7-08` and delivers the custom CUDA hotspot replacement lay
   - Deliver the atomic baseline backend for alpha/MULES hotspots as the first correctness line before segmented optimization.
 - Exact citations:
   - Authority:
-    - `docs/continuity_ledger.md` -> `# 1. Frozen global decisions` (canonical algebraic VOF family and GPU-only contract)
-    - `docs/support_matrix.md` -> `## Exact Audited Scheme Tuple`
-    - `docs/support_matrix.json` -> `exact_audited_scheme_tuple`
-    - `docs/reference_case_contract.md` -> `## Phase-Gate Mapping` (`R2`, `R1-core`, `R1` usage)
-    - `docs/acceptance_manifest.md` -> `## Exact Threshold Classes`
-    - `docs/acceptance_manifest.json` -> `threshold_classes.field_qoi`
-    - `docs/graph_capture_support_matrix.md` -> `## Canonical Stage IDs` (`alpha_pre`, `alpha_subcycle_body`)
-    - `docs/planning/pr_expansion/07_phase5_generic_vof_core.md` -> `## P5-06 Full alpha + MULES + subcycling`
-    - `docs/planning/pr_expansion/07_phase5_generic_vof_core.md` -> `## P5-07 Mixture update and interface/surface-tension subset`
+    - `docs/authority/continuity_ledger.md` -> `# 1. Frozen global decisions` (canonical algebraic VOF family and GPU-only contract)
+    - `docs/authority/support_matrix.md` -> `## Exact Audited Scheme Tuple`
+    - `docs/authority/support_matrix.json` -> `exact_audited_scheme_tuple`
+    - `docs/authority/reference_case_contract.md` -> `## Phase-Gate Mapping` (`R2`, `R1-core`, `R1` usage)
+    - `docs/authority/acceptance_manifest.md` -> `## Exact Threshold Classes`
+    - `docs/authority/acceptance_manifest.json` -> `threshold_classes.field_qoi`
+    - `docs/authority/graph_capture_support_matrix.md` -> `## Canonical Stage IDs` (`alpha_pre`, `alpha_subcycle_body`)
+    - `docs/tasks/07_phase5_generic_vof_core.md` -> `## P5-06 Full alpha + MULES + subcycling`
+    - `docs/tasks/07_phase5_generic_vof_core.md` -> `## P5-07 Mixture update and interface/surface-tension subset`
   - Phase spec or `README_FIRST` authority-order note for `FND-*`:
-    - `docs/phase7_custom_cuda_kernel_spec.md` -> `#### DD7.6 — Implement two limiter backends: atomic baseline and segmented/gather production backend`
-    - `docs/phase7_custom_cuda_kernel_spec.md` -> `#### Step 7 — Implement atomic alpha-flux assembly kernels`
-    - `docs/phase7_custom_cuda_kernel_spec.md` -> `#### Step 8 — Implement atomic phiBD, phiCorr, SuCorr construction`
-    - `docs/phase7_custom_cuda_kernel_spec.md` -> `#### Step 9 — Implement atomic limiter preprocessing and face-lambda update`
-    - `docs/phase7_custom_cuda_kernel_spec.md` -> `#### Step 10 — Implement explicit alpha update and fused two-phase update`
-    - `docs/phase7_custom_cuda_kernel_spec.md` -> `#### Step 11 — Integrate atomic backend with solver and stop for the first benchmark`
-    - `docs/phase7_custom_cuda_kernel_spec.md` -> `### Validation strategy`
-    - `docs/phase7_custom_cuda_kernel_spec.md` -> `### M7.3 — Atomic alpha/MULES correctness path`
+    - `docs/specs/phase7_custom_cuda_kernel_spec.md` -> `#### DD7.6 — Implement two limiter backends: atomic baseline and segmented/gather production backend`
+    - `docs/specs/phase7_custom_cuda_kernel_spec.md` -> `#### Step 7 — Implement atomic alpha-flux assembly kernels`
+    - `docs/specs/phase7_custom_cuda_kernel_spec.md` -> `#### Step 8 — Implement atomic phiBD, phiCorr, SuCorr construction`
+    - `docs/specs/phase7_custom_cuda_kernel_spec.md` -> `#### Step 9 — Implement atomic limiter preprocessing and face-lambda update`
+    - `docs/specs/phase7_custom_cuda_kernel_spec.md` -> `#### Step 10 — Implement explicit alpha update and fused two-phase update`
+    - `docs/specs/phase7_custom_cuda_kernel_spec.md` -> `#### Step 11 — Integrate atomic backend with solver and stop for the first benchmark`
+    - `docs/specs/phase7_custom_cuda_kernel_spec.md` -> `### Validation strategy`
+    - `docs/specs/phase7_custom_cuda_kernel_spec.md` -> `### M7.3 — Atomic alpha/MULES correctness path`
   - Backlog scope:
     - `Implement the atomic baseline for the Phase 7 alpha/MULES hotspot family as the first correctness line.`
   - Backlog done_when:
@@ -262,26 +262,26 @@ Phase 7 owns `P7-01..P7-08` and delivers the custom CUDA hotspot replacement lay
   - Implement interface and patch kernel families for the admitted `R1`/`R0` subset without widening contact-angle, scheme, or BC scope.
 - Exact citations:
   - Authority:
-    - `docs/support_matrix.md` -> `## Global Policy`
-    - `docs/support_matrix.md` -> `## Exact Audited Scheme Tuple`
-    - `docs/support_matrix.md` -> `## Phase 6 Nozzle-Specific Envelope`
-    - `docs/support_matrix.json` -> `phase6_nozzle_specific_envelope`
-    - `docs/support_matrix.json` -> `accepted_nozzle_case_family_boundary_tuple`
-    - `docs/continuity_ledger.md` -> `# 1. Frozen global decisions` (contact-angle out-of-scope unless authority changes)
-    - `docs/graph_capture_support_matrix.md` -> `## Canonical Stage IDs` (`nozzle_bc_update`, `mixture_update`)
-    - `docs/planning/pr_expansion/08_phase6_pressure_swirl_nozzle_bc_startup.md` -> `## P6-10 Solver-stage integration, graph-safety hardening, and Phase 6 acceptance`
-    - `docs/planning/pr_expansion/08_phase6_pressure_swirl_nozzle_bc_startup.md` -> `## open_discontinuities`
-    - `docs/planning/pr_expansion/boundary_matrix.md` -> `### Phase 6 -> Phase 7`
+    - `docs/authority/support_matrix.md` -> `## Global Policy`
+    - `docs/authority/support_matrix.md` -> `## Exact Audited Scheme Tuple`
+    - `docs/authority/support_matrix.md` -> `## Phase 6 Nozzle-Specific Envelope`
+    - `docs/authority/support_matrix.json` -> `phase6_nozzle_specific_envelope`
+    - `docs/authority/support_matrix.json` -> `accepted_nozzle_case_family_boundary_tuple`
+    - `docs/authority/continuity_ledger.md` -> `# 1. Frozen global decisions` (contact-angle out-of-scope unless authority changes)
+    - `docs/authority/graph_capture_support_matrix.md` -> `## Canonical Stage IDs` (`nozzle_bc_update`, `mixture_update`)
+    - `docs/tasks/08_phase6_pressure_swirl_nozzle_bc_startup.md` -> `## P6-10 Solver-stage integration, graph-safety hardening, and Phase 6 acceptance`
+    - `docs/tasks/08_phase6_pressure_swirl_nozzle_bc_startup.md` -> `## open_discontinuities`
+    - `docs/tasks/boundary_matrix.md` -> `### Phase 6 -> Phase 7`
   - Phase spec or `README_FIRST` authority-order note for `FND-*`:
-    - `docs/phase7_custom_cuda_kernel_spec.md` -> `#### DD7.8 — Support only the audited scheme subset in custom kernels`
-    - `docs/phase7_custom_cuda_kernel_spec.md` -> `#### DD7.9 — Boundary-condition dispatch happens on host; boundary math happens on device`
-    - `docs/phase7_custom_cuda_kernel_spec.md` -> `#### Step 12 — Implement interface gradient/interpolation/normal kernels`
-    - `docs/phase7_custom_cuda_kernel_spec.md` -> `#### Step 13 — If required by the frozen acceptance cases, implement contact-angle patch kernels`
-    - `docs/phase7_custom_cuda_kernel_spec.md` -> `#### Step 14 — Implement curvature, sigmaK, and surface-tension force kernels`
-    - `docs/phase7_custom_cuda_kernel_spec.md` -> `#### Step 15 — Implement patch dispatcher and nozzle-specific patch kernels`
-    - `docs/phase7_custom_cuda_kernel_spec.md` -> `##### F5. Interface normal and curvature`
-    - `docs/phase7_custom_cuda_kernel_spec.md` -> `##### F6. Contact-angle correction`
-    - `docs/phase7_custom_cuda_kernel_spec.md` -> `##### F7. Patch kernels`
+    - `docs/specs/phase7_custom_cuda_kernel_spec.md` -> `#### DD7.8 — Support only the audited scheme subset in custom kernels`
+    - `docs/specs/phase7_custom_cuda_kernel_spec.md` -> `#### DD7.9 — Boundary-condition dispatch happens on host; boundary math happens on device`
+    - `docs/specs/phase7_custom_cuda_kernel_spec.md` -> `#### Step 12 — Implement interface gradient/interpolation/normal kernels`
+    - `docs/specs/phase7_custom_cuda_kernel_spec.md` -> `#### Step 13 — If required by the frozen acceptance cases, implement contact-angle patch kernels`
+    - `docs/specs/phase7_custom_cuda_kernel_spec.md` -> `#### Step 14 — Implement curvature, sigmaK, and surface-tension force kernels`
+    - `docs/specs/phase7_custom_cuda_kernel_spec.md` -> `#### Step 15 — Implement patch dispatcher and nozzle-specific patch kernels`
+    - `docs/specs/phase7_custom_cuda_kernel_spec.md` -> `##### F5. Interface normal and curvature`
+    - `docs/specs/phase7_custom_cuda_kernel_spec.md` -> `##### F6. Contact-angle correction`
+    - `docs/specs/phase7_custom_cuda_kernel_spec.md` -> `##### F7. Patch kernels`
   - Backlog scope:
     - `Implement the accepted interface and patch kernel family for the exact patch/scheme subset used by R1 / R0.`
   - Backlog done_when:
@@ -320,19 +320,19 @@ Phase 7 owns `P7-01..P7-08` and delivers the custom CUDA hotspot replacement lay
   - Implement segmented/gather production backend for repeated face-to-cell accumulation and compare against atomic baseline on the profiled hotspot set.
 - Exact citations:
   - Authority:
-    - `docs/continuity_ledger.md` -> `# 1. Frozen global decisions` (device-resident hot path and no silent fallback)
-    - `docs/support_matrix.md` -> `## Exact Audited Scheme Tuple`
-    - `docs/acceptance_manifest.md` -> `## Coverage Rules`
-    - `docs/acceptance_manifest.md` -> `## Exact Threshold Classes`
-    - `docs/acceptance_manifest.json` -> `threshold_classes.parity_replay.KP_CUSTOM_VS_BASELINE`
-    - `docs/planning/pr_expansion/boundary_matrix.md` -> `### Phase 6 -> Phase 7`
+    - `docs/authority/continuity_ledger.md` -> `# 1. Frozen global decisions` (device-resident hot path and no silent fallback)
+    - `docs/authority/support_matrix.md` -> `## Exact Audited Scheme Tuple`
+    - `docs/authority/acceptance_manifest.md` -> `## Coverage Rules`
+    - `docs/authority/acceptance_manifest.md` -> `## Exact Threshold Classes`
+    - `docs/authority/acceptance_manifest.json` -> `threshold_classes.parity_replay.KP_CUSTOM_VS_BASELINE`
+    - `docs/tasks/boundary_matrix.md` -> `### Phase 6 -> Phase 7`
   - Phase spec or `README_FIRST` authority-order note for `FND-*`:
-    - `docs/phase7_custom_cuda_kernel_spec.md` -> `#### DD7.6 — Implement two limiter backends: atomic baseline and segmented/gather production backend`
-    - `docs/phase7_custom_cuda_kernel_spec.md` -> `#### Step 17 — Implement segmented/gather backend for repeated face-to-cell accumulation`
-    - `docs/phase7_custom_cuda_kernel_spec.md` -> `#### Step 18 — Switch MULES production backend to segmented and keep atomic as fallback`
-    - `docs/phase7_custom_cuda_kernel_spec.md` -> `#### 2. Adjacency views for segmented/gather backend`
-    - `docs/phase7_custom_cuda_kernel_spec.md` -> `### Performance expectations`
-    - `docs/phase7_custom_cuda_kernel_spec.md` -> `### M7.5 — Segmented production backend`
+    - `docs/specs/phase7_custom_cuda_kernel_spec.md` -> `#### DD7.6 — Implement two limiter backends: atomic baseline and segmented/gather production backend`
+    - `docs/specs/phase7_custom_cuda_kernel_spec.md` -> `#### Step 17 — Implement segmented/gather backend for repeated face-to-cell accumulation`
+    - `docs/specs/phase7_custom_cuda_kernel_spec.md` -> `#### Step 18 — Switch MULES production backend to segmented and keep atomic as fallback`
+    - `docs/specs/phase7_custom_cuda_kernel_spec.md` -> `#### 2. Adjacency views for segmented/gather backend`
+    - `docs/specs/phase7_custom_cuda_kernel_spec.md` -> `### Performance expectations`
+    - `docs/specs/phase7_custom_cuda_kernel_spec.md` -> `### M7.5 — Segmented production backend`
   - Backlog scope:
     - `Implement the segmented/gather production backend and compare it against the atomic path on the profiled hotspot set.`
   - Backlog done_when:
@@ -371,28 +371,28 @@ Phase 7 owns `P7-01..P7-08` and delivers the custom CUDA hotspot replacement lay
   - Remove remaining capture hazards, validate approved-stage graph compatibility, and publish the final Phase 7 regression/comparison package for Phase 8 ownership.
 - Exact citations:
   - Authority:
-    - `docs/graph_capture_support_matrix.md` -> `## Run Modes`
-    - `docs/graph_capture_support_matrix.md` -> `## Canonical Stage IDs`
-    - `docs/graph_capture_support_matrix.md` -> `## Global Capture Rules`
-    - `docs/graph_capture_support_matrix.json` -> `run_modes`
-    - `docs/graph_capture_support_matrix.json` -> `stages`
-    - `docs/graph_capture_support_matrix.json` -> `global_capture_rules`
-    - `docs/acceptance_manifest.md` -> `## Accepted Tuple Matrix`
-    - `docs/acceptance_manifest.md` -> `## Coverage Rules`
-    - `docs/acceptance_manifest.md` -> `## Hard Gates`
-    - `docs/acceptance_manifest.md` -> `## Disposition Rules`
-    - `docs/acceptance_manifest.json` -> `hard_gates`
-    - `docs/continuity_ledger.md` -> `# 1. Frozen global decisions` (forbidden silent fallback and production GPU-only contract)
-    - `docs/planning/pr_expansion/boundary_matrix.md` -> `### Phase 6 -> Phase 7`
-    - `docs/planning/pr_expansion/boundary_matrix.md` -> `### Phase 7 -> Phase 8`
-    - `docs/planning/pr_expansion/10_phase8_profiling_performance_acceptance.md` -> `## P8-09 Baseline locks and CI/nightly integration (Deferred to Pass B)`
+    - `docs/authority/graph_capture_support_matrix.md` -> `## Run Modes`
+    - `docs/authority/graph_capture_support_matrix.md` -> `## Canonical Stage IDs`
+    - `docs/authority/graph_capture_support_matrix.md` -> `## Global Capture Rules`
+    - `docs/authority/graph_capture_support_matrix.json` -> `run_modes`
+    - `docs/authority/graph_capture_support_matrix.json` -> `stages`
+    - `docs/authority/graph_capture_support_matrix.json` -> `global_capture_rules`
+    - `docs/authority/acceptance_manifest.md` -> `## Accepted Tuple Matrix`
+    - `docs/authority/acceptance_manifest.md` -> `## Coverage Rules`
+    - `docs/authority/acceptance_manifest.md` -> `## Hard Gates`
+    - `docs/authority/acceptance_manifest.md` -> `## Disposition Rules`
+    - `docs/authority/acceptance_manifest.json` -> `hard_gates`
+    - `docs/authority/continuity_ledger.md` -> `# 1. Frozen global decisions` (forbidden silent fallback and production GPU-only contract)
+    - `docs/tasks/boundary_matrix.md` -> `### Phase 6 -> Phase 7`
+    - `docs/tasks/boundary_matrix.md` -> `### Phase 7 -> Phase 8`
+    - `docs/tasks/10_phase8_profiling_performance_acceptance.md` -> `## P8-09 Baseline locks and CI/nightly integration (Deferred to Pass B)`
   - Phase spec or `README_FIRST` authority-order note for `FND-*`:
-    - `docs/phase7_custom_cuda_kernel_spec.md` -> `#### Step 19 — Add graph-safety cleanup and capture validation`
-    - `docs/phase7_custom_cuda_kernel_spec.md` -> `#### Step 20 — Final profiling and acceptance run`
-    - `docs/phase7_custom_cuda_kernel_spec.md` -> `### Acceptance checklist`
-    - `docs/phase7_custom_cuda_kernel_spec.md` -> `### M7.6 — Graph-safety cleanup and capture validation`
-    - `docs/phase7_custom_cuda_kernel_spec.md` -> `### M7.7 — Final nozzle regression package`
-    - `docs/phase7_custom_cuda_kernel_spec.md` -> `### Instrumentation and profiling hooks`
+    - `docs/specs/phase7_custom_cuda_kernel_spec.md` -> `#### Step 19 — Add graph-safety cleanup and capture validation`
+    - `docs/specs/phase7_custom_cuda_kernel_spec.md` -> `#### Step 20 — Final profiling and acceptance run`
+    - `docs/specs/phase7_custom_cuda_kernel_spec.md` -> `### Acceptance checklist`
+    - `docs/specs/phase7_custom_cuda_kernel_spec.md` -> `### M7.6 — Graph-safety cleanup and capture validation`
+    - `docs/specs/phase7_custom_cuda_kernel_spec.md` -> `### M7.7 — Final nozzle regression package`
+    - `docs/specs/phase7_custom_cuda_kernel_spec.md` -> `### Instrumentation and profiling hooks`
   - Backlog scope:
     - `Remove remaining capture hazards, validate graph compatibility of the chosen custom-kernel path, and generate the final Phase 7 regression/comparison package.`
   - Backlog done_when:
@@ -466,9 +466,9 @@ Phase 7 owns `P7-01..P7-08` and delivers the custom CUDA hotspot replacement lay
 
 ## open_discontinuities
 
-- `[tracked] phase6_phase7_hotspot_scope_lock`: Phase 7 may replace hotspot backends but may not widen admitted BC kinds, scheme tuple, contact-angle scope, or graph semantics. Impacted PR IDs: `P7-01`, `P7-02`, `P7-03`, `P7-04`, `P7-06`. Citations: `docs/planning/pr_expansion/boundary_matrix.md` -> `### Phase 6 -> Phase 7`, `docs/planning/pr_expansion/08_phase6_pressure_swirl_nozzle_bc_startup.md` -> `## open_discontinuities`, `docs/support_matrix.md` -> `## Exact Audited Scheme Tuple`, `docs/support_matrix.md` -> `## Phase 6 Nozzle-Specific Envelope`. Preferred reading: treat Phase 5/6 behavior as frozen contracts and Phase 7 as replaceable backend implementation only.
-- `[tracked] contact_angle_conditionality_guard`: Contact-angle remains out of milestone-1 scope unless centrally promoted; Phase 7 step logic mentions conditional implementation and must not self-admit scope changes. Impacted PR IDs: `P7-06`, `P7-08`. Citations: `docs/continuity_ledger.md` -> `# 1. Frozen global decisions`, `docs/support_matrix.md` -> `## Global Policy`, `docs/phase7_custom_cuda_kernel_spec.md` -> `#### Step 13 — If required by the frozen acceptance cases, implement contact-angle patch kernels`. Preferred reading: keep contact-angle path disabled/placeholder unless authority docs explicitly change.
-- `[tracked] phase7_phase8_formal_acceptance_boundary`: Phase 7 produces benchmark/regression evidence, but formal baseline locking and CI/nightly policy remain Phase 8 pass-B ownership. Impacted PR IDs: `P7-08`, `P8-09`. Citations: `docs/planning/pr_expansion/boundary_matrix.md` -> `### Phase 7 -> Phase 8`, `docs/planning/pr_expansion/10_phase8_profiling_performance_acceptance.md` -> `## P8-09 Baseline locks and CI/nightly integration (Deferred to Pass B)`, `docs/acceptance_manifest.md` -> `## Disposition Rules`. Preferred reading: Phase 7 exports evidence only; Phase 8 issues formal lock verdicts.
+- `[tracked] phase6_phase7_hotspot_scope_lock`: Phase 7 may replace hotspot backends but may not widen admitted BC kinds, scheme tuple, contact-angle scope, or graph semantics. Impacted PR IDs: `P7-01`, `P7-02`, `P7-03`, `P7-04`, `P7-06`. Citations: `docs/tasks/boundary_matrix.md` -> `### Phase 6 -> Phase 7`, `docs/tasks/08_phase6_pressure_swirl_nozzle_bc_startup.md` -> `## open_discontinuities`, `docs/authority/support_matrix.md` -> `## Exact Audited Scheme Tuple`, `docs/authority/support_matrix.md` -> `## Phase 6 Nozzle-Specific Envelope`. Preferred reading: treat Phase 5/6 behavior as frozen contracts and Phase 7 as replaceable backend implementation only.
+- `[tracked] contact_angle_conditionality_guard`: Contact-angle remains out of milestone-1 scope unless centrally promoted; Phase 7 step logic mentions conditional implementation and must not self-admit scope changes. Impacted PR IDs: `P7-06`, `P7-08`. Citations: `docs/authority/continuity_ledger.md` -> `# 1. Frozen global decisions`, `docs/authority/support_matrix.md` -> `## Global Policy`, `docs/specs/phase7_custom_cuda_kernel_spec.md` -> `#### Step 13 — If required by the frozen acceptance cases, implement contact-angle patch kernels`. Preferred reading: keep contact-angle path disabled/placeholder unless authority docs explicitly change.
+- `[tracked] phase7_phase8_formal_acceptance_boundary`: Phase 7 produces benchmark/regression evidence, but formal baseline locking and CI/nightly policy remain Phase 8 pass-B ownership. Impacted PR IDs: `P7-08`, `P8-09`. Citations: `docs/tasks/boundary_matrix.md` -> `### Phase 7 -> Phase 8`, `docs/tasks/10_phase8_profiling_performance_acceptance.md` -> `## P8-09 Baseline locks and CI/nightly integration (Deferred to Pass B)`, `docs/authority/acceptance_manifest.md` -> `## Disposition Rules`. Preferred reading: Phase 7 exports evidence only; Phase 8 issues formal lock verdicts.
 
 ## validation_checks
 

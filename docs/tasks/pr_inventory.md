@@ -1,10 +1,10 @@
 # PR Inventory
 
-This inventory is copied from [gpu_cfd_pr_backlog.json](/Users/rexputnam/Documents/projects/gpu_cfd/docs/PRs/gpu_cfd_pr_backlog.json). Each PR ID must appear once and only once across the section docs.
+This inventory is copied from [gpu_cfd_pr_backlog.json](/Users/rexputnam/Documents/projects/gpu_cfd/docs/backlog/gpu_cfd_pr_backlog.json). Each PR ID must appear once and only once across the section docs.
 
 ## Foundation / authority consumption
 
-- File owner: [01_foundation_authority_consumption.md](/Users/rexputnam/Documents/projects/gpu_cfd/docs/planning/pr_expansion/01_foundation_authority_consumption.md)
+- File owner: [01_foundation_authority_consumption.md](/Users/rexputnam/Documents/projects/gpu_cfd/docs/tasks/01_foundation_authority_consumption.md)
 - PR range: `FND-01..FND-07`
 - PRs:
   - `FND-01` Authority ingestion scaffold
@@ -17,7 +17,7 @@ This inventory is copied from [gpu_cfd_pr_backlog.json](/Users/rexputnam/Documen
 
 ## Phase 0 — Reference problem freeze
 
-- File owner: [02_phase0_reference_problem_freeze.md](/Users/rexputnam/Documents/projects/gpu_cfd/docs/planning/pr_expansion/02_phase0_reference_problem_freeze.md)
+- File owner: [02_phase0_reference_problem_freeze.md](/Users/rexputnam/Documents/projects/gpu_cfd/docs/tasks/02_phase0_reference_problem_freeze.md)
 - PR range: `P0-01..P0-08`
 - PRs:
   - `P0-01` Environment probe hardening
@@ -31,7 +31,7 @@ This inventory is copied from [gpu_cfd_pr_backlog.json](/Users/rexputnam/Documen
 
 ## Phase 1 — Blackwell bring-up
 
-- File owner: [03_phase1_blackwell_bringup.md](/Users/rexputnam/Documents/projects/gpu_cfd/docs/planning/pr_expansion/03_phase1_blackwell_bringup.md)
+- File owner: [03_phase1_blackwell_bringup.md](/Users/rexputnam/Documents/projects/gpu_cfd/docs/tasks/03_phase1_blackwell_bringup.md)
 - PR range: `P1-01..P1-07`
 - PRs:
   - `P1-01` Host and CUDA discovery probes
@@ -44,7 +44,7 @@ This inventory is copied from [gpu_cfd_pr_backlog.json](/Users/rexputnam/Documen
 
 ## Phase 2 — GPU memory model
 
-- File owner: [04_phase2_gpu_memory_model.md](/Users/rexputnam/Documents/projects/gpu_cfd/docs/planning/pr_expansion/04_phase2_gpu_memory_model.md)
+- File owner: [04_phase2_gpu_memory_model.md](/Users/rexputnam/Documents/projects/gpu_cfd/docs/tasks/04_phase2_gpu_memory_model.md)
 - PR range: `P2-01..P2-11`
 - PRs:
   - `P2-01` Canonical `gpuRuntime.memory` parser
@@ -61,7 +61,7 @@ This inventory is copied from [gpu_cfd_pr_backlog.json](/Users/rexputnam/Documen
 
 ## Phase 3 — Execution model
 
-- File owner: [05_phase3_execution_model.md](/Users/rexputnam/Documents/projects/gpu_cfd/docs/planning/pr_expansion/05_phase3_execution_model.md)
+- File owner: [05_phase3_execution_model.md](/Users/rexputnam/Documents/projects/gpu_cfd/docs/tasks/05_phase3_execution_model.md)
 - PR range: `P3-01..P3-08`
 - PRs:
   - `P3-01` Synchronization and stream inventory
@@ -75,7 +75,7 @@ This inventory is copied from [gpu_cfd_pr_backlog.json](/Users/rexputnam/Documen
 
 ## Phase 4 — Pressure linear algebra
 
-- File owner: [06_phase4_pressure_linear_algebra.md](/Users/rexputnam/Documents/projects/gpu_cfd/docs/planning/pr_expansion/06_phase4_pressure_linear_algebra.md)
+- File owner: [06_phase4_pressure_linear_algebra.md](/Users/rexputnam/Documents/projects/gpu_cfd/docs/tasks/06_phase4_pressure_linear_algebra.md)
 - PR range: `P4-01..P4-09`
 - PRs:
   - `P4-01` Dependency freeze and standalone AmgX smoke
@@ -90,7 +90,7 @@ This inventory is copied from [gpu_cfd_pr_backlog.json](/Users/rexputnam/Documen
 
 ## Phase 5 — Generic VOF core
 
-- File owner: [07_phase5_generic_vof_core.md](/Users/rexputnam/Documents/projects/gpu_cfd/docs/planning/pr_expansion/07_phase5_generic_vof_core.md)
+- File owner: [07_phase5_generic_vof_core.md](/Users/rexputnam/Documents/projects/gpu_cfd/docs/tasks/07_phase5_generic_vof_core.md)
 - PR range: `P5-01..P5-11`
 - PRs:
   - `P5-01` Phase 5 symbol reconciliation note
@@ -107,7 +107,7 @@ This inventory is copied from [gpu_cfd_pr_backlog.json](/Users/rexputnam/Documen
 
 ## Phase 6 — Pressure-swirl nozzle boundary conditions and startup
 
-- File owner: [08_phase6_pressure_swirl_nozzle_bc_startup.md](/Users/rexputnam/Documents/projects/gpu_cfd/docs/planning/pr_expansion/08_phase6_pressure_swirl_nozzle_bc_startup.md)
+- File owner: [08_phase6_pressure_swirl_nozzle_bc_startup.md](/Users/rexputnam/Documents/projects/gpu_cfd/docs/tasks/08_phase6_pressure_swirl_nozzle_bc_startup.md)
 - PR range: `P6-01..P6-10`
 - PRs:
   - `P6-01` Boundary support report and patch classifier
@@ -123,7 +123,7 @@ This inventory is copied from [gpu_cfd_pr_backlog.json](/Users/rexputnam/Documen
 
 ## Phase 7 — Custom CUDA kernels
 
-- File owner: [09_phase7_custom_cuda_kernels.md](/Users/rexputnam/Documents/projects/gpu_cfd/docs/planning/pr_expansion/09_phase7_custom_cuda_kernels.md)
+- File owner: [09_phase7_custom_cuda_kernels.md](/Users/rexputnam/Documents/projects/gpu_cfd/docs/tasks/09_phase7_custom_cuda_kernels.md)
 - PR range: `P7-01..P7-08`
 - PRs:
   - `P7-01` Phase 7 source audit and hotspot ranking
@@ -137,7 +137,7 @@ This inventory is copied from [gpu_cfd_pr_backlog.json](/Users/rexputnam/Documen
 
 ## Phase 8 — Profiling and performance acceptance
 
-- File owner: [10_phase8_profiling_performance_acceptance.md](/Users/rexputnam/Documents/projects/gpu_cfd/docs/planning/pr_expansion/10_phase8_profiling_performance_acceptance.md)
+- File owner: [10_phase8_profiling_performance_acceptance.md](/Users/rexputnam/Documents/projects/gpu_cfd/docs/tasks/10_phase8_profiling_performance_acceptance.md)
 - PR range: `P8-01..P8-09`
 - Pass A (`P8-01..P8-08`): instrumentation and profiling substrate needed by downstream phases.
 - Pass B (`P8-09`): baseline locks and CI/nightly integration after Phase 7 stability.

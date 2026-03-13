@@ -7,7 +7,7 @@ This matrix records the seam rules between section docs. Earlier phases define c
 - Authority docs and JSON companions outrank phase prose when they conflict.
 - Section docs may refine implementation sequencing but may not widen support scope, fallback policy, solver-family choices, acceptance thresholds, or graph-stage IDs.
 - If a seam is resolvable from the docs, update the affected section docs and keep this matrix aligned.
-- If a seam is not resolvable from the docs, add a decision note in [decision_notes.md](/Users/rexputnam/Documents/projects/gpu_cfd/docs/planning/pr_expansion/decision_notes.md) and mark the impacted PRs as blocked until resolved.
+- If a seam is not resolvable from the docs, add a decision note in [decision_notes.md](/Users/rexputnam/Documents/projects/gpu_cfd/docs/tasks/decision_notes.md) and mark the impacted PRs as blocked until resolved.
 
 ## Seam Review Matrix
 

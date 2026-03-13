@@ -8,13 +8,13 @@ Foundation owns `FND-01..FND-07` and provides the frozen contract layer consumed
   - Create one authoritative loader/validator for all package-level authority docs and JSON companions so every later tool consumes the same typed decisions.
 - Exact citations:
   - Authority:
-    - `docs/continuity_ledger.md` -> `# 4. Central Package Authorities`
-    - `docs/continuity_ledger.md` -> `# 5. Package Consumption Rule`
-    - `docs/continuity_ledger.md` -> `# 1. Frozen global decisions` (runtime configuration normalization and ownership centralization)
-    - `docs/reference_case_contract.json` (machine-readable case-role source)
-    - `docs/support_matrix.json` (machine-readable support-scope source)
-    - `docs/acceptance_manifest.json` (machine-readable acceptance source)
-    - `docs/graph_capture_support_matrix.json` (machine-readable stage-policy source)
+    - `docs/authority/continuity_ledger.md` -> `# 4. Central Package Authorities`
+    - `docs/authority/continuity_ledger.md` -> `# 5. Package Consumption Rule`
+    - `docs/authority/continuity_ledger.md` -> `# 1. Frozen global decisions` (runtime configuration normalization and ownership centralization)
+    - `docs/authority/reference_case_contract.json` (machine-readable case-role source)
+    - `docs/authority/support_matrix.json` (machine-readable support-scope source)
+    - `docs/authority/acceptance_manifest.json` (machine-readable acceptance source)
+    - `docs/authority/graph_capture_support_matrix.json` (machine-readable stage-policy source)
   - Phase spec or `README_FIRST` authority-order note for `FND-*`:
     - `docs/README_FIRST.md` -> `## Authoritative docs`
     - `docs/README_FIRST.md` -> `## Consumption rules`
@@ -54,11 +54,11 @@ Foundation owns `FND-01..FND-07` and provides the frozen contract layer consumed
   - Normalize toolchain/source/profiler pins into machine-readable manifests used by build, run, and profiling workflows.
 - Exact citations:
   - Authority:
-    - `docs/master_pin_manifest.md` -> `## Frozen Defaults`
-    - `docs/master_pin_manifest.md` -> `## Resolved Frozen Source Tuple`
-    - `docs/master_pin_manifest.md` -> `## Consumption Rules`
-    - `docs/master_pin_manifest.md` -> `## Required Revalidation If This Manifest Changes`
-    - `docs/continuity_ledger.md` -> `# 1. Frozen global decisions` (source/version/toolchain pin ownership)
+    - `docs/authority/master_pin_manifest.md` -> `## Frozen Defaults`
+    - `docs/authority/master_pin_manifest.md` -> `## Resolved Frozen Source Tuple`
+    - `docs/authority/master_pin_manifest.md` -> `## Consumption Rules`
+    - `docs/authority/master_pin_manifest.md` -> `## Required Revalidation If This Manifest Changes`
+    - `docs/authority/continuity_ledger.md` -> `# 1. Frozen global decisions` (source/version/toolchain pin ownership)
   - Phase spec or `README_FIRST` authority-order note for `FND-*`:
     - `docs/README_FIRST.md` -> `## Authoritative docs`
     - `docs/README_FIRST.md` -> `## Consumption rules`
@@ -101,12 +101,12 @@ Foundation owns `FND-01..FND-07` and provides the frozen contract layer consumed
   - Provide canonical case and ladder resolution helpers so every phase selects `R2 -> R1-core -> R1 -> R0` by role, never by ad hoc strings.
 - Exact citations:
   - Authority:
-    - `docs/reference_case_contract.md` -> `## Frozen Cases`
-    - `docs/reference_case_contract.md` -> `## Phase-Gate Mapping`
-    - `docs/reference_case_contract.md` -> `## Locked Defaults`
-    - `docs/reference_case_contract.json` -> `frozen_cases`, `phase_gate_mapping`, `locked_defaults`
-    - `docs/validation_ladder.md` -> `## Frozen Ladder`
-    - `docs/validation_ladder.md` -> `## Usage Rule`
+    - `docs/authority/reference_case_contract.md` -> `## Frozen Cases`
+    - `docs/authority/reference_case_contract.md` -> `## Phase-Gate Mapping`
+    - `docs/authority/reference_case_contract.md` -> `## Locked Defaults`
+    - `docs/authority/reference_case_contract.json` -> `frozen_cases`, `phase_gate_mapping`, `locked_defaults`
+    - `docs/authority/validation_ladder.md` -> `## Frozen Ladder`
+    - `docs/authority/validation_ladder.md` -> `## Usage Rule`
   - Phase spec or `README_FIRST` authority-order note for `FND-*`:
     - `docs/README_FIRST.md` -> `## Authoritative docs`
     - `docs/README_FIRST.md` -> `## Consumption rules`
@@ -149,14 +149,14 @@ Foundation owns `FND-01..FND-07` and provides the frozen contract layer consumed
   - Centralize admissibility checks for schemes, BCs, functionObjects, turbulence/contact-angle scope, backend eligibility, and fallback policy.
 - Exact citations:
   - Authority:
-    - `docs/support_matrix.md` -> `## Global Policy`
-    - `docs/support_matrix.md` -> `## Exact Audited Scheme Tuple`
-    - `docs/support_matrix.md` -> `## FunctionObject Classification`
-    - `docs/support_matrix.md` -> `## Phase 6 Nozzle-Specific Envelope`
-    - `docs/support_matrix.md` -> `## Canonical Startup-Seed DSL`
-    - `docs/support_matrix.md` -> `## Backend and Operational Policy`
-    - `docs/support_matrix.json` -> `global_policy`, `exact_audited_scheme_tuple`, `function_object_policy`, `phase6_nozzle_specific_envelope`, `startup_seed_dsl`, `backend_operational_policy`
-    - `docs/continuity_ledger.md` -> `# 1. Frozen global decisions` (support-matrix ownership and GPU-only operational contract)
+    - `docs/authority/support_matrix.md` -> `## Global Policy`
+    - `docs/authority/support_matrix.md` -> `## Exact Audited Scheme Tuple`
+    - `docs/authority/support_matrix.md` -> `## FunctionObject Classification`
+    - `docs/authority/support_matrix.md` -> `## Phase 6 Nozzle-Specific Envelope`
+    - `docs/authority/support_matrix.md` -> `## Canonical Startup-Seed DSL`
+    - `docs/authority/support_matrix.md` -> `## Backend and Operational Policy`
+    - `docs/authority/support_matrix.json` -> `global_policy`, `exact_audited_scheme_tuple`, `function_object_policy`, `phase6_nozzle_specific_envelope`, `startup_seed_dsl`, `backend_operational_policy`
+    - `docs/authority/continuity_ledger.md` -> `# 1. Frozen global decisions` (support-matrix ownership and GPU-only operational contract)
   - Phase spec or `README_FIRST` authority-order note for `FND-*`:
     - `docs/README_FIRST.md` -> `## Authoritative docs`
     - `docs/README_FIRST.md` -> `## Consumption rules`
@@ -197,15 +197,15 @@ Foundation owns `FND-01..FND-07` and provides the frozen contract layer consumed
   - Establish one reusable evaluator for tuple admission, gate checks, threshold classes, parity classes, and deterministic disposition.
 - Exact citations:
   - Authority:
-    - `docs/acceptance_manifest.md` -> `## Accepted Tuple Matrix`
-    - `docs/acceptance_manifest.md` -> `## Coverage Rules`
-    - `docs/acceptance_manifest.md` -> `## Tuple-Specific NVTX Contract`
-    - `docs/acceptance_manifest.md` -> `## Hard Gates`
-    - `docs/acceptance_manifest.md` -> `## Soft Gates`
-    - `docs/acceptance_manifest.md` -> `## Disposition Rules`
-    - `docs/acceptance_manifest.md` -> `## Exact Threshold Classes`
-    - `docs/acceptance_manifest.md` -> `## Production Defaults`
-    - `docs/acceptance_manifest.json` -> `accepted_tuples`, `coverage_rules`, `nvtx_contract_defaults`, `hard_gates`, `soft_gates`, `threshold_classes`, `disposition_rules`, `production_defaults`
+    - `docs/authority/acceptance_manifest.md` -> `## Accepted Tuple Matrix`
+    - `docs/authority/acceptance_manifest.md` -> `## Coverage Rules`
+    - `docs/authority/acceptance_manifest.md` -> `## Tuple-Specific NVTX Contract`
+    - `docs/authority/acceptance_manifest.md` -> `## Hard Gates`
+    - `docs/authority/acceptance_manifest.md` -> `## Soft Gates`
+    - `docs/authority/acceptance_manifest.md` -> `## Disposition Rules`
+    - `docs/authority/acceptance_manifest.md` -> `## Exact Threshold Classes`
+    - `docs/authority/acceptance_manifest.md` -> `## Production Defaults`
+    - `docs/authority/acceptance_manifest.json` -> `accepted_tuples`, `coverage_rules`, `nvtx_contract_defaults`, `hard_gates`, `soft_gates`, `threshold_classes`, `disposition_rules`, `production_defaults`
   - Phase spec or `README_FIRST` authority-order note for `FND-*`:
     - `docs/README_FIRST.md` -> `## Authoritative docs`
     - `docs/README_FIRST.md` -> `## Consumption rules`
@@ -246,13 +246,13 @@ Foundation owns `FND-01..FND-07` and provides the frozen contract layer consumed
   - Centralize stage IDs, run-mode policy, and graph support metadata so execution, instrumentation, and acceptance share one stage taxonomy.
 - Exact citations:
   - Authority:
-    - `docs/graph_capture_support_matrix.md` -> `## Run Modes`
-    - `docs/graph_capture_support_matrix.md` -> `## Canonical Stage IDs`
-    - `docs/graph_capture_support_matrix.md` -> `## Global Capture Rules`
-    - `docs/graph_capture_support_matrix.json` -> `run_modes`, `stages`, `required_orchestration_ranges`, `global_capture_rules`
-    - `docs/acceptance_manifest.md` -> `## Tuple-Specific NVTX Contract`
-    - `docs/acceptance_manifest.json` -> `accepted_tuples[*].required_stage_ids`, `nvtx_contract_defaults.required_orchestration_ranges`
-    - `docs/continuity_ledger.md` -> `# 1. Frozen global decisions` (`gpuRuntime` normalization and centralized graph policy ownership)
+    - `docs/authority/graph_capture_support_matrix.md` -> `## Run Modes`
+    - `docs/authority/graph_capture_support_matrix.md` -> `## Canonical Stage IDs`
+    - `docs/authority/graph_capture_support_matrix.md` -> `## Global Capture Rules`
+    - `docs/authority/graph_capture_support_matrix.json` -> `run_modes`, `stages`, `required_orchestration_ranges`, `global_capture_rules`
+    - `docs/authority/acceptance_manifest.md` -> `## Tuple-Specific NVTX Contract`
+    - `docs/authority/acceptance_manifest.json` -> `accepted_tuples[*].required_stage_ids`, `nvtx_contract_defaults.required_orchestration_ranges`
+    - `docs/authority/continuity_ledger.md` -> `# 1. Frozen global decisions` (`gpuRuntime` normalization and centralized graph policy ownership)
   - Phase spec or `README_FIRST` authority-order note for `FND-*`:
     - `docs/README_FIRST.md` -> `## Authoritative docs`
     - `docs/README_FIRST.md` -> `## Consumption rules`
@@ -296,9 +296,9 @@ Foundation owns `FND-01..FND-07` and provides the frozen contract layer consumed
   - Ensure all later implementation phases patch the correct local SPUMA/v2412 semantic targets and avoid wrong upstream analog edits.
 - Exact citations:
   - Authority:
-    - `docs/semantic_source_map.md` -> `## Frozen Mapping`
-    - `docs/semantic_source_map.md` -> `## Implementation Rule`
-    - `docs/continuity_ledger.md` -> `# 5. Package Consumption Rule` (semantic patch targets cannot be redefined locally)
+    - `docs/authority/semantic_source_map.md` -> `## Frozen Mapping`
+    - `docs/authority/semantic_source_map.md` -> `## Implementation Rule`
+    - `docs/authority/continuity_ledger.md` -> `# 5. Package Consumption Rule` (semantic patch targets cannot be redefined locally)
   - Phase spec or `README_FIRST` authority-order note for `FND-*`:
     - `docs/README_FIRST.md` -> `## Authoritative docs`
     - `docs/README_FIRST.md` -> `## Consumption rules`
@@ -364,7 +364,7 @@ Foundation owns `FND-01..FND-07` and provides the frozen contract layer consumed
 
 ## open_discontinuities
 
-- `[tracked] manifest-artifact-name-compatibility`: `master_pin_manifest.md` references `env.json` and `manifest_refs.json`, while the seam gate and Phase 1 planning use `host_env.json` plus probe and fatbinary reports; Foundation will standardize canonical names and document compatibility aliases in `FND-02` (`docs/master_pin_manifest.md` -> `## Consumption Rules`, `docs/planning/pr_expansion/boundary_matrix.md` -> `### Foundation -> Phase 0 / Phase 1`, impacted PR IDs: `FND-02`, `P0-01`, `P1-01`, preferred reading: keep `host_env.json` canonical for planning seams and allow `env.json` as compatibility alias only).
+- `[tracked] manifest-artifact-name-compatibility`: `master_pin_manifest.md` references `env.json` and `manifest_refs.json`, while the seam gate and Phase 1 planning use `host_env.json` plus probe and fatbinary reports; Foundation will standardize canonical names and document compatibility aliases in `FND-02` (`docs/authority/master_pin_manifest.md` -> `## Consumption Rules`, `docs/tasks/boundary_matrix.md` -> `### Foundation -> Phase 0 / Phase 1`, impacted PR IDs: `FND-02`, `P0-01`, `P1-01`, preferred reading: keep `host_env.json` canonical for planning seams and allow `env.json` as compatibility alias only).
 
 ## validation_checks
 

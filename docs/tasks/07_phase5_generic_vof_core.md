@@ -8,14 +8,14 @@ Phase 5 owns `P5-01..P5-11` and delivers the device-authoritative generic VOF co
   - Produce a reviewed semantic-to-local source reconciliation note so all Phase 5 edits target the correct SPUMA/v2412 files before solver changes start.
 - Exact citations:
   - Authority:
-    - `docs/semantic_source_map.md` -> `## Frozen Mapping`
-    - `docs/semantic_source_map.md` -> `## Implementation Rule`
-    - `docs/continuity_ledger.md` -> `# 1. Frozen global decisions` (canonical solver family freeze)
-    - `docs/planning/pr_expansion/01_foundation_authority_consumption.md` -> `## FND-07 Semantic source-audit helper`
+    - `docs/authority/semantic_source_map.md` -> `## Frozen Mapping`
+    - `docs/authority/semantic_source_map.md` -> `## Implementation Rule`
+    - `docs/authority/continuity_ledger.md` -> `# 1. Frozen global decisions` (canonical solver family freeze)
+    - `docs/tasks/01_foundation_authority_consumption.md` -> `## FND-07 Semantic source-audit helper`
   - Phase spec or `README_FIRST` authority-order note for `FND-*`:
-    - `docs/phase5_spuma_nozzle_spec.md` -> `#### 5.52 Step 1 — Complete the local semantic source audit and reconcile symbols against the actual SPUMA/v2412 tree`
-    - `docs/phase5_spuma_nozzle_spec.md` -> `## 8.1 Core file map`
-    - `docs/phase5_spuma_nozzle_spec.md` -> `### M5.0 — Symbol reconciliation`
+    - `docs/specs/phase5_spuma_nozzle_spec.md` -> `#### 5.52 Step 1 — Complete the local semantic source audit and reconcile symbols against the actual SPUMA/v2412 tree`
+    - `docs/specs/phase5_spuma_nozzle_spec.md` -> `## 8.1 Core file map`
+    - `docs/specs/phase5_spuma_nozzle_spec.md` -> `### M5.0 — Symbol reconciliation`
   - Backlog scope:
     - `Generate and review the exact mapping from semantic sources to the local SPUMA/v2412 files touched by the generic VOF port.`
   - Backlog done_when:
@@ -51,19 +51,19 @@ Phase 5 owns `P5-01..P5-11` and delivers the device-authoritative generic VOF co
   - Implement canonical `gpuRuntime.vof` gating and deterministic support scanning so unsupported Phase 5 tuples fail before the timestep loop.
 - Exact citations:
   - Authority:
-    - `docs/continuity_ledger.md` -> `# 1. Frozen global decisions` (runtime normalization under `gpuRuntime`)
-    - `docs/support_matrix.md` -> `## Global Policy`
-    - `docs/support_matrix.md` -> `## Phase 5 Generic VOF Envelope`
-    - `docs/support_matrix.md` -> `## Exact Audited Scheme Tuple`
-    - `docs/support_matrix.md` -> `## FunctionObject Classification`
-    - `docs/support_matrix.json` -> `phase5_generic_vof_envelope.runtime_policy`
-    - `docs/support_matrix.json` -> `exact_audited_scheme_tuple`
-    - `docs/support_matrix.json` -> `function_object_policy`
+    - `docs/authority/continuity_ledger.md` -> `# 1. Frozen global decisions` (runtime normalization under `gpuRuntime`)
+    - `docs/authority/support_matrix.md` -> `## Global Policy`
+    - `docs/authority/support_matrix.md` -> `## Phase 5 Generic VOF Envelope`
+    - `docs/authority/support_matrix.md` -> `## Exact Audited Scheme Tuple`
+    - `docs/authority/support_matrix.md` -> `## FunctionObject Classification`
+    - `docs/authority/support_matrix.json` -> `phase5_generic_vof_envelope.runtime_policy`
+    - `docs/authority/support_matrix.json` -> `exact_audited_scheme_tuple`
+    - `docs/authority/support_matrix.json` -> `function_object_policy`
   - Phase spec or `README_FIRST` authority-order note for `FND-*`:
-    - `docs/phase5_spuma_nozzle_spec.md` -> `#### 5.53 Step 2 — Add normalized gpuRuntime configuration (gpuVoF compatibility shim) and runtime gate`
-    - `docs/phase5_spuma_nozzle_spec.md` -> `#### 5.54 Step 3 — Implement CaseSupportReport`
-    - `docs/phase5_spuma_nozzle_spec.md` -> `#### DD5-03 — Feature envelope is strict and validated upfront`
-    - `docs/phase5_spuma_nozzle_spec.md` -> `#### DD5-13 — Strict fail-fast by default, debug fallback only by explicit opt-in`
+    - `docs/specs/phase5_spuma_nozzle_spec.md` -> `#### 5.53 Step 2 — Add normalized gpuRuntime configuration (gpuVoF compatibility shim) and runtime gate`
+    - `docs/specs/phase5_spuma_nozzle_spec.md` -> `#### 5.54 Step 3 — Implement CaseSupportReport`
+    - `docs/specs/phase5_spuma_nozzle_spec.md` -> `#### DD5-03 — Feature envelope is strict and validated upfront`
+    - `docs/specs/phase5_spuma_nozzle_spec.md` -> `#### DD5-13 — Strict fail-fast by default, debug fallback only by explicit opt-in`
   - Backlog scope:
     - `Implement the gpuRuntime.vof / compatibility-shim gate plus deterministic support scanning for the allowed Phase 5 envelope.`
   - Backlog done_when:
@@ -102,15 +102,15 @@ Phase 5 owns `P5-01..P5-11` and delivers the device-authoritative generic VOF co
   - Build stable device topology and boundary metadata for generic VOF stages with deterministic memory reporting.
 - Exact citations:
   - Authority:
-    - `docs/continuity_ledger.md` -> `# 1. Frozen global decisions` (device-resident hot path and no post-warmup allocation churn)
-    - `docs/support_matrix.md` -> `## Phase 5 Generic VOF Envelope`
-    - `docs/graph_capture_support_matrix.md` -> `## Global Capture Rules`
-    - `docs/planning/pr_expansion/04_phase2_gpu_memory_model.md` -> `## P2-08 Mesh mirror and startup registration`
+    - `docs/authority/continuity_ledger.md` -> `# 1. Frozen global decisions` (device-resident hot path and no post-warmup allocation churn)
+    - `docs/authority/support_matrix.md` -> `## Phase 5 Generic VOF Envelope`
+    - `docs/authority/graph_capture_support_matrix.md` -> `## Global Capture Rules`
+    - `docs/tasks/04_phase2_gpu_memory_model.md` -> `## P2-08 Mesh mirror and startup registration`
   - Phase spec or `README_FIRST` authority-order note for `FND-*`:
-    - `docs/phase5_spuma_nozzle_spec.md` -> `#### 5.55 Step 4 — Implement DeviceMeshTopology and DeviceBoundaryMaps`
-    - `docs/phase5_spuma_nozzle_spec.md` -> `#### 5.19 Boundary representation`
-    - `docs/phase5_spuma_nozzle_spec.md` -> `#### 5.22 Matrix and index model`
-    - `docs/phase5_spuma_nozzle_spec.md` -> `#### DD5-17 — Index width defaults to 32-bit on device`
+    - `docs/specs/phase5_spuma_nozzle_spec.md` -> `#### 5.55 Step 4 — Implement DeviceMeshTopology and DeviceBoundaryMaps`
+    - `docs/specs/phase5_spuma_nozzle_spec.md` -> `#### 5.19 Boundary representation`
+    - `docs/specs/phase5_spuma_nozzle_spec.md` -> `#### 5.22 Matrix and index model`
+    - `docs/specs/phase5_spuma_nozzle_spec.md` -> `#### DD5-17 — Index width defaults to 32-bit on device`
   - Backlog scope:
     - `Build the Phase 5 topology, cell/face connectivity, and patch descriptor substrate needed by the generic VOF device path.`
   - Backlog done_when:
@@ -149,15 +149,15 @@ Phase 5 owns `P5-01..P5-11` and delivers the device-authoritative generic VOF co
   - Mirror the full Phase 5 field set to device authority, including old-time and previous-correction state required by alpha and pressure coupling.
 - Exact citations:
   - Authority:
-    - `docs/continuity_ledger.md` -> `# 1. Frozen global decisions` (forbidden hot-stage host reads and explicit write-time staging)
-    - `docs/planning/pr_expansion/04_phase2_gpu_memory_model.md` -> `## P2-07 Mirror traits and field mirrors`
-    - `docs/planning/pr_expansion/04_phase2_gpu_memory_model.md` -> `## P2-09 Explicit visibility APIs and output stager`
+    - `docs/authority/continuity_ledger.md` -> `# 1. Frozen global decisions` (forbidden hot-stage host reads and explicit write-time staging)
+    - `docs/tasks/04_phase2_gpu_memory_model.md` -> `## P2-07 Mirror traits and field mirrors`
+    - `docs/tasks/04_phase2_gpu_memory_model.md` -> `## P2-09 Explicit visibility APIs and output stager`
   - Phase spec or `README_FIRST` authority-order note for `FND-*`:
-    - `docs/phase5_spuma_nozzle_spec.md` -> `#### 5.56 Step 5 — Implement DeviceFieldMirror and DeviceVoFState`
-    - `docs/phase5_spuma_nozzle_spec.md` -> `#### 5.57 Step 6 — Implement initialization upload and old-time seeding`
-    - `docs/phase5_spuma_nozzle_spec.md` -> `#### 5.17 Field authority model`
-    - `docs/phase5_spuma_nozzle_spec.md` -> `#### 5.20 Old-time state`
-    - `docs/phase5_spuma_nozzle_spec.md` -> `#### 5.20A Restart / checkpoint semantics`
+    - `docs/specs/phase5_spuma_nozzle_spec.md` -> `#### 5.56 Step 5 — Implement DeviceFieldMirror and DeviceVoFState`
+    - `docs/specs/phase5_spuma_nozzle_spec.md` -> `#### 5.57 Step 6 — Implement initialization upload and old-time seeding`
+    - `docs/specs/phase5_spuma_nozzle_spec.md` -> `#### 5.17 Field authority model`
+    - `docs/specs/phase5_spuma_nozzle_spec.md` -> `#### 5.20 Old-time state`
+    - `docs/specs/phase5_spuma_nozzle_spec.md` -> `#### 5.20A Restart / checkpoint semantics`
   - Backlog scope:
     - `Mirror the Phase 5 field set, including old-time/previous-correction state needed by alpha transport and pressure coupling.`
   - Backlog done_when:
@@ -195,14 +195,14 @@ Phase 5 owns `P5-01..P5-11` and delivers the device-authoritative generic VOF co
   - Stand up the end-to-end alpha stage skeleton (control snapshots, alpha-flux formation, and predictor scaffold) without yet claiming bounded MULES correctness.
 - Exact citations:
   - Authority:
-    - `docs/continuity_ledger.md` -> `# 1. Frozen global decisions` (canonical solver family and runtime normalization)
-    - `docs/graph_capture_support_matrix.md` -> `## Canonical Stage IDs` (`alpha_pre`, `alpha_subcycle_body`)
-    - `docs/planning/pr_expansion/05_phase3_execution_model.md` -> `## P3-03 GpuExecutionContext and execution registry`
+    - `docs/authority/continuity_ledger.md` -> `# 1. Frozen global decisions` (canonical solver family and runtime normalization)
+    - `docs/authority/graph_capture_support_matrix.md` -> `## Canonical Stage IDs` (`alpha_pre`, `alpha_subcycle_body`)
+    - `docs/tasks/05_phase3_execution_model.md` -> `## P3-03 GpuExecutionContext and execution registry`
   - Phase spec or `README_FIRST` authority-order note for `FND-*`:
-    - `docs/phase5_spuma_nozzle_spec.md` -> `#### 5.58 Step 7 — Implement alpha Courant reduction and controls snapshots`
-    - `docs/phase5_spuma_nozzle_spec.md` -> `#### 5.59 Step 8 — Implement alpha flux formation and no-op predictor scaffold`
-    - `docs/phase5_spuma_nozzle_spec.md` -> `#### 5.24 High-level host orchestration`
-    - `docs/phase5_spuma_nozzle_spec.md` -> `#### 5.25 Alpha predictor control flow`
+    - `docs/specs/phase5_spuma_nozzle_spec.md` -> `#### 5.58 Step 7 — Implement alpha Courant reduction and controls snapshots`
+    - `docs/specs/phase5_spuma_nozzle_spec.md` -> `#### 5.59 Step 8 — Implement alpha flux formation and no-op predictor scaffold`
+    - `docs/specs/phase5_spuma_nozzle_spec.md` -> `#### 5.24 High-level host orchestration`
+    - `docs/specs/phase5_spuma_nozzle_spec.md` -> `#### 5.25 Alpha predictor control flow`
   - Backlog scope:
     - `Implement the end-to-end alpha skeleton path with control snapshots, alpha-flux formation, and placeholder/predictor-only logic.`
   - Backlog done_when:
@@ -240,15 +240,15 @@ Phase 5 owns `P5-01..P5-11` and delivers the device-authoritative generic VOF co
   - Complete bounded alpha transport with explicit MULES semantics, alpha subcycling, and previous-correction flux behavior under the frozen scheme subset.
 - Exact citations:
   - Authority:
-    - `docs/continuity_ledger.md` -> `# 1. Frozen global decisions` (canonical algebraic VOF family)
-    - `docs/support_matrix.md` -> `## Exact Audited Scheme Tuple`
-    - `docs/support_matrix.json` -> `exact_audited_scheme_tuple`
+    - `docs/authority/continuity_ledger.md` -> `# 1. Frozen global decisions` (canonical algebraic VOF family)
+    - `docs/authority/support_matrix.md` -> `## Exact Audited Scheme Tuple`
+    - `docs/authority/support_matrix.json` -> `exact_audited_scheme_tuple`
   - Phase spec or `README_FIRST` authority-order note for `FND-*`:
-    - `docs/phase5_spuma_nozzle_spec.md` -> `#### 5.61 Step 10 — Port the minimal MULES subset`
-    - `docs/phase5_spuma_nozzle_spec.md` -> `#### 5.62 Step 11 — Add alpha subcycling and previous-correction persistence`
-    - `docs/phase5_spuma_nozzle_spec.md` -> `#### 5.28 MULES subset to port`
-    - `docs/phase5_spuma_nozzle_spec.md` -> `#### 5.29 Device MULES kernel strategy`
-    - `docs/phase5_spuma_nozzle_spec.md` -> `#### DD5-06 — Preserve current numerics before optimization`
+    - `docs/specs/phase5_spuma_nozzle_spec.md` -> `#### 5.61 Step 10 — Port the minimal MULES subset`
+    - `docs/specs/phase5_spuma_nozzle_spec.md` -> `#### 5.62 Step 11 — Add alpha subcycling and previous-correction persistence`
+    - `docs/specs/phase5_spuma_nozzle_spec.md` -> `#### 5.28 MULES subset to port`
+    - `docs/specs/phase5_spuma_nozzle_spec.md` -> `#### 5.29 Device MULES kernel strategy`
+    - `docs/specs/phase5_spuma_nozzle_spec.md` -> `#### DD5-06 — Preserve current numerics before optimization`
   - Backlog scope:
     - `Complete the bounded alpha path, explicit MULES limiter logic, previous-correction flux behavior, and alpha subcycling semantics.`
   - Backlog done_when:
@@ -284,17 +284,17 @@ Phase 5 owns `P5-01..P5-11` and delivers the device-authoritative generic VOF co
   - Add device mixture-property updates and the constant-sigma interface/surface-tension subset admitted in Phase 5, without reopening contact-angle scope.
 - Exact citations:
   - Authority:
-    - `docs/support_matrix.md` -> `## Global Policy`
-    - `docs/support_matrix.md` -> `## Phase 5 Generic VOF Envelope`
-    - `docs/support_matrix.json` -> `global_policy.contact_angle_in_scope`
-    - `docs/support_matrix.json` -> `global_policy.surface_tension_model_scope`
-    - `docs/continuity_ledger.md` -> `# 1. Frozen global decisions` (contact-angle out of milestone-1 scope)
+    - `docs/authority/support_matrix.md` -> `## Global Policy`
+    - `docs/authority/support_matrix.md` -> `## Phase 5 Generic VOF Envelope`
+    - `docs/authority/support_matrix.json` -> `global_policy.contact_angle_in_scope`
+    - `docs/authority/support_matrix.json` -> `global_policy.surface_tension_model_scope`
+    - `docs/authority/continuity_ledger.md` -> `# 1. Frozen global decisions` (contact-angle out of milestone-1 scope)
   - Phase spec or `README_FIRST` authority-order note for `FND-*`:
-    - `docs/phase5_spuma_nozzle_spec.md` -> `#### 5.63 Step 12 — Implement device mixture-property updates`
-    - `docs/phase5_spuma_nozzle_spec.md` -> `#### 5.64 Step 13 — Implement interface and surface-tension baseline`
-    - `docs/phase5_spuma_nozzle_spec.md` -> `#### 5.30 Mixture-property update flow`
-    - `docs/phase5_spuma_nozzle_spec.md` -> `#### 5.31 Interface and surface-tension flow`
-    - `docs/phase5_spuma_nozzle_spec.md` -> `#### DD5-16 — Surface-tension scope is deliberately narrow`
+    - `docs/specs/phase5_spuma_nozzle_spec.md` -> `#### 5.63 Step 12 — Implement device mixture-property updates`
+    - `docs/specs/phase5_spuma_nozzle_spec.md` -> `#### 5.64 Step 13 — Implement interface and surface-tension baseline`
+    - `docs/specs/phase5_spuma_nozzle_spec.md` -> `#### 5.30 Mixture-property update flow`
+    - `docs/specs/phase5_spuma_nozzle_spec.md` -> `#### 5.31 Interface and surface-tension flow`
+    - `docs/specs/phase5_spuma_nozzle_spec.md` -> `#### DD5-16 — Surface-tension scope is deliberately narrow`
   - Backlog scope:
     - `Implement rho / rhoPhi updates plus the constant-sigma interface normals/curvature/surface-tension slice admitted in Phase 5 scope.`
   - Backlog done_when:
@@ -330,13 +330,13 @@ Phase 5 owns `P5-01..P5-11` and delivers the device-authoritative generic VOF co
   - Integrate the device momentum predictor with persistent `rAU` behavior for the accepted laminar reduced-case envelope.
 - Exact citations:
   - Authority:
-    - `docs/support_matrix.md` -> `## Global Policy` (laminar-only scope)
-    - `docs/support_matrix.json` -> `global_policy.turbulence_scope`
-    - `docs/continuity_ledger.md` -> `# 1. Frozen global decisions` (milestone-1 narrow support scope)
+    - `docs/authority/support_matrix.md` -> `## Global Policy` (laminar-only scope)
+    - `docs/authority/support_matrix.json` -> `global_policy.turbulence_scope`
+    - `docs/authority/continuity_ledger.md` -> `# 1. Frozen global decisions` (milestone-1 narrow support scope)
   - Phase spec or `README_FIRST` authority-order note for `FND-*`:
-    - `docs/phase5_spuma_nozzle_spec.md` -> `#### 5.65 Step 14 — Integrate momentum predictor`
-    - `docs/phase5_spuma_nozzle_spec.md` -> `#### 5.32 Momentum predictor flow`
-    - `docs/phase5_spuma_nozzle_spec.md` -> `#### DD5-05 — Implement alpha path first, then mixture, interface, momentum, pressure`
+    - `docs/specs/phase5_spuma_nozzle_spec.md` -> `#### 5.65 Step 14 — Integrate momentum predictor`
+    - `docs/specs/phase5_spuma_nozzle_spec.md` -> `#### 5.32 Momentum predictor flow`
+    - `docs/specs/phase5_spuma_nozzle_spec.md` -> `#### DD5-05 — Implement alpha path first, then mixture, interface, momentum, pressure`
   - Backlog scope:
     - `Add the device momentum-predictor path, including persistent rAU handling and the accepted laminar reduced-case wiring.`
   - Backlog done_when:
@@ -372,15 +372,15 @@ Phase 5 owns `P5-01..P5-11` and delivers the device-authoritative generic VOF co
   - Integrate the native pressure-corrector backend into the device-authoritative generic core using Phase 4 pressure bridge contracts unchanged.
 - Exact citations:
   - Authority:
-    - `docs/continuity_ledger.md` -> `# 1. Frozen global decisions` (native pressure required baseline)
-    - `docs/graph_capture_support_matrix.md` -> `## Canonical Stage IDs` (`pressure_assembly`, `pressure_solve_native`, `pressure_post`)
-    - `docs/planning/pr_expansion/06_phase4_pressure_linear_algebra.md` -> `## exports_to_next`
-    - `docs/planning/pr_expansion/boundary_matrix.md` -> `### Phase 4 -> Phase 5`
+    - `docs/authority/continuity_ledger.md` -> `# 1. Frozen global decisions` (native pressure required baseline)
+    - `docs/authority/graph_capture_support_matrix.md` -> `## Canonical Stage IDs` (`pressure_assembly`, `pressure_solve_native`, `pressure_post`)
+    - `docs/tasks/06_phase4_pressure_linear_algebra.md` -> `## exports_to_next`
+    - `docs/tasks/boundary_matrix.md` -> `### Phase 4 -> Phase 5`
   - Phase spec or `README_FIRST` authority-order note for `FND-*`:
-    - `docs/phase5_spuma_nozzle_spec.md` -> `#### 5.66 Step 15 — Integrate pressure corrector with runtime-selectable backend`
-    - `docs/phase5_spuma_nozzle_spec.md` -> `#### 5.33 Pressure corrector flow`
-    - `docs/phase5_spuma_nozzle_spec.md` -> `#### 5.34 Non-orthogonal correction loops`
-    - `docs/phase5_spuma_nozzle_spec.md` -> `#### DD5-09 — Keep native and AmgX pressure backends both alive`
+    - `docs/specs/phase5_spuma_nozzle_spec.md` -> `#### 5.66 Step 15 — Integrate pressure corrector with runtime-selectable backend`
+    - `docs/specs/phase5_spuma_nozzle_spec.md` -> `#### 5.33 Pressure corrector flow`
+    - `docs/specs/phase5_spuma_nozzle_spec.md` -> `#### 5.34 Non-orthogonal correction loops`
+    - `docs/specs/phase5_spuma_nozzle_spec.md` -> `#### DD5-09 — Keep native and AmgX pressure backends both alive`
   - Backlog scope:
     - `Integrate the native pressure corrector path, including non-orthogonal loops, into the device-authoritative Phase 5 solver.`
   - Backlog done_when:
@@ -417,18 +417,18 @@ Phase 5 owns `P5-01..P5-11` and delivers the device-authoritative generic VOF co
   - Add runtime-selectable AmgX backend behind the `DeviceDirect` gate, preserving `PinnedHost` as correctness-only and enforcing acceptance classification rules.
 - Exact citations:
   - Authority:
-    - `docs/continuity_ledger.md` -> `# 1. Frozen global decisions` (PinnedHost correctness-only, DeviceDirect required for production-style claims)
-    - `docs/support_matrix.md` -> `## Backend and Operational Policy`
-    - `docs/acceptance_manifest.md` -> `## Accepted Tuple Matrix`
-    - `docs/acceptance_manifest.md` -> `## Coverage Rules`
-    - `docs/acceptance_manifest.json` -> `coverage_rules.backend_restrictions`
-    - `docs/acceptance_manifest.json` -> `coverage_rules.pinned_host_policy`
-    - `docs/graph_capture_support_matrix.md` -> `## Canonical Stage IDs` (`pressure_solve_amgx`)
-    - `docs/planning/pr_expansion/06_phase4_pressure_linear_algebra.md` -> `## P4-09 DeviceDirect pressure bridge`
+    - `docs/authority/continuity_ledger.md` -> `# 1. Frozen global decisions` (PinnedHost correctness-only, DeviceDirect required for production-style claims)
+    - `docs/authority/support_matrix.md` -> `## Backend and Operational Policy`
+    - `docs/authority/acceptance_manifest.md` -> `## Accepted Tuple Matrix`
+    - `docs/authority/acceptance_manifest.md` -> `## Coverage Rules`
+    - `docs/authority/acceptance_manifest.json` -> `coverage_rules.backend_restrictions`
+    - `docs/authority/acceptance_manifest.json` -> `coverage_rules.pinned_host_policy`
+    - `docs/authority/graph_capture_support_matrix.md` -> `## Canonical Stage IDs` (`pressure_solve_amgx`)
+    - `docs/tasks/06_phase4_pressure_linear_algebra.md` -> `## P4-09 DeviceDirect pressure bridge`
   - Phase spec or `README_FIRST` authority-order note for `FND-*`:
-    - `docs/phase5_spuma_nozzle_spec.md` -> `#### 5.66 Step 15 — Integrate pressure corrector with runtime-selectable backend`
-    - `docs/phase5_spuma_nozzle_spec.md` -> `#### DD5-09 — Keep native and AmgX pressure backends both alive`
-    - `docs/phase5_spuma_nozzle_spec.md` -> `### Exit criteria` (DeviceDirect requirement for accepted AmgX residency claims)
+    - `docs/specs/phase5_spuma_nozzle_spec.md` -> `#### 5.66 Step 15 — Integrate pressure corrector with runtime-selectable backend`
+    - `docs/specs/phase5_spuma_nozzle_spec.md` -> `#### DD5-09 — Keep native and AmgX pressure backends both alive`
+    - `docs/specs/phase5_spuma_nozzle_spec.md` -> `### Exit criteria` (DeviceDirect requirement for accepted AmgX residency claims)
   - Backlog scope:
     - `Wire the runtime-selectable AmgX backend into the Phase 5 solver behind the DeviceDirect gate and compare it against native behavior.`
   - Backlog done_when:
@@ -466,23 +466,23 @@ Phase 5 owns `P5-01..P5-11` and delivers the device-authoritative generic VOF co
   - Finalize explicit write-time commit/restart parity behavior and publish the formal Phase 5 baseline artifact package tied to pass-A stage instrumentation coverage.
 - Exact citations:
   - Authority:
-    - `docs/reference_case_contract.md` -> `## Frozen Cases`
-    - `docs/reference_case_contract.md` -> `## Phase-Gate Mapping`
-    - `docs/acceptance_manifest.md` -> `## Accepted Tuple Matrix`
-    - `docs/acceptance_manifest.md` -> `## Hard Gates`
-    - `docs/acceptance_manifest.md` -> `## Disposition Rules`
-    - `docs/acceptance_manifest.md` -> `## Exact Threshold Classes`
-    - `docs/graph_capture_support_matrix.md` -> `## Canonical Stage IDs`
-    - `docs/graph_capture_support_matrix.md` -> `## Global Capture Rules`
-    - `docs/planning/pr_expansion/10_phase8_profiling_performance_acceptance.md` -> `## P8-03 Solver-stage instrumentation coverage`
-    - `docs/planning/pr_expansion/boundary_matrix.md` -> `### Phase 8 pass A -> Phase 5 / Phase 7`
-    - `docs/planning/pr_expansion/boundary_matrix.md` -> `### Phase 5 -> Phase 6`
+    - `docs/authority/reference_case_contract.md` -> `## Frozen Cases`
+    - `docs/authority/reference_case_contract.md` -> `## Phase-Gate Mapping`
+    - `docs/authority/acceptance_manifest.md` -> `## Accepted Tuple Matrix`
+    - `docs/authority/acceptance_manifest.md` -> `## Hard Gates`
+    - `docs/authority/acceptance_manifest.md` -> `## Disposition Rules`
+    - `docs/authority/acceptance_manifest.md` -> `## Exact Threshold Classes`
+    - `docs/authority/graph_capture_support_matrix.md` -> `## Canonical Stage IDs`
+    - `docs/authority/graph_capture_support_matrix.md` -> `## Global Capture Rules`
+    - `docs/tasks/10_phase8_profiling_performance_acceptance.md` -> `## P8-03 Solver-stage instrumentation coverage`
+    - `docs/tasks/boundary_matrix.md` -> `### Phase 8 pass A -> Phase 5 / Phase 7`
+    - `docs/tasks/boundary_matrix.md` -> `### Phase 5 -> Phase 6`
   - Phase spec or `README_FIRST` authority-order note for `FND-*`:
-    - `docs/phase5_spuma_nozzle_spec.md` -> `#### 5.67 Step 16 — Implement write-time commit path, restart/reload parity, and unsafe-read asserts`
-    - `docs/phase5_spuma_nozzle_spec.md` -> `#### 5.68 Step 17 — Instrument and profile`
-    - `docs/phase5_spuma_nozzle_spec.md` -> `#### 5.69 Step 18 — Validate and freeze Phase 5 baseline`
-    - `docs/phase5_spuma_nozzle_spec.md` -> `#### 5.35 Commit and write flow`
-    - `docs/phase5_spuma_nozzle_spec.md` -> `### Acceptance checklist`
+    - `docs/specs/phase5_spuma_nozzle_spec.md` -> `#### 5.67 Step 16 — Implement write-time commit path, restart/reload parity, and unsafe-read asserts`
+    - `docs/specs/phase5_spuma_nozzle_spec.md` -> `#### 5.68 Step 17 — Instrument and profile`
+    - `docs/specs/phase5_spuma_nozzle_spec.md` -> `#### 5.69 Step 18 — Validate and freeze Phase 5 baseline`
+    - `docs/specs/phase5_spuma_nozzle_spec.md` -> `#### 5.35 Commit and write flow`
+    - `docs/specs/phase5_spuma_nozzle_spec.md` -> `### Acceptance checklist`
   - Backlog scope:
     - `Implement the explicit write-time commit path, restart/reload parity checks, validation/profile artifact generation, and the final Phase 5 baseline freeze.`
   - Backlog done_when:
@@ -564,8 +564,8 @@ Phase 5 owns `P5-01..P5-11` and delivers the device-authoritative generic VOF co
 
 ## open_discontinuities
 
-- `[tracked] phase5_phase6_pressure_boundary_state_shape`: Phase 5 exports `PressureBoundaryStateView` semantics, but exact field-membership freeze for Phase 6 consumption is still represented across phase-specific prose rather than one shared schema artifact. Impacted PR IDs: `P5-11`, `P6-08`, `P6-10`. Citations: `docs/phase5_spuma_nozzle_spec.md` -> `#### 5.14A Pressure-boundary-state handoff contract`, `docs/planning/pr_expansion/boundary_matrix.md` -> `### Phase 5 -> Phase 6`. Preferred reading: keep Phase 5 as producer-of-contract only and require Phase 6 to consume without redefining pressure semantics.
-- `[tracked] amgx_tuple_admission_guard`: Acceptance manifest admits only `R1-core` async AmgX tuple and classifies non-DeviceDirect/PinnedHost paths as non-accepted; implementation planning must keep this classification explicit in baseline freeze artifacts. Impacted PR IDs: `P5-10`, `P5-11`. Citations: `docs/acceptance_manifest.md` -> `## Accepted Tuple Matrix`, `docs/acceptance_manifest.md` -> `## Coverage Rules`, `docs/acceptance_manifest.json` -> `coverage_rules.backend_restrictions`, `coverage_rules.pinned_host_policy`. Preferred reading: enforce tuple-ID lookup and reject any inferred/ad hoc AmgX admission.
+- `[tracked] phase5_phase6_pressure_boundary_state_shape`: Phase 5 exports `PressureBoundaryStateView` semantics, but exact field-membership freeze for Phase 6 consumption is still represented across phase-specific prose rather than one shared schema artifact. Impacted PR IDs: `P5-11`, `P6-08`, `P6-10`. Citations: `docs/specs/phase5_spuma_nozzle_spec.md` -> `#### 5.14A Pressure-boundary-state handoff contract`, `docs/tasks/boundary_matrix.md` -> `### Phase 5 -> Phase 6`. Preferred reading: keep Phase 5 as producer-of-contract only and require Phase 6 to consume without redefining pressure semantics.
+- `[tracked] amgx_tuple_admission_guard`: Acceptance manifest admits only `R1-core` async AmgX tuple and classifies non-DeviceDirect/PinnedHost paths as non-accepted; implementation planning must keep this classification explicit in baseline freeze artifacts. Impacted PR IDs: `P5-10`, `P5-11`. Citations: `docs/authority/acceptance_manifest.md` -> `## Accepted Tuple Matrix`, `docs/authority/acceptance_manifest.md` -> `## Coverage Rules`, `docs/authority/acceptance_manifest.json` -> `coverage_rules.backend_restrictions`, `coverage_rules.pinned_host_policy`. Preferred reading: enforce tuple-ID lookup and reject any inferred/ad hoc AmgX admission.
 
 ## validation_checks
 
@@ -593,6 +593,3 @@ Phase 5 owns `P5-01..P5-11` and delivers the device-authoritative generic VOF co
   - AmgX accepted claims require `DeviceDirect`
   - canonical pressure stage IDs are preserved.
 - `P5-11` baseline-freeze evidence explicitly consumes `P8-03` stage coverage as required by cross-section dependency policy.
-```
-
-3. File changed: [07_phase5_generic_vof_core.md](/Users/rexputnam/Documents/projects/gpu_cfd/docs/planning/pr_expansion/07_phase5_generic_vof_core.md)"}}

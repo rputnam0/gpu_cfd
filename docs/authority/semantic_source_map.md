@@ -18,4 +18,4 @@ This file is the authoritative semantic handoff for Phases 4-7. Public Foundatio
 ## Implementation Rule
 
 - When public reference file paths differ from the checked-out SPUMA/v2412 tree, patch the local SPUMA/v2412 equivalents named by responsibility, not the public reference source.
-- Any future expansion of this map must preserve the milestone-1 solver family, runtime schema, and backend/default policies frozen elsewhere in `final/`.
+- Any future expansion of this map must preserve the milestone-1 solver family, runtime schema, and backend/default policies frozen by the authority bundle introduced in `README_FIRST.md`.

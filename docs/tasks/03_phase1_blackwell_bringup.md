@@ -8,18 +8,18 @@ Phase 1 owns `P1-01..P1-07` and is limited to workstation, toolchain, and profil
   - Add reproducible host and CUDA probe outputs for the target workstation lane using Foundation pin-resolution contracts and canonical manifest naming.
 - Exact citations:
   - Authority:
-    - `docs/master_pin_manifest.md` -> `## Frozen Defaults`
-    - `docs/master_pin_manifest.md` -> `## Consumption Rules`
-    - `docs/master_pin_manifest.md` -> `## Required Revalidation If This Manifest Changes`
-    - `docs/continuity_ledger.md` -> `# 1. Frozen global decisions` (source/version/toolchain pin ownership and runtime normalization)
-    - `docs/support_matrix.md` -> `## Global Policy` (default fail-fast posture)
-    - `docs/planning/pr_expansion/01_foundation_authority_consumption.md` -> `## FND-02 Pin-manifest consumption and environment manifest emission`
+    - `docs/authority/master_pin_manifest.md` -> `## Frozen Defaults`
+    - `docs/authority/master_pin_manifest.md` -> `## Consumption Rules`
+    - `docs/authority/master_pin_manifest.md` -> `## Required Revalidation If This Manifest Changes`
+    - `docs/authority/continuity_ledger.md` -> `# 1. Frozen global decisions` (source/version/toolchain pin ownership and runtime normalization)
+    - `docs/authority/support_matrix.md` -> `## Global Policy` (default fail-fast posture)
+    - `docs/tasks/01_foundation_authority_consumption.md` -> `## FND-02 Pin-manifest consumption and environment manifest emission`
   - Phase spec or `README_FIRST` authority-order note for `FND-*`:
-    - `docs/phase1_blackwell_bringup_spec.md` -> `#### Step 2 — Add environment discovery tooling`
-    - `docs/phase1_blackwell_bringup_spec.md` -> `#### Step 3 — Add native CUDA and managed-memory probe binary`
-    - `docs/phase1_blackwell_bringup_spec.md` -> `#### Tooling-side host data structures`
-    - `docs/phase1_blackwell_bringup_spec.md` -> `### Artifacts to produce`
-    - `docs/phase1_blackwell_bringup_spec.md` -> `## Required baseline`
+    - `docs/specs/phase1_blackwell_bringup_spec.md` -> `#### Step 2 — Add environment discovery tooling`
+    - `docs/specs/phase1_blackwell_bringup_spec.md` -> `#### Step 3 — Add native CUDA and managed-memory probe binary`
+    - `docs/specs/phase1_blackwell_bringup_spec.md` -> `#### Tooling-side host data structures`
+    - `docs/specs/phase1_blackwell_bringup_spec.md` -> `### Artifacts to produce`
+    - `docs/specs/phase1_blackwell_bringup_spec.md` -> `## Required baseline`
   - Backlog scope:
     - "Add the Phase 1 host/CUDA discovery binaries and emit `host_env.json` and `cuda_probe.json` for the target workstation lane."
   - Backlog done_when:
@@ -58,17 +58,17 @@ Phase 1 owns `P1-01..P1-07` and is limited to workstation, toolchain, and profil
   - Produce the required primary-lane build with `sm_120` plus PTX, NVTX3, and frozen toolchain lane adherence through wrapperized, reproducible build orchestration.
 - Exact citations:
   - Authority:
-    - `docs/master_pin_manifest.md` -> `## Frozen Defaults`
-    - `docs/master_pin_manifest.md` -> `## Resolved Frozen Source Tuple`
-    - `docs/master_pin_manifest.md` -> `## Consumption Rules`
-    - `docs/continuity_ledger.md` -> `# 1. Frozen global decisions` (toolchain ownership and NVTX3 requirement)
-    - `docs/planning/pr_expansion/01_foundation_authority_consumption.md` -> `## FND-02 Pin-manifest consumption and environment manifest emission`
+    - `docs/authority/master_pin_manifest.md` -> `## Frozen Defaults`
+    - `docs/authority/master_pin_manifest.md` -> `## Resolved Frozen Source Tuple`
+    - `docs/authority/master_pin_manifest.md` -> `## Consumption Rules`
+    - `docs/authority/continuity_ledger.md` -> `# 1. Frozen global decisions` (toolchain ownership and NVTX3 requirement)
+    - `docs/tasks/01_foundation_authority_consumption.md` -> `## FND-02 Pin-manifest consumption and environment manifest emission`
   - Phase spec or `README_FIRST` authority-order note for `FND-*`:
-    - `docs/phase1_blackwell_bringup_spec.md` -> `#### Step 4 — Add Blackwell environment wrapper`
-    - `docs/phase1_blackwell_bringup_spec.md` -> `#### Step 5 — Add NVTX3 wrapper and audit old includes`
-    - `docs/phase1_blackwell_bringup_spec.md` -> `#### Step 7 — Add build wrapper and build modes`
-    - `docs/phase1_blackwell_bringup_spec.md` -> `## Compiler / flag policy`
-    - `docs/phase1_blackwell_bringup_spec.md` -> `## Environment variables`
+    - `docs/specs/phase1_blackwell_bringup_spec.md` -> `#### Step 4 — Add Blackwell environment wrapper`
+    - `docs/specs/phase1_blackwell_bringup_spec.md` -> `#### Step 5 — Add NVTX3 wrapper and audit old includes`
+    - `docs/specs/phase1_blackwell_bringup_spec.md` -> `#### Step 7 — Add build wrapper and build modes`
+    - `docs/specs/phase1_blackwell_bringup_spec.md` -> `## Compiler / flag policy`
+    - `docs/specs/phase1_blackwell_bringup_spec.md` -> `## Environment variables`
   - Backlog scope:
     - "Patch or wrap the build so the primary lane emits `sm_120` plus PTX, adopts NVTX3, and respects the frozen toolchain lane."
   - Backlog done_when:
@@ -106,13 +106,13 @@ Phase 1 owns `P1-01..P1-07` and is limited to workstation, toolchain, and profil
   - Verify native cubin and PTX composition for produced binaries and emit deterministic `fatbinary_report.json` before smoke execution.
 - Exact citations:
   - Authority:
-    - `docs/master_pin_manifest.md` -> `## Frozen Defaults` (GPU target and PTX/JIT requirement)
-    - `docs/master_pin_manifest.md` -> `## Consumption Rules`
-    - `docs/planning/pr_expansion/01_foundation_authority_consumption.md` -> `## FND-02 Pin-manifest consumption and environment manifest emission`
+    - `docs/authority/master_pin_manifest.md` -> `## Frozen Defaults` (GPU target and PTX/JIT requirement)
+    - `docs/authority/master_pin_manifest.md` -> `## Consumption Rules`
+    - `docs/tasks/01_foundation_authority_consumption.md` -> `## FND-02 Pin-manifest consumption and environment manifest emission`
   - Phase spec or `README_FIRST` authority-order note for `FND-*`:
-    - `docs/phase1_blackwell_bringup_spec.md` -> `#### Step 8 — Inspect produced binaries for native target and PTX`
-    - `docs/phase1_blackwell_bringup_spec.md` -> `### Acceptance checklist`
-    - `docs/phase1_blackwell_bringup_spec.md` -> `### Artifacts to produce`
+    - `docs/specs/phase1_blackwell_bringup_spec.md` -> `#### Step 8 — Inspect produced binaries for native target and PTX`
+    - `docs/specs/phase1_blackwell_bringup_spec.md` -> `### Acceptance checklist`
+    - `docs/specs/phase1_blackwell_bringup_spec.md` -> `### Artifacts to produce`
   - Backlog scope:
     - "Add binary inspection tooling that verifies the expected native cubin and PTX composition and writes `fatbinary_report.json`."
   - Backlog done_when:
@@ -147,18 +147,18 @@ Phase 1 owns `P1-01..P1-07` and is limited to workstation, toolchain, and profil
   - Build the repo-local smoke-case bundle and enforce SPUMA-supported solver and runtime settings before profiling and sanitizer lanes proceed.
 - Exact citations:
   - Authority:
-    - `docs/support_matrix.md` -> `## Global Policy`
-    - `docs/support_matrix.md` -> `## Exact Audited Scheme Tuple`
-    - `docs/support_matrix.md` -> `## FunctionObject Classification`
-    - `docs/support_matrix.md` -> `## Backend and Operational Policy`
-    - `docs/support_matrix.json` -> `global_policy`, `exact_audited_scheme_tuple`, `function_object_policy`
-    - `docs/planning/pr_expansion/01_foundation_authority_consumption.md` -> `## FND-03 Reference-case and validation-ladder utilities`
-    - `docs/planning/pr_expansion/01_foundation_authority_consumption.md` -> `## FND-04 Support-matrix scanner and fail-fast policy`
+    - `docs/authority/support_matrix.md` -> `## Global Policy`
+    - `docs/authority/support_matrix.md` -> `## Exact Audited Scheme Tuple`
+    - `docs/authority/support_matrix.md` -> `## FunctionObject Classification`
+    - `docs/authority/support_matrix.md` -> `## Backend and Operational Policy`
+    - `docs/authority/support_matrix.json` -> `global_policy`, `exact_audited_scheme_tuple`, `function_object_policy`
+    - `docs/tasks/01_foundation_authority_consumption.md` -> `## FND-03 Reference-case and validation-ladder utilities`
+    - `docs/tasks/01_foundation_authority_consumption.md` -> `## FND-04 Support-matrix scanner and fail-fast policy`
   - Phase spec or `README_FIRST` authority-order note for `FND-*`:
-    - `docs/phase1_blackwell_bringup_spec.md` -> `#### Step 9 — Add three repo-local smoke cases`
-    - `docs/phase1_blackwell_bringup_spec.md` -> `#### Step 10 — Audit fvSolution in smoke cases`
-    - `docs/phase1_blackwell_bringup_spec.md` -> `#### Step 11 — Run unprofiled smoke cases in the primary lane`
-    - `docs/phase1_blackwell_bringup_spec.md` -> `### Validation strategy`
+    - `docs/specs/phase1_blackwell_bringup_spec.md` -> `#### Step 9 — Add three repo-local smoke cases`
+    - `docs/specs/phase1_blackwell_bringup_spec.md` -> `#### Step 10 — Audit fvSolution in smoke cases`
+    - `docs/specs/phase1_blackwell_bringup_spec.md` -> `#### Step 11 — Run unprofiled smoke cases in the primary lane`
+    - `docs/specs/phase1_blackwell_bringup_spec.md` -> `### Validation strategy`
   - Backlog scope:
     - "Prepare the repo-local smoke cases and the `fvSolution` and runtime sanity checks that gate Phase 1 bring-up."
   - Backlog done_when:
@@ -198,14 +198,14 @@ Phase 1 owns `P1-01..P1-07` and is limited to workstation, toolchain, and profil
   - Add a reduced memcheck lane over the smallest supported smoke case so memory errors are caught before profiling acceptance work.
 - Exact citations:
   - Authority:
-    - `docs/master_pin_manifest.md` -> `## Frozen Defaults` (Compute Sanitizer pin)
-    - `docs/support_matrix.md` -> `## Global Policy` (fail-fast and debug and production separation)
-    - `docs/planning/pr_expansion/01_foundation_authority_consumption.md` -> `## FND-04 Support-matrix scanner and fail-fast policy`
+    - `docs/authority/master_pin_manifest.md` -> `## Frozen Defaults` (Compute Sanitizer pin)
+    - `docs/authority/support_matrix.md` -> `## Global Policy` (fail-fast and debug and production separation)
+    - `docs/tasks/01_foundation_authority_consumption.md` -> `## FND-04 Support-matrix scanner and fail-fast policy`
   - Phase spec or `README_FIRST` authority-order note for `FND-*`:
-    - `docs/phase1_blackwell_bringup_spec.md` -> `#### Step 12 — Run Compute Sanitizer memcheck on the smallest case`
-    - `docs/phase1_blackwell_bringup_spec.md` -> `#### Compute Sanitizer hook`
-    - `docs/phase1_blackwell_bringup_spec.md` -> `### Validation strategy`
-    - `docs/phase1_blackwell_bringup_spec.md` -> `### Acceptance checklist`
+    - `docs/specs/phase1_blackwell_bringup_spec.md` -> `#### Step 12 — Run Compute Sanitizer memcheck on the smallest case`
+    - `docs/specs/phase1_blackwell_bringup_spec.md` -> `#### Compute Sanitizer hook`
+    - `docs/specs/phase1_blackwell_bringup_spec.md` -> `### Validation strategy`
+    - `docs/specs/phase1_blackwell_bringup_spec.md` -> `### Acceptance checklist`
   - Backlog scope:
     - "Add the reduced memcheck workflow for the smallest bring-up case so memory errors are caught before profiling work proceeds."
   - Backlog done_when:
@@ -239,17 +239,17 @@ Phase 1 owns `P1-01..P1-07` and is limited to workstation, toolchain, and profil
   - Stand up baseline timeline and UVM-diagnostic profiling lanes with initial NVTX smoke instrumentation and trace artifact standardization.
 - Exact citations:
   - Authority:
-    - `docs/master_pin_manifest.md` -> `## Frozen Defaults` (Nsight Systems and NVTX3 pins)
-    - `docs/graph_capture_support_matrix.md` -> `## Run Modes`
-    - `docs/graph_capture_support_matrix.md` -> `## Global Capture Rules`
-    - `docs/planning/pr_expansion/01_foundation_authority_consumption.md` -> `## FND-06 Graph stage registry and graph-support-matrix loader`
-    - `docs/acceptance_manifest.md` -> `## Tuple-Specific NVTX Contract`
+    - `docs/authority/master_pin_manifest.md` -> `## Frozen Defaults` (Nsight Systems and NVTX3 pins)
+    - `docs/authority/graph_capture_support_matrix.md` -> `## Run Modes`
+    - `docs/authority/graph_capture_support_matrix.md` -> `## Global Capture Rules`
+    - `docs/tasks/01_foundation_authority_consumption.md` -> `## FND-06 Graph stage registry and graph-support-matrix loader`
+    - `docs/authority/acceptance_manifest.md` -> `## Tuple-Specific NVTX Contract`
   - Phase spec or `README_FIRST` authority-order note for `FND-*`:
-    - `docs/phase1_blackwell_bringup_spec.md` -> `#### Step 13 — Run low-overhead Nsight Systems profile`
-    - `docs/phase1_blackwell_bringup_spec.md` -> `#### Step 14 — Run UVM-fault diagnostic Nsight Systems profile`
-    - `docs/phase1_blackwell_bringup_spec.md` -> `### Instrumentation and profiling hooks`
-    - `docs/phase1_blackwell_bringup_spec.md` -> `### Profiling checks`
-    - `docs/phase1_blackwell_bringup_spec.md` -> `### Artifacts to produce`
+    - `docs/specs/phase1_blackwell_bringup_spec.md` -> `#### Step 13 — Run low-overhead Nsight Systems profile`
+    - `docs/specs/phase1_blackwell_bringup_spec.md` -> `#### Step 14 — Run UVM-fault diagnostic Nsight Systems profile`
+    - `docs/specs/phase1_blackwell_bringup_spec.md` -> `### Instrumentation and profiling hooks`
+    - `docs/specs/phase1_blackwell_bringup_spec.md` -> `### Profiling checks`
+    - `docs/specs/phase1_blackwell_bringup_spec.md` -> `### Artifacts to produce`
   - Backlog scope:
     - "Create the basic Nsight Systems profiling lane, the UVM-focused diagnostic lane, and the initial NVTX smoke instrumentation used in Phase 1."
   - Backlog done_when:
@@ -288,16 +288,16 @@ Phase 1 owns `P1-01..P1-07` and is limited to workstation, toolchain, and profil
   - Run the PTX-JIT compatibility proof and produce the final machine-readable and human-readable Phase 1 acceptance bundle that freezes bring-up status.
 - Exact citations:
   - Authority:
-    - `docs/master_pin_manifest.md` -> `## Frozen Defaults` (PTX/JIT mandate)
-    - `docs/master_pin_manifest.md` -> `## Required Revalidation If This Manifest Changes`
-    - `docs/acceptance_manifest.md` -> `## Disposition Rules`
-    - `docs/planning/pr_expansion/01_foundation_authority_consumption.md` -> `## FND-05 Acceptance-manifest evaluator scaffold`
+    - `docs/authority/master_pin_manifest.md` -> `## Frozen Defaults` (PTX/JIT mandate)
+    - `docs/authority/master_pin_manifest.md` -> `## Required Revalidation If This Manifest Changes`
+    - `docs/authority/acceptance_manifest.md` -> `## Disposition Rules`
+    - `docs/tasks/01_foundation_authority_consumption.md` -> `## FND-05 Acceptance-manifest evaluator scaffold`
   - Phase spec or `README_FIRST` authority-order note for `FND-*`:
-    - `docs/phase1_blackwell_bringup_spec.md` -> `#### Step 15 — Run PTX-JIT compatibility test`
-    - `docs/phase1_blackwell_bringup_spec.md` -> `#### Step 16 — Produce acceptance report and stop`
-    - `docs/phase1_blackwell_bringup_spec.md` -> `### Acceptance checklist`
-    - `docs/phase1_blackwell_bringup_spec.md` -> `### Artifacts to produce`
-    - `docs/phase1_blackwell_bringup_spec.md` -> `## Milestone M7 — Acceptance freeze`
+    - `docs/specs/phase1_blackwell_bringup_spec.md` -> `#### Step 15 — Run PTX-JIT compatibility test`
+    - `docs/specs/phase1_blackwell_bringup_spec.md` -> `#### Step 16 — Produce acceptance report and stop`
+    - `docs/specs/phase1_blackwell_bringup_spec.md` -> `### Acceptance checklist`
+    - `docs/specs/phase1_blackwell_bringup_spec.md` -> `### Artifacts to produce`
+    - `docs/specs/phase1_blackwell_bringup_spec.md` -> `## Milestone M7 — Acceptance freeze`
   - Backlog scope:
     - "Run the PTX-JIT compatibility proof and generate the Phase 1 acceptance reports that freeze the bring-up result."
   - Backlog done_when:
@@ -362,8 +362,8 @@ Phase 1 owns `P1-01..P1-07` and is limited to workstation, toolchain, and profil
 
 ## open_discontinuities
 
-- `[tracked] manifest-artifact-name-compatibility`: `master_pin_manifest.md` still mentions `env.json` while Foundation seam governance uses `host_env.json`; Phase 1 adopts `host_env.json` as canonical output and treats `env.json` as compatibility alias only (`docs/master_pin_manifest.md` -> `## Consumption Rules`, `docs/planning/pr_expansion/01_foundation_authority_consumption.md` -> `## open_discontinuities`, impacted PR IDs: `P1-01`, `P1-07`, preferred reading: preserve canonical planning seam name and document compatibility mapping where required).
-- `[tracked] phase0-case-metadata-availability`: Phase 1 smoke-case planning must consume canonical case metadata contracts and should consume populated Phase 0 case metadata once available, but the backlog dependency graph does not directly gate `P1-04` on Phase 0 completion (`docs/planning/pr_expansion/pr_inventory.md` -> `## Cross-Section Dependency Edges (Canonical)`, `docs/planning/pr_expansion/boundary_matrix.md` -> `### Foundation -> Phase 0 / Phase 1`, impacted PR IDs: `P1-04`, preferred reading: use Foundation `FND-03` case-role and schema contracts immediately and switch to populated Phase 0 metadata artifact as soon as it is published).
+- `[tracked] manifest-artifact-name-compatibility`: `master_pin_manifest.md` still mentions `env.json` while Foundation seam governance uses `host_env.json`; Phase 1 adopts `host_env.json` as canonical output and treats `env.json` as compatibility alias only (`docs/authority/master_pin_manifest.md` -> `## Consumption Rules`, `docs/tasks/01_foundation_authority_consumption.md` -> `## open_discontinuities`, impacted PR IDs: `P1-01`, `P1-07`, preferred reading: preserve canonical planning seam name and document compatibility mapping where required).
+- `[tracked] phase0-case-metadata-availability`: Phase 1 smoke-case planning must consume canonical case metadata contracts and should consume populated Phase 0 case metadata once available, but the backlog dependency graph does not directly gate `P1-04` on Phase 0 completion (`docs/tasks/pr_inventory.md` -> `## Cross-Section Dependency Edges (Canonical)`, `docs/tasks/boundary_matrix.md` -> `### Foundation -> Phase 0 / Phase 1`, impacted PR IDs: `P1-04`, preferred reading: use Foundation `FND-03` case-role and schema contracts immediately and switch to populated Phase 0 metadata artifact as soon as it is published).
 
 ## validation_checks
 

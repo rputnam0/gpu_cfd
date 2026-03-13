@@ -20,15 +20,15 @@ Use this checklist for every section review and wave signoff.
 
 - All earlier-wave blocking discontinuities are resolved before a dependent wave starts.
 - Shared terms remain consistent across reviewed section docs.
-- Boundary artifacts named in [boundary_matrix.md](/Users/rexputnam/Documents/projects/gpu_cfd/docs/planning/pr_expansion/boundary_matrix.md) exist in the upstream section before downstream cards consume them.
-- Cross-section dependencies listed in [pr_inventory.md](/Users/rexputnam/Documents/projects/gpu_cfd/docs/planning/pr_expansion/pr_inventory.md) are satisfied before downstream cards are marked complete.
+- Boundary artifacts named in [boundary_matrix.md](/Users/rexputnam/Documents/projects/gpu_cfd/docs/tasks/boundary_matrix.md) exist in the upstream section before downstream cards consume them.
+- Cross-section dependencies listed in [pr_inventory.md](/Users/rexputnam/Documents/projects/gpu_cfd/docs/tasks/pr_inventory.md) are satisfied before downstream cards are marked complete.
 - No reviewed section widens support scope, solver-family choices, fallback behavior, or acceptance thresholds beyond the authority layer.
 - Decision notes exist for every seam issue that could not be settled from the docs.
 
 ## Final Workspace Checks
 
-- All 88 PR IDs from [gpu_cfd_pr_backlog.json](/Users/rexputnam/Documents/projects/gpu_cfd/docs/PRs/gpu_cfd_pr_backlog.json) are covered once and only once.
+- All 88 PR IDs from [gpu_cfd_pr_backlog.json](/Users/rexputnam/Documents/projects/gpu_cfd/docs/backlog/gpu_cfd_pr_backlog.json) are covered once and only once.
 - Shared docs and section docs use the same artifact names, stage IDs, and boundary terms.
 - Phase 8 baseline-lock text is clearly separated from instrumentation-pass text.
 - Phase 8 pass-A dependencies (`P8-03 <- P3-05`, `P8-04 <- P3-07`) and downstream exports (`P5-11 <- P8-03`, `P7-01 <- P8-05`) are explicitly represented in section handoff blocks.
-- No section card depends on a contract that is neither defined upstream nor tracked in [decision_notes.md](/Users/rexputnam/Documents/projects/gpu_cfd/docs/planning/pr_expansion/decision_notes.md).
+- No section card depends on a contract that is neither defined upstream nor tracked in [decision_notes.md](/Users/rexputnam/Documents/projects/gpu_cfd/docs/tasks/decision_notes.md).
