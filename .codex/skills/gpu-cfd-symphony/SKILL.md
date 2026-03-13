@@ -36,7 +36,7 @@ authority docs, backlog dependencies, and PR-card scope.
 8. Run the smallest direct validation first, then any broader checks required by the card.
 9. Before opening or marking a PR ready for review, run `uv run python scripts/symphony/review_loop.py codex-review --issue <LINEAR-ISSUE> --base origin/main`, inspect the saved report in `.codex/review_artifacts/`, fix material findings, and rerun the review gate once.
 10. Open or update the PR only when the card's validation and done criteria are satisfied.
-11. Once the PR is in `In Review`, run `uv run python scripts/symphony/review_loop.py wait --issue <LINEAR-ISSUE> --reviewer devin-ai-integration[bot] --timeout-seconds 900` and use the result to drive the GitHub follow-up loop.
+11. Once the PR is in `In Review`, run `uv run python scripts/symphony/review_loop.py wait --issue <LINEAR-ISSUE> --reviewer 'devin-ai-integration[bot]' --timeout-seconds 900` and use the result to drive the GitHub follow-up loop.
 12. If Devin feedback is actionable, fix valid findings, rerun targeted validation, rerun the local Codex review gate, push, and wait for a fresh review on the new head.
 13. Merge the PR only when the current head is clean according to the GitHub review loop and the PR is otherwise mergeable.
 

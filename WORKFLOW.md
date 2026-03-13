@@ -80,7 +80,7 @@ Execution contract:
 - Run the smallest relevant validation first, then broader checks when the scope requires it.
 - Before opening or marking a PR ready for review, run `uv run python scripts/symphony/review_loop.py codex-review --issue {{ issue.identifier }} --base origin/main`, inspect the saved review artifact, fix material findings, and rerun the review gate once.
 - When the task is implementation-complete, open or update the GitHub PR, attach it to the Linear issue, and move the issue to `In Review`.
-- While the issue is `In Review`, treat review handling as active work: run `uv run python scripts/symphony/review_loop.py wait --issue {{ issue.identifier }} --reviewer devin-ai-integration[bot] --timeout-seconds 900`.
+- While the issue is `In Review`, treat review handling as active work: run `uv run python scripts/symphony/review_loop.py wait --issue {{ issue.identifier }} --reviewer 'devin-ai-integration[bot]' --timeout-seconds 900`.
 - If the GitHub review loop reports `action_required`, fix valid findings, rerun the smallest relevant validation, rerun the local Codex review gate, push the update, and then wait for a fresh Devin review on the new head.
 - If the GitHub review loop reports `pending_initial_review` or `pending_rereview`, leave the issue in `In Review`, add a concise workpad note, and keep waiting rather than widening scope.
 - If the GitHub review loop reports `clean`, merge the PR with GitHub CLI, confirm the default branch contains the change, and then move the Linear issue to `Done`.

@@ -222,7 +222,7 @@ review.
 cd ~/projects/gpu_cfd
 uv run python scripts/symphony/review_loop.py wait \
   --issue PRO-5 \
-  --reviewer devin-ai-integration[bot] \
+  --reviewer 'devin-ai-integration[bot]' \
   --timeout-seconds 900
 ```
 
