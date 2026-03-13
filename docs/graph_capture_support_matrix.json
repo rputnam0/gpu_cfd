@@ -1,0 +1,170 @@
+{
+  "schema_version": "1.0.0",
+  "authority_markdown": "graph_capture_support_matrix.md",
+  "stage_level_range_rule": "Required stage-level NVTX parent ranges must use stage_id exactly. Optional child ranges may nest beneath a parent stage for diagnosis, but they are never acceptance keys.",
+  "run_modes": [
+    {
+      "run_mode": "sync_debug",
+      "production_accepted": false,
+      "description": "debug-only, not a production acceptance mode"
+    },
+    {
+      "run_mode": "async_no_graph",
+      "production_accepted": true,
+      "description": "required non-graph baseline and fallback target"
+    },
+    {
+      "run_mode": "graph_fixed",
+      "production_accepted": true,
+      "description": "accepted graph mode for stable-address steady-state execution"
+    }
+  ],
+  "required_orchestration_ranges": [
+    "solver/timeStep",
+    "solver/steady_state",
+    "solver/pimpleOuter"
+  ],
+  "graph_lifecycle_markers": [
+    "graph/instantiate",
+    "graph/update",
+    "graph/launch"
+  ],
+  "stages": [
+    {
+      "stage_id": "warmup",
+      "intended_phase": "P3",
+      "capture_policy": "graph-external boundary",
+      "loop_owner": "host",
+      "fallback_mode": "async_no_graph",
+      "notes": "One-time warm-up and optional graph upload; outside timed steady-state windows."
+    },
+    {
+      "stage_id": "pre_solve",
+      "intended_phase": "P3",
+      "capture_policy": "capture-safe now",
+      "loop_owner": "host",
+      "fallback_mode": "async_no_graph",
+      "notes": "Project-controlled pre-solve preparation."
+    },
+    {
+      "stage_id": "outer_iter_body",
+      "intended_phase": "P3",
+      "capture_policy": "capture-safe now",
+      "loop_owner": "host outer loop",
+      "fallback_mode": "async_no_graph",
+      "notes": "Composite reusable body for one outer corrector in the Phase 3 baseline."
+    },
+    {
+      "stage_id": "momentum_predictor",
+      "intended_phase": "P5",
+      "capture_policy": "grouped inside outer_iter_body in Phase 3; explicit later",
+      "loop_owner": "host outer loop",
+      "fallback_mode": "async_no_graph",
+      "notes": "Becomes an explicit owned stage in Phase 5."
+    },
+    {
+      "stage_id": "pressure_assembly",
+      "intended_phase": "P4/P5",
+      "capture_policy": "required graph boundary under project control",
+      "loop_owner": "host outer loop",
+      "fallback_mode": "async_no_graph",
+      "notes": "Assembly/fix-up work before the selected pressure backend."
+    },
+    {
+      "stage_id": "pressure_solve_native",
+      "intended_phase": "P3+",
+      "capture_policy": "graph-external until individually validated",
+      "loop_owner": "host outer loop",
+      "fallback_mode": "async_no_graph",
+      "notes": "Native pressure solve remains outside capture until explicitly promoted."
+    },
+    {
+      "stage_id": "pressure_solve_amgx",
+      "intended_phase": "P3+",
+      "capture_policy": "graph-external until individually validated",
+      "loop_owner": "host outer loop",
+      "fallback_mode": "async_no_graph",
+      "notes": "AmgX remains graph-external and production-eligible only with DeviceDirect."
+    },
+    {
+      "stage_id": "pressure_post",
+      "intended_phase": "P4/P5",
+      "capture_policy": "required graph boundary under project control",
+      "loop_owner": "host outer loop",
+      "fallback_mode": "async_no_graph",
+      "notes": "Post-solve correction / fix-up work."
+    },
+    {
+      "stage_id": "alpha_pre",
+      "intended_phase": "P5",
+      "capture_policy": "forward-declared capture-safe stage",
+      "loop_owner": "host alpha loop",
+      "fallback_mode": "async_no_graph",
+      "notes": "Alpha pre-stage before subcycling."
+    },
+    {
+      "stage_id": "alpha_subcycle_body",
+      "intended_phase": "P5",
+      "capture_policy": "forward-declared capture-safe stage",
+      "loop_owner": "host alpha loop",
+      "fallback_mode": "async_no_graph",
+      "notes": "One host-controlled alpha subcycle body."
+    },
+    {
+      "stage_id": "mixture_update",
+      "intended_phase": "P5",
+      "capture_policy": "forward-declared capture-safe stage",
+      "loop_owner": "host timestep loop",
+      "fallback_mode": "async_no_graph",
+      "notes": "Post-alpha mixture update."
+    },
+    {
+      "stage_id": "nozzle_bc_update",
+      "intended_phase": "P6",
+      "capture_policy": "capture-safe only for Phase 6-owned BC rows",
+      "loop_owner": "host timestep/outer loop",
+      "fallback_mode": "async_no_graph",
+      "notes": "Pressure-backend boundaries remain graph-external."
+    },
+    {
+      "stage_id": "write_stage",
+      "intended_phase": "P3+",
+      "capture_policy": "graph-external boundary",
+      "loop_owner": "host",
+      "fallback_mode": "async_no_graph",
+      "notes": "Explicit output staging; excluded from timed steady-state measurement."
+    }
+  ],
+  "recommended_child_diagnostics": {
+    "alpha_subcycle_body": [
+      "alpha/detail/fluxAssembly",
+      "alpha/detail/MULES/limit",
+      "alpha/detail/correction"
+    ],
+    "mixture_update": [
+      "surfaceTension/detail/compute"
+    ],
+    "momentum_predictor": [
+      "momentum/detail/UAssembly",
+      "momentum/detail/USolve"
+    ],
+    "pressure_assembly": [
+      "pressure/detail/p_rghAssembly"
+    ],
+    "pressure_solve_native": [
+      "pressure/detail/p_rghSolve"
+    ],
+    "pressure_solve_amgx": [
+      "pressure/detail/p_rghSolve"
+    ],
+    "nozzle_bc_update": [
+      "boundary/detail/patchGroup/<name>"
+    ]
+  },
+  "global_capture_rules": {
+    "allow_post_warmup_dynamic_allocation": false,
+    "allow_hidden_cpu_patch_evaluation_in_capture_safe_stages": false,
+    "allow_silent_host_reads_of_device_authoritative_fields": false,
+    "capture_failure_policy": "downgrade_to_async_no_graph_with_logged_reason"
+  }
+}

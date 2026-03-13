@@ -1,0 +1,118 @@
+{
+  "schema_version": "1.0.0",
+  "authority_markdown": "reference_case_contract.md",
+  "frozen_cases": [
+    {
+      "case_id": "R0",
+      "frozen_id": "phase0_r0_57_28_1000_full360_v1",
+      "purpose": "Representative production reference",
+      "frozen_default_contract": {
+        "nozzle": "57-28 @ 1000 psi",
+        "domain": "full360",
+        "solver_family": "incompressibleVoF",
+        "mules_mode": "explicit",
+        "outer_loop_family": "PIMPLE",
+        "hydraulic_cfd_mode": "vof_transient_preconditioned",
+        "geometry_mode": "sk_standard_shared_body_with_coeffs_v2",
+        "startup_fill_extension_d": 0.0,
+        "air_core_seed_radius_d": 1.0,
+        "startup_conditioning_enabled": true,
+        "near_field_plume_mode": "compact"
+      }
+    },
+    {
+      "case_id": "R1",
+      "frozen_id": "phase0_r1_57_28_1000_internal_v1",
+      "purpose": "Reduced nozzle development reference",
+      "frozen_default_contract": {
+        "nozzle": "57-28 @ 1000 psi",
+        "domain": "internal_only",
+        "resolution": "reduced",
+        "inherits_solver_family_from": "R0",
+        "startup_conditioning_enabled": true,
+        "nozzle_specific_boundary_behavior": true
+      }
+    },
+    {
+      "case_id": "R1-core",
+      "frozen_id": "phase0_r1_core_57_28_1000_internal_generic_v1",
+      "purpose": "Phase-5-friendly reduced generic VOF case",
+      "frozen_default_contract": {
+        "domain": "internal_only",
+        "inherits_solver_family_from": "R1",
+        "generic_phase5_subset_only": true,
+        "custom_nozzle_inlet_bc": false,
+        "phase6_only_startup_seed_dependency": false,
+        "contact_angle": false,
+        "coupled_or_processor_patches": false,
+        "phase6_only_pressure_or_ambient_open_bc_requirements": false
+      }
+    },
+    {
+      "case_id": "R2",
+      "frozen_id": "phase0_r2_dambreak_reference_v1",
+      "purpose": "Generic VOF verification anchor",
+      "frozen_default_contract": {
+        "source_intent": "cfd/smoke/damBreak_amgx",
+        "native_cpu_pressure_fallback_allowed": true,
+        "fallback_context": "SPUMA/v2412 CPU comparison line when the external solver stack is unavailable"
+      }
+    }
+  ],
+  "phase_gate_mapping": {
+    "Phase 0": {
+      "ordered_case_ladder": [
+        "R2",
+        "R1-core",
+        "R1",
+        "R0"
+      ],
+      "baselines": [
+        "Baseline A",
+        "Baseline B"
+      ],
+      "usage": "freeze"
+    },
+    "Phase 2": {
+      "default_cases": [
+        "R2",
+        "R1-core"
+      ],
+      "conditional_cases": [
+        "R1"
+      ],
+      "conditional_case_rule": "Use R1 only when nozzle-specific topology or patch-manifest coverage is intentionally under test."
+    },
+    "Phase 5": {
+      "hard_gate_cases": [
+        "R2",
+        "R1-core"
+      ],
+      "r2_required_slices": [
+        "generic boundedness + interface-transport",
+        "static-droplet + surface-tension"
+      ]
+    },
+    "Phase 6": {
+      "accepted_case": "R1"
+    },
+    "Phase 7": {
+      "accepted_case": "R1"
+    },
+    "Phase 8": {
+      "routine_architecture_baseline_case": "R1",
+      "production_shape_acceptance_case": "R0",
+      "backend_or_execution_parity_case": "R1-core"
+    }
+  },
+  "locked_defaults": {
+    "hard_gating_r0_case": "57-28 @ 1000 psi",
+    "shadow_reference_cases": [
+      "40-28 @ 1000 psi"
+    ],
+    "pressure_drop_case_freeze_selector": false,
+    "later_phase_pressure_drop_authority": "acceptance_manifest.json",
+    "r1_core_required_case_id": "R1-core",
+    "descriptive_aliases_allowed_instead_of_r1_core": false
+  }
+}

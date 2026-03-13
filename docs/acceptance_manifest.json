@@ -1,0 +1,685 @@
+{
+  "schema_version": "1.0.0",
+  "authority_markdown": "acceptance_manifest.md",
+  "reference_case_contract": "reference_case_contract.json",
+  "support_matrix": "support_matrix.json",
+  "graph_capture_support_matrix": "graph_capture_support_matrix.json",
+  "accepted_tuples": [
+    {
+      "tuple_id": "P5_R2_TRANSPORT_NATIVE_ASYNC_BASELINE",
+      "phase_gate": "Phase 5",
+      "case_id": "R2",
+      "case_variant": "generic boundedness + interface-transport slice",
+      "backend": "native",
+      "execution_mode": "async_no_graph",
+      "kernel_family_mode": "baseline_gpu",
+      "admission": "required",
+      "production_eligible": false,
+      "tolerance_class": "TC_R2_TRANSPORT",
+      "restart_reload_parity_class": null,
+      "execution_parity_class": null,
+      "execution_peer_tuple_id": null,
+      "backend_parity_class": null,
+      "backend_peer_tuple_id": null,
+      "kernel_parity_class": null,
+      "kernel_peer_tuple_id": null,
+      "required_stage_ids": [
+        "pre_solve",
+        "outer_iter_body",
+        "alpha_pre",
+        "alpha_subcycle_body",
+        "mixture_update",
+        "momentum_predictor",
+        "pressure_assembly",
+        "pressure_solve_native",
+        "pressure_post"
+      ]
+    },
+    {
+      "tuple_id": "P5_R2_SURFACE_NATIVE_ASYNC_BASELINE",
+      "phase_gate": "Phase 5",
+      "case_id": "R2",
+      "case_variant": "static-droplet + surface-tension slice",
+      "backend": "native",
+      "execution_mode": "async_no_graph",
+      "kernel_family_mode": "baseline_gpu",
+      "admission": "required",
+      "production_eligible": false,
+      "tolerance_class": "TC_R2_SURFACE",
+      "restart_reload_parity_class": null,
+      "execution_parity_class": null,
+      "execution_peer_tuple_id": null,
+      "backend_parity_class": null,
+      "backend_peer_tuple_id": null,
+      "kernel_parity_class": null,
+      "kernel_peer_tuple_id": null,
+      "required_stage_ids": [
+        "pre_solve",
+        "outer_iter_body",
+        "alpha_pre",
+        "alpha_subcycle_body",
+        "mixture_update",
+        "momentum_predictor",
+        "pressure_assembly",
+        "pressure_solve_native",
+        "pressure_post"
+      ]
+    },
+    {
+      "tuple_id": "P5_R1CORE_NATIVE_ASYNC_BASELINE",
+      "phase_gate": "Phase 5",
+      "case_id": "R1-core",
+      "case_variant": "generic reduced case",
+      "backend": "native",
+      "execution_mode": "async_no_graph",
+      "kernel_family_mode": "baseline_gpu",
+      "admission": "required",
+      "production_eligible": true,
+      "tolerance_class": "TC_R1CORE_GENERIC",
+      "restart_reload_parity_class": "RP_STRICT",
+      "execution_parity_class": null,
+      "execution_peer_tuple_id": null,
+      "backend_parity_class": null,
+      "backend_peer_tuple_id": null,
+      "kernel_parity_class": null,
+      "kernel_peer_tuple_id": null,
+      "required_stage_ids": [
+        "pre_solve",
+        "outer_iter_body",
+        "alpha_pre",
+        "alpha_subcycle_body",
+        "mixture_update",
+        "momentum_predictor",
+        "pressure_assembly",
+        "pressure_solve_native",
+        "pressure_post"
+      ]
+    },
+    {
+      "tuple_id": "P5_R1CORE_AMGX_ASYNC_BASELINE",
+      "phase_gate": "Phase 5",
+      "case_id": "R1-core",
+      "case_variant": "generic reduced case",
+      "backend": "amgx",
+      "execution_mode": "async_no_graph",
+      "kernel_family_mode": "baseline_gpu",
+      "admission": "optional_benchmark_only",
+      "production_eligible": false,
+      "required_pressure_bridge_mode": "DeviceDirect",
+      "tolerance_class": "TC_R1CORE_GENERIC",
+      "restart_reload_parity_class": "RP_STRICT",
+      "execution_parity_class": null,
+      "execution_peer_tuple_id": null,
+      "backend_parity_class": "BP_AMGX_R1CORE",
+      "backend_peer_tuple_id": "P5_R1CORE_NATIVE_ASYNC_BASELINE",
+      "kernel_parity_class": null,
+      "kernel_peer_tuple_id": null,
+      "required_stage_ids": [
+        "pre_solve",
+        "outer_iter_body",
+        "alpha_pre",
+        "alpha_subcycle_body",
+        "mixture_update",
+        "momentum_predictor",
+        "pressure_assembly",
+        "pressure_solve_amgx",
+        "pressure_post"
+      ]
+    },
+    {
+      "tuple_id": "P8_R1CORE_NATIVE_ASYNC_BASELINE",
+      "phase_gate": "Phase 8",
+      "case_id": "R1-core",
+      "case_variant": "backend-parity and generic-kernel baseline",
+      "backend": "native",
+      "execution_mode": "async_no_graph",
+      "kernel_family_mode": "baseline_gpu",
+      "admission": "required",
+      "production_eligible": true,
+      "tolerance_class": "TC_R1CORE_GENERIC",
+      "restart_reload_parity_class": "RP_STRICT",
+      "execution_parity_class": null,
+      "execution_peer_tuple_id": null,
+      "backend_parity_class": null,
+      "backend_peer_tuple_id": null,
+      "kernel_parity_class": null,
+      "kernel_peer_tuple_id": null,
+      "required_stage_ids": [
+        "pre_solve",
+        "outer_iter_body",
+        "alpha_pre",
+        "alpha_subcycle_body",
+        "mixture_update",
+        "momentum_predictor",
+        "pressure_assembly",
+        "pressure_solve_native",
+        "pressure_post"
+      ]
+    },
+    {
+      "tuple_id": "P8_R1CORE_NATIVE_ASYNC_CUSTOM",
+      "phase_gate": "Phase 8",
+      "case_id": "R1-core",
+      "case_variant": "backend-parity and custom-kernel reduced case",
+      "backend": "native",
+      "execution_mode": "async_no_graph",
+      "kernel_family_mode": "custom_gpu",
+      "admission": "required",
+      "production_eligible": true,
+      "tolerance_class": "TC_R1CORE_GENERIC",
+      "restart_reload_parity_class": "RP_STRICT",
+      "execution_parity_class": null,
+      "execution_peer_tuple_id": null,
+      "backend_parity_class": null,
+      "backend_peer_tuple_id": null,
+      "kernel_parity_class": "KP_CUSTOM_VS_BASELINE",
+      "kernel_peer_tuple_id": "P8_R1CORE_NATIVE_ASYNC_BASELINE",
+      "required_stage_ids": [
+        "pre_solve",
+        "outer_iter_body",
+        "alpha_pre",
+        "alpha_subcycle_body",
+        "mixture_update",
+        "momentum_predictor",
+        "pressure_assembly",
+        "pressure_solve_native",
+        "pressure_post"
+      ]
+    },
+    {
+      "tuple_id": "P8_R1CORE_NATIVE_GRAPH_BASELINE",
+      "phase_gate": "Phase 8",
+      "case_id": "R1-core",
+      "case_variant": "backend-parity and generic-kernel baseline",
+      "backend": "native",
+      "execution_mode": "graph_fixed",
+      "kernel_family_mode": "baseline_gpu",
+      "admission": "required",
+      "production_eligible": true,
+      "tolerance_class": "TC_R1CORE_GENERIC",
+      "restart_reload_parity_class": "RP_STRICT",
+      "execution_parity_class": "EP_EXECUTION_MODE",
+      "execution_peer_tuple_id": "P8_R1CORE_NATIVE_ASYNC_BASELINE",
+      "backend_parity_class": null,
+      "backend_peer_tuple_id": null,
+      "kernel_parity_class": null,
+      "kernel_peer_tuple_id": null,
+      "required_stage_ids": [
+        "pre_solve",
+        "outer_iter_body",
+        "alpha_pre",
+        "alpha_subcycle_body",
+        "mixture_update",
+        "momentum_predictor",
+        "pressure_assembly",
+        "pressure_solve_native",
+        "pressure_post"
+      ]
+    },
+    {
+      "tuple_id": "P8_R1CORE_NATIVE_GRAPH_CUSTOM",
+      "phase_gate": "Phase 8",
+      "case_id": "R1-core",
+      "case_variant": "backend-parity and custom-kernel reduced case",
+      "backend": "native",
+      "execution_mode": "graph_fixed",
+      "kernel_family_mode": "custom_gpu",
+      "admission": "required",
+      "production_eligible": true,
+      "tolerance_class": "TC_R1CORE_GENERIC",
+      "restart_reload_parity_class": "RP_STRICT",
+      "execution_parity_class": "EP_EXECUTION_MODE",
+      "execution_peer_tuple_id": "P8_R1CORE_NATIVE_ASYNC_CUSTOM",
+      "backend_parity_class": null,
+      "backend_peer_tuple_id": null,
+      "kernel_parity_class": "KP_CUSTOM_VS_BASELINE",
+      "kernel_peer_tuple_id": "P8_R1CORE_NATIVE_GRAPH_BASELINE",
+      "required_stage_ids": [
+        "pre_solve",
+        "outer_iter_body",
+        "alpha_pre",
+        "alpha_subcycle_body",
+        "mixture_update",
+        "momentum_predictor",
+        "pressure_assembly",
+        "pressure_solve_native",
+        "pressure_post"
+      ]
+    },
+    {
+      "tuple_id": "P8_R1CORE_AMGX_ASYNC_BASELINE",
+      "phase_gate": "Phase 8",
+      "case_id": "R1-core",
+      "case_variant": "external-backend benchmark",
+      "backend": "amgx",
+      "execution_mode": "async_no_graph",
+      "kernel_family_mode": "baseline_gpu",
+      "admission": "optional_benchmark_only",
+      "production_eligible": false,
+      "required_pressure_bridge_mode": "DeviceDirect",
+      "tolerance_class": "TC_R1CORE_GENERIC",
+      "restart_reload_parity_class": "RP_STRICT",
+      "execution_parity_class": null,
+      "execution_peer_tuple_id": null,
+      "backend_parity_class": "BP_AMGX_R1CORE",
+      "backend_peer_tuple_id": "P8_R1CORE_NATIVE_ASYNC_BASELINE",
+      "kernel_parity_class": null,
+      "kernel_peer_tuple_id": null,
+      "required_stage_ids": [
+        "pre_solve",
+        "outer_iter_body",
+        "alpha_pre",
+        "alpha_subcycle_body",
+        "mixture_update",
+        "momentum_predictor",
+        "pressure_assembly",
+        "pressure_solve_amgx",
+        "pressure_post"
+      ]
+    },
+    {
+      "tuple_id": "P8_R1_NATIVE_ASYNC_BASELINE",
+      "phase_gate": "Phase 8",
+      "case_id": "R1",
+      "case_variant": "reduced nozzle baseline",
+      "backend": "native",
+      "execution_mode": "async_no_graph",
+      "kernel_family_mode": "baseline_gpu",
+      "admission": "required",
+      "production_eligible": true,
+      "tolerance_class": "TC_R1_NOZZLE",
+      "restart_reload_parity_class": "RP_STRICT",
+      "execution_parity_class": null,
+      "execution_peer_tuple_id": null,
+      "backend_parity_class": null,
+      "backend_peer_tuple_id": null,
+      "kernel_parity_class": null,
+      "kernel_peer_tuple_id": null,
+      "required_stage_ids": [
+        "pre_solve",
+        "outer_iter_body",
+        "alpha_pre",
+        "alpha_subcycle_body",
+        "mixture_update",
+        "momentum_predictor",
+        "pressure_assembly",
+        "pressure_solve_native",
+        "pressure_post",
+        "nozzle_bc_update"
+      ]
+    },
+    {
+      "tuple_id": "P8_R1_NATIVE_GRAPH_BASELINE",
+      "phase_gate": "Phase 8",
+      "case_id": "R1",
+      "case_variant": "reduced nozzle baseline",
+      "backend": "native",
+      "execution_mode": "graph_fixed",
+      "kernel_family_mode": "baseline_gpu",
+      "admission": "required",
+      "production_eligible": true,
+      "tolerance_class": "TC_R1_NOZZLE",
+      "restart_reload_parity_class": "RP_STRICT",
+      "execution_parity_class": "EP_EXECUTION_MODE",
+      "execution_peer_tuple_id": "P8_R1_NATIVE_ASYNC_BASELINE",
+      "backend_parity_class": null,
+      "backend_peer_tuple_id": null,
+      "kernel_parity_class": null,
+      "kernel_peer_tuple_id": null,
+      "required_stage_ids": [
+        "pre_solve",
+        "outer_iter_body",
+        "alpha_pre",
+        "alpha_subcycle_body",
+        "mixture_update",
+        "momentum_predictor",
+        "pressure_assembly",
+        "pressure_solve_native",
+        "pressure_post",
+        "nozzle_bc_update"
+      ]
+    },
+    {
+      "tuple_id": "P8_R1_NATIVE_ASYNC_CUSTOM",
+      "phase_gate": "Phase 8",
+      "case_id": "R1",
+      "case_variant": "reduced nozzle custom-kernel benchmark",
+      "backend": "native",
+      "execution_mode": "async_no_graph",
+      "kernel_family_mode": "custom_gpu",
+      "admission": "optional_benchmark_only",
+      "production_eligible": false,
+      "tolerance_class": "TC_R1_NOZZLE",
+      "restart_reload_parity_class": "RP_STRICT",
+      "execution_parity_class": null,
+      "execution_peer_tuple_id": null,
+      "backend_parity_class": null,
+      "backend_peer_tuple_id": null,
+      "kernel_parity_class": "KP_CUSTOM_VS_BASELINE",
+      "kernel_peer_tuple_id": "P8_R1_NATIVE_ASYNC_BASELINE",
+      "required_stage_ids": [
+        "pre_solve",
+        "outer_iter_body",
+        "alpha_pre",
+        "alpha_subcycle_body",
+        "mixture_update",
+        "momentum_predictor",
+        "pressure_assembly",
+        "pressure_solve_native",
+        "pressure_post",
+        "nozzle_bc_update"
+      ]
+    },
+    {
+      "tuple_id": "P8_R1_NATIVE_GRAPH_CUSTOM",
+      "phase_gate": "Phase 8",
+      "case_id": "R1",
+      "case_variant": "reduced nozzle custom-kernel benchmark",
+      "backend": "native",
+      "execution_mode": "graph_fixed",
+      "kernel_family_mode": "custom_gpu",
+      "admission": "optional_benchmark_only",
+      "production_eligible": false,
+      "tolerance_class": "TC_R1_NOZZLE",
+      "restart_reload_parity_class": "RP_STRICT",
+      "execution_parity_class": "EP_EXECUTION_MODE",
+      "execution_peer_tuple_id": "P8_R1_NATIVE_ASYNC_CUSTOM",
+      "backend_parity_class": null,
+      "backend_peer_tuple_id": null,
+      "kernel_parity_class": "KP_CUSTOM_VS_BASELINE",
+      "kernel_peer_tuple_id": "P8_R1_NATIVE_GRAPH_BASELINE",
+      "required_stage_ids": [
+        "pre_solve",
+        "outer_iter_body",
+        "alpha_pre",
+        "alpha_subcycle_body",
+        "mixture_update",
+        "momentum_predictor",
+        "pressure_assembly",
+        "pressure_solve_native",
+        "pressure_post",
+        "nozzle_bc_update"
+      ]
+    },
+    {
+      "tuple_id": "P8_R0_NATIVE_GRAPH_BASELINE",
+      "phase_gate": "Phase 8",
+      "case_id": "R0",
+      "case_variant": "production-shape nozzle acceptance",
+      "backend": "native",
+      "execution_mode": "graph_fixed",
+      "kernel_family_mode": "baseline_gpu",
+      "admission": "required",
+      "production_eligible": true,
+      "tolerance_class": "TC_R0_NOZZLE",
+      "restart_reload_parity_class": "RP_STRICT",
+      "execution_parity_class": null,
+      "execution_peer_tuple_id": null,
+      "backend_parity_class": null,
+      "backend_peer_tuple_id": null,
+      "kernel_parity_class": null,
+      "kernel_peer_tuple_id": null,
+      "required_stage_ids": [
+        "pre_solve",
+        "outer_iter_body",
+        "alpha_pre",
+        "alpha_subcycle_body",
+        "mixture_update",
+        "momentum_predictor",
+        "pressure_assembly",
+        "pressure_solve_native",
+        "pressure_post",
+        "nozzle_bc_update"
+      ]
+    },
+    {
+      "tuple_id": "P8_R0_NATIVE_GRAPH_CUSTOM",
+      "phase_gate": "Phase 8",
+      "case_id": "R0",
+      "case_variant": "production-shape nozzle custom-kernel benchmark",
+      "backend": "native",
+      "execution_mode": "graph_fixed",
+      "kernel_family_mode": "custom_gpu",
+      "admission": "optional_benchmark_only",
+      "production_eligible": false,
+      "tolerance_class": "TC_R0_NOZZLE",
+      "restart_reload_parity_class": "RP_STRICT",
+      "execution_parity_class": null,
+      "execution_peer_tuple_id": null,
+      "backend_parity_class": null,
+      "backend_peer_tuple_id": null,
+      "kernel_parity_class": "KP_CUSTOM_VS_BASELINE",
+      "kernel_peer_tuple_id": "P8_R0_NATIVE_GRAPH_BASELINE",
+      "required_stage_ids": [
+        "pre_solve",
+        "outer_iter_body",
+        "alpha_pre",
+        "alpha_subcycle_body",
+        "mixture_update",
+        "momentum_predictor",
+        "pressure_assembly",
+        "pressure_solve_native",
+        "pressure_post",
+        "nozzle_bc_update"
+      ]
+    }
+  ],
+  "coverage_rules": {
+    "accepted_execution_modes": [
+      "async_no_graph",
+      "graph_fixed"
+    ],
+    "kernel_family_modes": {
+      "baseline_gpu": "Phase 5/6 device-resident path without Phase 7 custom hotspot kernels",
+      "custom_gpu": "Phase 7 hotspot kernels enabled"
+    },
+    "case_family_rules": {
+      "R2": {
+        "phase_gate_family": true,
+        "required_phase5_slices": [
+          "generic boundedness + interface-transport",
+          "static-droplet + surface-tension"
+        ]
+      },
+      "R1-core": {
+        "default_reduced_case_for_backend_parity": true,
+        "default_reduced_case_for_execution_mode_parity": true,
+        "default_reduced_case_for_generic_vs_custom_kernel_comparison": true
+      },
+      "R1": {
+        "role": "reduced nozzle acceptance case for routine architecture and profiling baselines"
+      },
+      "R0": {
+        "role": "production-shape acceptance case"
+      }
+    },
+    "nozzle_kernel_promotion_policy": "The required milestone-1 nozzle signoff path is baseline_gpu on R1 and R0. Matching custom_gpu nozzle rows are optional benchmark rows admitted only when the implementation branch intentionally enables Phase 7 custom kernels.",
+    "backend_restrictions": {
+      "amgx_admitted_case_ids": [
+        "R1-core"
+      ],
+      "amgx_admitted_execution_modes": [
+        "async_no_graph"
+      ],
+      "amgx_production_eligible": false,
+      "amgx_required_pressure_bridge_mode": "DeviceDirect",
+      "amgx_without_required_bridge_classification": "diagnostic_only_not_an_accepted_tuple"
+    },
+    "optional_benchmark_policy": "Rows marked optional_benchmark_only do not block milestone-1 signoff when absent. If present, they must satisfy their tolerance and parity classes.",
+    "pinned_host_policy": "PinnedHost pressure staging is never production-eligible, always classifies a run as bring-up/correctness-only, and never satisfies an accepted AmgX tuple's DeviceDirect admission prerequisite.",
+    "write_timestep_policy": "Write timesteps are excluded from timed steady-state windows unless a named write-cadence variant is explicitly added later.",
+    "tuple_lookup_rule": "Automation must use tuple_id directly and may not infer a row from only case/backend/execution mode."
+  },
+  "nvtx_contract_defaults": {
+    "required_orchestration_ranges": [
+      "solver/timeStep",
+      "solver/steady_state",
+      "solver/pimpleOuter"
+    ],
+    "optional_stage_ids_when_enabled": [
+      {
+        "stage_id": "write_stage",
+        "condition": "Only future manifest rows that explicitly admit a write-cadence timed window may require or permit write_stage inside the acceptance window."
+      }
+    ],
+    "mandatory_range_gate_rule": "mandatory_nvtx_ranges_present is true only when every required orchestration range and every tuple-specific required_stage_id is present."
+  },
+  "hard_gates": {
+    "unexpected_htod_bytes": {
+      "operator": "==",
+      "value": 0
+    },
+    "unexpected_dtoh_bytes": {
+      "operator": "==",
+      "value": 0
+    },
+    "cpu_um_faults": {
+      "operator": "==",
+      "value": 0
+    },
+    "gpu_um_faults": {
+      "operator": "==",
+      "value": 0
+    },
+    "cudaDeviceSynchronize_calls": {
+      "operator": "==",
+      "value": 0,
+      "scope": "steady_state_inner_ranges"
+    },
+    "post_warmup_alloc_calls": {
+      "operator": "==",
+      "value": 0
+    },
+    "mandatory_nvtx_ranges_present": {
+      "operator": "==",
+      "value": true
+    },
+    "cpu_boundary_fallback_events": {
+      "operator": "==",
+      "value": 0
+    },
+    "host_patch_execution_events": {
+      "operator": "==",
+      "value": 0
+    },
+    "pinned_host_pressure_stage_events": {
+      "operator": "==",
+      "value": 0,
+      "scope": "production_acceptance_runs"
+    },
+    "host_setFields_startup_events": {
+      "operator": "==",
+      "value": 0,
+      "scope": "accepted_startup_path"
+    },
+    "unsafe_functionObject_commit_events": {
+      "operator": "==",
+      "value": 0,
+      "scope": "timed_steady_state_windows"
+    }
+  },
+  "soft_gates": {
+    "graph_launches_per_step": {
+      "operator": "<=",
+      "value": 4
+    },
+    "top_kernel_time_regression_pct": {
+      "operator": "<=",
+      "value": 10.0,
+      "units": "percent",
+      "baseline": "locked_baseline"
+    }
+  },
+  "disposition_rules": {
+    "hard_gate_failure": {
+      "formal_acceptance_result": "fail",
+      "release_eligible": false,
+      "baseline_lock_eligible": false
+    },
+    "soft_gate_failure": {
+      "formal_acceptance_result": "soft_fail",
+      "diagnostic_archive_allowed": true,
+      "release_eligible_without_waiver": false,
+      "baseline_lock_eligible_without_waiver": false,
+      "required_waiver_fields": [
+        "manifest_revision",
+        "tuple_id"
+      ]
+    },
+    "diagnostic_or_bringup_run_outside_accepted_tuple_matrix": {
+      "may_report_soft_gates": true,
+      "formal_acceptance_verdict_emitted": false
+    }
+  },
+  "threshold_classes": {
+    "field_qoi": {
+      "TC_R2_TRANSPORT": {
+        "alpha_phase_sum_abs_max": 1e-12,
+        "alpha1_min": -1e-10,
+        "alpha1_max": 1.0000000001,
+        "integral_mass_imbalance_pct_point_delta_vs_cpu_baseline_max": 0.1,
+        "allow_solver_divergence": false,
+        "accepted_window": "transport"
+      },
+      "TC_R2_SURFACE": {
+        "alpha_phase_sum_abs_max": 1e-12,
+        "alpha1_min": -1e-10,
+        "alpha1_max": 1.0000000001,
+        "static_droplet_laplace_pressure_jump_relative_error_max_pct": 1.0,
+        "spurious_current_peak_delta_vs_cpu_baseline_max_pct": 20.0
+      },
+      "TC_R1CORE_GENERIC": {
+        "integral_mass_imbalance_pct_point_delta_vs_cpu_baseline_max": 0.1,
+        "pressure_drop_relative_error_max_pct": 0.5,
+        "mass_flow_relative_error_max_pct": 0.5,
+        "discharge_coefficient_proxy_relative_error_max_pct": 1.0,
+        "matched_transient_window_required": true
+      },
+      "TC_R1_NOZZLE": {
+        "mass_flow_relative_error_max_pct": 0.5,
+        "pressure_drop_relative_error_max_pct": 0.5,
+        "max_alpha_overshoot_undershoot_abs": 1e-8,
+        "allow_solver_divergence_attributable_to_nozzle_path": false,
+        "nozzle_path_divergence_observation_window_timesteps": 100
+      },
+      "TC_R0_NOZZLE": {
+        "discharge_coefficient_relative_error_max_pct": 1.0,
+        "spray_half_angle_difference_max_degrees": 2.0,
+        "air_core_onset_time_difference_max_pct_of_reference_startup_window": 5.0
+      }
+    },
+    "parity_replay": {
+      "RP_STRICT": {
+        "current_fields_relative_l2_max": 1e-12,
+        "old_time_prev_iter_device_history_relative_l2_max": 1e-12,
+        "constant_selector_fields_must_match_exactly": true,
+        "missing_history_fields_fail": true
+      },
+      "EP_EXECUTION_MODE": {
+        "stage_counts_must_match_exactly": true,
+        "outer_loop_counts_must_match_exactly": true,
+        "pressure_iteration_counts_must_match_exactly": true,
+        "double_residual_history_relative_difference_max": 1e-12,
+        "single_precision_scratch_derived_diagnostics_relative_difference_max": 1e-6
+      },
+      "BP_AMGX_R1CORE": {
+        "small_deterministic_pressure_snapshot_relative_l2_max": 1e-9,
+        "small_deterministic_pressure_snapshot_relative_linf_max": 1e-8,
+        "real_nozzle_snapshot_relative_l2_max": 1e-7,
+        "live_qoi_tolerance_class_required": "TC_R1CORE_GENERIC"
+      },
+      "KP_CUSTOM_VS_BASELINE": {
+        "requires_row_tolerance_class_against_cpu_or_reference": true,
+        "double_residual_history_relative_difference_max": 1e-12,
+        "single_precision_scratch_derived_diagnostics_relative_difference_max": 1e-6,
+        "qoi_deltas_no_worse_than_row_tolerance_class": true
+      }
+    }
+  },
+  "production_defaults": {
+    "backend": "native",
+    "execution_mode": "graph_fixed",
+    "required_non_graph_regression_isolation_baseline": "async_no_graph",
+    "contact_angle_in_scope": false
+  }
+}

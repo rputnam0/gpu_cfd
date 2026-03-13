@@ -1,0 +1,364 @@
+{
+  "schema_version": "1.0.0",
+  "authority_markdown": "support_matrix.md",
+  "global_policy": {
+    "mesh_mode": "static",
+    "region_count": 1,
+    "allow_processor_patches": false,
+    "allow_cyclic_or_ami_patches": false,
+    "allow_arbitrary_coded_patch_fields": false,
+    "contact_angle_in_scope": false,
+    "surface_tension_model_scope": "constant_sigma_only",
+    "turbulence_scope": "laminar_only",
+    "default_fallback_policy": "failFast",
+    "cpu_stage_fallback_allowed_in_production": false,
+    "host_patch_execution_allowed_in_production": false,
+    "host_setFields_startup_allowed_in_production": false,
+    "performance_mode_allowed_function_object_classifications": [
+      "writeTimeOnly"
+    ],
+    "debug_mode_additional_function_object_classifications": [
+      "debugOnly"
+    ]
+  },
+  "phase5_generic_vof_envelope": {
+    "scalar_boundary_kinds": [
+      "fixedValue",
+      "zeroGradient",
+      "calculated"
+    ],
+    "vector_boundary_kinds": [
+      "fixedValue",
+      "noSlip",
+      "slip",
+      "symmetryPlane",
+      "calculated"
+    ],
+    "geometry_patch_families": [
+      "wall",
+      "patch",
+      "symmetryPlane",
+      "empty",
+      "wedge"
+    ],
+    "runtime_policy": {
+      "ddt_scheme_default": "Euler",
+      "generic_bc_subset_only": true,
+      "generic_scheme_subset_only": true,
+      "allow_contact_angle_patch_fields": false,
+      "allow_nozzle_specific_swirl_inlet_logic": false,
+      "allow_pressureInletOutletVelocity": false,
+      "allow_fixedFluxPressure": false,
+      "allow_processor_or_coupled_patches": false
+    }
+  },
+  "exact_audited_scheme_tuple": {
+    "ddtSchemes": {
+      "default": "Euler"
+    },
+    "gradSchemes": {
+      "default": "Gauss linear",
+      "grad(alpha1)": "Gauss linear"
+    },
+    "interpolationSchemes": {
+      "default": "linear",
+      "interpolate(grad(alpha1))": "linear",
+      "interpolate(sigmaK)": "linear"
+    },
+    "divSchemes": {
+      "div(phi,alpha1)": "Gauss upwind",
+      "div(phirb,alpha1)": "Gauss interfaceCompression"
+    },
+    "unsupported_examples": [
+      "localEuler",
+      "CrankNicolson",
+      "unlisted grad entries",
+      "unlisted interpolate entries",
+      "unlisted div entries",
+      "alternative alpha convection schemes"
+    ],
+    "notes": [
+      "alpha1 is generic transport shorthand; in the frozen nozzle family (R0, R1, R1-core) the liquid volume-fraction field is alpha.water.",
+      "Momentum and pressure-side numerics outside the alpha/interface tuple stay whatever is frozen in the checked-in Phase 0 case bundles."
+    ]
+  },
+  "function_object_policy": {
+    "default_classification": "unsupported",
+    "classes": [
+      {
+        "class_name": "fieldMinMax",
+        "classification": "writeTimeOnly",
+        "production_mode_rule": "allowed only when execution is restricted to write times"
+      },
+      {
+        "class_name": "volFieldValue",
+        "classification": "writeTimeOnly",
+        "production_mode_rule": "allowed only when execution is restricted to write times"
+      },
+      {
+        "class_name": "surfaceFieldValue",
+        "classification": "writeTimeOnly",
+        "production_mode_rule": "allowed only when execution is restricted to write times"
+      },
+      {
+        "class_name": "writeObjects",
+        "classification": "writeTimeOnly",
+        "production_mode_rule": "allowed only when execution is restricted to write times"
+      },
+      {
+        "class_name": "solverInfo",
+        "classification": "debugOnly",
+        "production_mode_rule": "allowed only in explicit debug / bring-up runs"
+      },
+      {
+        "class_name": "residuals",
+        "classification": "debugOnly",
+        "production_mode_rule": "allowed only in explicit debug / bring-up runs"
+      },
+      {
+        "class_name": "probes",
+        "classification": "debugOnly",
+        "production_mode_rule": "allowed only in explicit debug / bring-up runs"
+      },
+      {
+        "class_name": "patchProbes",
+        "classification": "debugOnly",
+        "production_mode_rule": "allowed only in explicit debug / bring-up runs"
+      },
+      {
+        "class_name": "forces",
+        "classification": "debugOnly",
+        "production_mode_rule": "allowed only in explicit debug / bring-up runs"
+      },
+      {
+        "class_name": "forceCoeffs",
+        "classification": "debugOnly",
+        "production_mode_rule": "allowed only in explicit debug / bring-up runs"
+      },
+      {
+        "class_name": "vorticity",
+        "classification": "debugOnly",
+        "production_mode_rule": "allowed only in explicit debug / bring-up runs"
+      },
+      {
+        "class_name": "Q",
+        "classification": "debugOnly",
+        "production_mode_rule": "allowed only in explicit debug / bring-up runs"
+      },
+      {
+        "class_name": "lambda2",
+        "classification": "debugOnly",
+        "production_mode_rule": "allowed only in explicit debug / bring-up runs"
+      },
+      {
+        "class_name": "streamLines",
+        "classification": "debugOnly",
+        "production_mode_rule": "allowed only in explicit debug / bring-up runs"
+      },
+      {
+        "class_name": "isoSurface",
+        "classification": "debugOnly",
+        "production_mode_rule": "allowed only in explicit debug / bring-up runs"
+      },
+      {
+        "class_name": "yPlus",
+        "classification": "debugOnly",
+        "production_mode_rule": "allowed only in explicit debug / bring-up runs"
+      },
+      {
+        "class_name": "coded",
+        "classification": "unsupported",
+        "production_mode_rule": "reject before the first timestep"
+      },
+      {
+        "class_name": "systemCall",
+        "classification": "unsupported",
+        "production_mode_rule": "reject before the first timestep"
+      },
+      {
+        "class_name": "python",
+        "classification": "unsupported",
+        "production_mode_rule": "reject before the first timestep"
+      }
+    ],
+    "rules": {
+      "performance_mode_write_time_only_rule": "writeTimeOnly objects may execute only on accepted write events; every-timestep or substep execution is unsupported",
+      "debug_only_objects_disqualify_production_if_triggered_inside_timed_window": true
+    }
+  },
+  "phase6_nozzle_specific_envelope": [
+    {
+      "patch_role": "Swirl inlet (swirlInletA/B)",
+      "field": "U",
+      "allowed_kinds": [
+        "gpuPressureSwirlInletVelocity"
+      ]
+    },
+    {
+      "patch_role": "Swirl inlet (swirlInletA/B)",
+      "field": "p_rgh",
+      "allowed_kinds": [
+        "prghTotalHydrostaticPressure"
+      ]
+    },
+    {
+      "patch_role": "Swirl inlet (swirlInletA/B)",
+      "field": "alpha.water",
+      "allowed_kinds": [
+        "fixedValue"
+      ]
+    },
+    {
+      "patch_role": "Wall",
+      "field": "U",
+      "allowed_kinds": [
+        "noSlip"
+      ],
+      "compatibility_aliases": [
+        {
+          "kind": "fixedValue",
+          "required_value": "(0 0 0)",
+          "normalizes_to": "noSlip",
+          "admission": "compatibility_only_not_a_distinct_frozen_kind"
+        }
+      ]
+    },
+    {
+      "patch_role": "Wall",
+      "field": "p_rgh",
+      "allowed_kinds": [
+        "fixedFluxPressure"
+      ]
+    },
+    {
+      "patch_role": "Wall",
+      "field": "alpha.water",
+      "allowed_kinds": [
+        "zeroGradient"
+      ]
+    },
+    {
+      "patch_role": "Ambient/open",
+      "field": "U",
+      "allowed_kinds": [
+        "pressureInletOutletVelocity"
+      ]
+    },
+    {
+      "patch_role": "Ambient/open",
+      "field": "p_rgh",
+      "allowed_kinds": [
+        "prghPressure"
+      ]
+    },
+    {
+      "patch_role": "Ambient/open",
+      "field": "alpha.water",
+      "allowed_kinds": [
+        "inletOutlet"
+      ]
+    },
+    {
+      "patch_role": "Symmetry / empty",
+      "field": "all relevant fields",
+      "allowed_kinds": [
+        "pass-through",
+        "no-op semantics"
+      ]
+    }
+  ],
+  "accepted_nozzle_case_family_boundary_tuple": {
+    "case_ids": [
+      "R1",
+      "R0"
+    ],
+    "swirl_inlet": {
+      "U": "gpuPressureSwirlInletVelocity",
+      "p_rgh": "prghTotalHydrostaticPressure",
+      "alpha.water": "fixedValue"
+    },
+    "wall": {
+      "U": "noSlip",
+      "p_rgh": "fixedFluxPressure",
+      "alpha.water": "zeroGradient"
+    },
+    "ambient_open": {
+      "U": "pressureInletOutletVelocity",
+      "p_rgh": "prghPressure",
+      "alpha.water": "inletOutlet"
+    }
+  },
+  "startup_seed_dsl": {
+    "canonical_owner": {
+      "file": "system/gpuRuntimeDict",
+      "path": "gpuRuntime.startupSeed",
+      "compatibility_shim": "gpuStartupSeedDict"
+    },
+    "top_level_keys": [
+      "enabled",
+      "forceReseed",
+      "precedence",
+      "defaultFieldValues",
+      "regions"
+    ],
+    "unknown_top_level_key_policy": "reject",
+    "precedence_policy": {
+      "allowed_values": [
+        "lastWins"
+      ],
+      "default_values_applied_before_regions": true,
+      "regions_applied_in_listed_order": true
+    },
+    "application_policy": {
+      "apply_once_before_first_timestep": true,
+      "restart_reseed_requires_forceReseed": true
+    },
+    "allowed_field_value_entries": [
+      {
+        "value_class": "volScalarFieldValue",
+        "field": "alpha.water",
+        "value_type": "scalar"
+      },
+      {
+        "value_class": "volVectorFieldValue",
+        "field": "U",
+        "value_type": "vector"
+      },
+      {
+        "value_class": "volScalarFieldValue",
+        "field": "p_rgh",
+        "value_type": "scalar"
+      }
+    ],
+    "supported_region_types": [
+      {
+        "region_type": "cylinderToCell",
+        "geometry_semantics": "axial segment p1->p2 with constant radius inclusion"
+      },
+      {
+        "region_type": "frustumToCell",
+        "geometry_semantics": "axial segment p1->p2 with linearly interpolated radius1->radius2 inclusion"
+      },
+      {
+        "region_type": "boxToCell",
+        "geometry_semantics": "axis-aligned bounds inclusion"
+      },
+      {
+        "region_type": "sphereToCell",
+        "geometry_semantics": "center-radius inclusion"
+      },
+      {
+        "region_type": "halfSpaceToCell",
+        "geometry_semantics": "signed plane-distance inclusion"
+      }
+    ],
+    "unsupported_policy": "Reject any unlisted region type, field name, or field-value class before the first timestep."
+  },
+  "backend_operational_policy": {
+    "native_pressure_required_baseline_on_every_accepted_case": true,
+    "amgx_supported_secondary_backend_via_phase4_bridge_only": true,
+    "amgx_production_claim_requires_device_direct": true,
+    "pinned_host_pressure_staging_classification": "correctness_only_bringup",
+    "unsupported_cases_must_fail_before_first_timestep": true
+  }
+}
