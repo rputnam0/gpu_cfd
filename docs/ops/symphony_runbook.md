@@ -39,10 +39,10 @@ These items still must exist on the worker host before Symphony can run end-to-e
 - Symphony itself installed on the worker host
 - Recommended for the remote GPU workflow: `tmux` and `ts`
 
-Fresh Symphony workspaces clone from Git, so this bootstrap setup must be available on a pushed
-branch. Until these files are merged to the repo's default branch, set
-`GPU_CFD_BOOTSTRAP_REF=codex/fix-review-findings` on the worker host so issue workspaces check out
-the branch that contains the workflow bootstrap.
+Fresh Symphony workspaces clone from Git, so any workflow changes must be available on a pushed
+branch before the worker host can consume them. Leave `GPU_CFD_BOOTSTRAP_REF` unset for normal
+default-branch runs. Set it only when you intentionally want issue workspaces to test an unmerged
+branch.
 
 ## Codex CLI on the worker host
 
@@ -112,8 +112,8 @@ export SYMPHONY_WORKSPACE_ROOT=~/projects/symphony-workspaces/gpu_cfd
 export GPU_CFD_SOURCE_REPO_URL=https://github.com/rputnam0/gpu_cfd.git
 ```
 
-Add `GPU_CFD_BOOTSTRAP_REF=codex/fix-review-findings` only while testing a branch that has not yet
-been merged to `main`.
+Add `GPU_CFD_BOOTSTRAP_REF=<branch-name>` only while testing a branch that has not yet been merged
+to `main`.
 
 Configure GitHub CLI as the git credential helper on WSL so HTTPS clones can still push branches and
 open PRs:
@@ -203,4 +203,4 @@ Recommended agent behavior:
 - The repository docs remain the technical source of truth.
 - Linear state decides whether Symphony runs an issue.
 - Only move an issue to `Todo` when its blockers are truly resolved.
-- Use `In Review` as the stop point for human inspection and merge approval.
+- Use `In Review` as the active review-and-merge loop, not a passive holding state.
