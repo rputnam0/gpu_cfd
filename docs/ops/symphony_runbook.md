@@ -89,14 +89,23 @@ GPU environment and long-running jobs can use the existing `tmux` and `task-spoo
 ```bash
 export LINEAR_API_KEY=...
 export SYMPHONY_WORKSPACE_ROOT=~/projects/symphony-workspaces/gpu_cfd
-export GPU_CFD_SOURCE_REPO_URL=git@github.com:rputnam0/gpu_cfd.git
-export GPU_CFD_BOOTSTRAP_REF=codex/fix-review-findings
+export GPU_CFD_SOURCE_REPO_URL=https://github.com/rputnam0/gpu_cfd.git
+```
+
+Add `GPU_CFD_BOOTSTRAP_REF=codex/fix-review-findings` only while testing a branch that has not yet
+been merged to `main`.
+
+Configure GitHub CLI as the git credential helper on WSL so HTTPS clones can still push branches and
+open PRs:
+
+```bash
+gh auth setup-git
 ```
 
 3. Run the runtime preflight:
 
 ```bash
-cd /path/to/gpu_cfd
+cd ~/projects/gpu_cfd
 uv run python scripts/symphony/preflight.py --mode runtime
 ```
 
@@ -115,9 +124,15 @@ mise exec -- mix build
 
 ```bash
 tmux new -s symphony
-cd ~/projects/symphony/elixir
-mise exec -- ./bin/symphony /home/rputn/projects/gpu_cfd/WORKFLOW.md --logs-root ~/projects/symphony-logs/gpu_cfd
+cd ~/projects/gpu_cfd
+./scripts/symphony/run_wsl_symphony.sh
 ```
+
+The launcher script reads `~/projects/symphony/.env`, fills in sane defaults for
+`SYMPHONY_WORKSPACE_ROOT`, `GPU_CFD_SOURCE_REPO_URL`, and `GPU_CFD_BOOTSTRAP_REF`, runs the
+runtime preflight, and then starts Symphony from the checked-out `~/projects/symphony/elixir`
+directory. It also passes the required preview acknowledgement flag for the current Symphony
+reference implementation.
 
 ## Recommended rollout
 

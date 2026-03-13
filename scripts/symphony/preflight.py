@@ -90,7 +90,10 @@ def run_runtime_checks() -> list[Check]:
     results: list[Check] = []
 
     required_bins = ["git", "gh"]
-    optional_bins = ["ssh", "tmux", "ts", "mise", "elixir"]
+    optional_bins = ["ssh", "tmux", "ts", "elixir"]
+    optional_candidates = {
+        "mise": [shutil.which("mise"), str(pathlib.Path.home() / ".local" / "bin" / "mise")],
+    }
     codex_candidates = [
         shutil.which("codex"),
         str(pathlib.Path.home() / ".npm-global" / "bin" / "codex"),
@@ -119,6 +122,13 @@ def run_runtime_checks() -> list[Check]:
         else:
             add_check(results, "warn", f"binary:{name}", "not on PATH")
 
+    for name, candidates in optional_candidates.items():
+        resolved = next((path for path in candidates if path and pathlib.Path(path).exists()), None)
+        if resolved:
+            add_check(results, "ok", f"binary:{name}", resolved)
+        else:
+            add_check(results, "warn", f"binary:{name}", "not on PATH")
+
     required_env = ["LINEAR_API_KEY", "SYMPHONY_WORKSPACE_ROOT"]
     for name in required_env:
         if os.environ.get(name):
@@ -143,9 +153,9 @@ def run_runtime_checks() -> list[Check]:
     else:
         add_check(
             results,
-            "warn",
+            "ok",
             "env:GPU_CFD_BOOTSTRAP_REF",
-            "unset; use this when the Symphony bootstrap files live on a non-default branch",
+            "unset; default-branch bootstrap",
         )
 
     codex_auth = pathlib.Path.home() / ".codex/auth.json"
