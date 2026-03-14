@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 import json
+import os
 import pathlib
+import subprocess
 import tempfile
 import unittest
 
@@ -118,6 +120,71 @@ class PinManifestResolutionTests(unittest.TestCase):
         self.assertEqual(
             profiling_resolution.host_env["profilers"]["compute_sanitizer"],
             "2025.1",
+        )
+
+    def test_manifest_refs_include_required_revalidation_steps(self) -> None:
+        bundle = load_authority_bundle(repo_root())
+
+        resolution = resolve_consumer_pin_manifest(bundle, consumer="build")
+
+        self.assertEqual(
+            resolution.manifest_refs["required_revalidation"],
+            [
+                "Phase 1 smoke/build lane on the primary toolkit.",
+                "Phase 3 `async_no_graph` and `graph_fixed` smoke coverage.",
+                "Phase 5 `R1-core` native baseline.",
+                "Phase 8 baseline timeline acceptance on `R1` and `R0`.",
+            ],
+        )
+
+    def test_repo_commit_is_resolved_from_bundle_root_when_caller_cwd_differs(self) -> None:
+        bundle = load_authority_bundle(repo_root())
+        expected_commit = subprocess.run(
+            ["git", "rev-parse", "HEAD"],
+            cwd=repo_root(),
+            text=True,
+            capture_output=True,
+            check=True,
+        ).stdout.strip()
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            original_cwd = pathlib.Path.cwd()
+            try:
+                temp_path = pathlib.Path(temp_dir)
+                # Use a non-repo working directory to verify git metadata still resolves from bundle.root.
+                os.chdir(temp_path)
+                resolution = resolve_consumer_pin_manifest(bundle, consumer="run")
+            finally:
+                os.chdir(original_cwd)
+
+        self.assertEqual(resolution.host_env["repo"]["git_commit"], expected_commit)
+        self.assertEqual(resolution.manifest_refs["repo"]["git_commit"], expected_commit)
+
+    def test_shared_resolution_key_changes_with_selected_lane(self) -> None:
+        bundle = load_authority_bundle(repo_root())
+
+        primary_resolution = resolve_consumer_pin_manifest(
+            bundle,
+            consumer="profiling",
+            lane="primary",
+        )
+        experimental_resolution = resolve_consumer_pin_manifest(
+            bundle,
+            consumer="profiling",
+            lane="experimental",
+        )
+
+        self.assertNotEqual(
+            primary_resolution.shared_resolution_key,
+            experimental_resolution.shared_resolution_key,
+        )
+        self.assertEqual(
+            primary_resolution.host_env["toolkit"]["selected_lane_value"],
+            "CUDA 12.9.1",
+        )
+        self.assertEqual(
+            experimental_resolution.host_env["toolkit"]["selected_lane_value"],
+            "CUDA 13.2",
         )
 
 

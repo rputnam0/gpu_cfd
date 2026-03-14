@@ -95,6 +95,8 @@ def resolve_consumer_pin_manifest(
     )
     authority_revisions = build_authority_revisions(bundle.root)
 
+    repo_git_commit = repo_commit or detect_git_value(["rev-parse", "HEAD"], cwd=bundle.root)
+
     host_env = {
         "schema_version": MANIFEST_SCHEMA_VERSION,
         "canonical_name": CANONICAL_HOST_ENV_NAME,
@@ -121,7 +123,7 @@ def resolve_consumer_pin_manifest(
         "compatibility_aliases": dict(COMPATIBILITY_ALIASES),
         "authority_revisions": authority_revisions,
         "repo": {
-            "git_commit": repo_commit or detect_git_value(["rev-parse", "HEAD"]),
+            "git_commit": repo_git_commit,
         },
     }
 
@@ -144,10 +146,10 @@ def resolve_consumer_pin_manifest(
         "authority_revisions": authority_revisions,
         "required_revalidation": list(pin_details.required_revalidation),
         "repo": {
-            "git_commit": repo_commit or detect_git_value(["rev-parse", "HEAD"]),
+            "git_commit": repo_git_commit,
         },
     }
-    shared_resolution_key = build_shared_resolution_key(pin_details)
+    shared_resolution_key = build_shared_resolution_key(pin_details, lane=lane)
     return ConsumerPinResolution(
         consumer=consumer,
         shared_resolution_key=shared_resolution_key,
@@ -261,10 +263,11 @@ def build_authority_revisions(root: pathlib.Path) -> dict[str, dict[str, str]]:
     }
 
 
-def build_shared_resolution_key(pin_details: PinDetails) -> str:
+def build_shared_resolution_key(pin_details: PinDetails, *, lane: str) -> str:
     material = "|".join(
         [
             pin_details.reviewed_source_tuple_id,
+            lane,
             pin_details.primary_toolkit_lane,
             pin_details.experimental_toolkit_lane,
             pin_details.driver_floor,
@@ -278,9 +281,10 @@ def build_shared_resolution_key(pin_details: PinDetails) -> str:
     return hashlib.sha256(material.encode("utf-8")).hexdigest()
 
 
-def detect_git_value(args: list[str]) -> str | None:
+def detect_git_value(args: list[str], *, cwd: pathlib.Path | None = None) -> str | None:
     completed = subprocess.run(
         ["git", *args],
+        cwd=cwd,
         text=True,
         capture_output=True,
         check=False,
@@ -347,8 +351,9 @@ def _parse_required_revalidation(text: str) -> list[str]:
         line = raw_line.strip()
         if not line:
             continue
-        if line[:2].isdigit() and ". " in line:
-            results.append(line.split(". ", 1)[1])
+        number, separator, content = line.partition(". ")
+        if separator and number.isdigit():
+            results.append(content)
     return results
 
 
