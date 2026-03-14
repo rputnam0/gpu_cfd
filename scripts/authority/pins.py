@@ -185,13 +185,23 @@ def emit_environment_manifests(
     local_mirror_refs: dict[str, str] | None = None,
     repo_commit: str | None = None,
 ) -> EmittedEnvironmentManifests:
+    pin_details = load_pin_details(bundle)
+    resolved_host_observations = host_observations or {}
+    resolved_local_mirror_refs = local_mirror_refs or {}
+    _validate_host_observations(pin_details, resolved_host_observations, lane=lane)
+    _validate_local_mirror_refs(
+        pin_details,
+        resolved_local_mirror_refs,
+        require_complete=True,
+    )
+
     resolution = resolve_consumer_pin_manifest(
         bundle,
         consumer=consumer,
         lane=lane,
         overrides=overrides,
-        host_observations=host_observations,
-        local_mirror_refs=local_mirror_refs,
+        host_observations=resolved_host_observations,
+        local_mirror_refs=resolved_local_mirror_refs,
         repo_commit=repo_commit,
     )
     target_dir = pathlib.Path(output_dir)
@@ -374,7 +384,20 @@ def _validate_overrides(pin_details: PinDetails, overrides: dict[str, str]) -> N
 def _validate_local_mirror_refs(
     pin_details: PinDetails,
     local_mirror_refs: dict[str, str],
+    *,
+    require_complete: bool = False,
 ) -> None:
+    if require_complete:
+        missing_components = [
+            component
+            for component in pin_details.source_components
+            if component not in local_mirror_refs
+        ]
+        if missing_components:
+            raise AuthorityConflictError(
+                "missing local mirror refs for frozen source components: "
+                + ", ".join(missing_components)
+            )
     for component, local_commit in local_mirror_refs.items():
         if component not in pin_details.source_components:
             raise AuthorityConflictError(
@@ -384,6 +407,51 @@ def _validate_local_mirror_refs(
         if local_commit != resolved_commit:
             raise AuthorityConflictError(
                 f"{component} must realize frozen commit {resolved_commit!r}; found {local_commit!r}"
+            )
+
+
+def _validate_host_observations(
+    pin_details: PinDetails,
+    host_observations: dict[str, Any],
+    *,
+    lane: str,
+) -> None:
+    required_fields = (
+        "gpu_query",
+        "nvcc_version",
+        "gcc_version",
+        "nsys_version",
+        "ncu_version",
+        "compute_sanitizer_version",
+        "compiler_version",
+    )
+    missing_fields = [
+        field_name
+        for field_name in required_fields
+        if not str(host_observations.get(field_name, "")).strip()
+    ]
+    if missing_fields:
+        raise AuthorityConflictError(
+            "missing required host observation(s): " + ", ".join(missing_fields)
+        )
+
+    selected_toolkit_lane = (
+        pin_details.primary_toolkit_lane
+        if lane == "primary"
+        else pin_details.experimental_toolkit_lane
+    )
+    version_expectations = {
+        "nvcc_version": selected_toolkit_lane.removeprefix("CUDA ").strip(),
+        "nsys_version": pin_details.nsight_systems,
+        "ncu_version": pin_details.nsight_compute,
+        "compute_sanitizer_version": pin_details.compute_sanitizer,
+    }
+    for field_name, expected_value in version_expectations.items():
+        observed_value = str(host_observations[field_name]).strip()
+        if expected_value not in observed_value:
+            raise AuthorityConflictError(
+                f"{field_name} must realize frozen value {expected_value!r}; "
+                f"found {observed_value!r}"
             )
 
 

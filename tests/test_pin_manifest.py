@@ -32,6 +32,15 @@ def sample_host_observations() -> dict[str, str]:
     }
 
 
+def sample_local_mirror_refs() -> dict[str, str]:
+    return {
+        "SPUMA runtime base": "3d1d7bf598ec8a66e099d8688b8597422c361960",
+        "SPUMA support-policy snapshot": "ad2a385e44f2c01b7d1df44c5bc51d7996c95554",
+        "External solver bridge": "4c764d027f8f124a1cc0b6df0520eb63593c2a2b",
+        "AmgX backend": "cc1cebdbb32b14d33762d4ddabcb2e23c1669f47",
+    }
+
+
 class PinManifestResolutionTests(unittest.TestCase):
     def test_resolves_frozen_pin_manifest_and_emits_canonical_artifacts(self) -> None:
         bundle = load_authority_bundle(repo_root())
@@ -43,12 +52,7 @@ class PinManifestResolutionTests(unittest.TestCase):
                 consumer="build",
                 output_dir=output_dir,
                 host_observations=sample_host_observations(),
-                local_mirror_refs={
-                    "SPUMA runtime base": "3d1d7bf598ec8a66e099d8688b8597422c361960",
-                    "SPUMA support-policy snapshot": "ad2a385e44f2c01b7d1df44c5bc51d7996c95554",
-                    "External solver bridge": "4c764d027f8f124a1cc0b6df0520eb63593c2a2b",
-                    "AmgX backend": "cc1cebdbb32b14d33762d4ddabcb2e23c1669f47",
-                },
+                local_mirror_refs=sample_local_mirror_refs(),
                 repo_commit="abc123def456",
             )
 
@@ -246,6 +250,49 @@ class PinManifestResolutionTests(unittest.TestCase):
             experimental_resolution.host_env["toolkit"]["selected_lane_value"],
             "CUDA 13.2",
         )
+
+    def test_emit_environment_manifests_rejects_missing_required_host_observations(self) -> None:
+        bundle = load_authority_bundle(repo_root())
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            with self.assertRaisesRegex(AuthorityConflictError, "missing required host observation"):
+                emit_environment_manifests(
+                    bundle,
+                    consumer="build",
+                    output_dir=temp_dir,
+                    host_observations={"gpu_query": "NVIDIA GeForce RTX 5080"},
+                    local_mirror_refs=sample_local_mirror_refs(),
+                )
+
+    def test_emit_environment_manifests_rejects_observed_tool_version_drift(self) -> None:
+        bundle = load_authority_bundle(repo_root())
+        host_observations = sample_host_observations()
+        host_observations["nvcc_version"] = "Cuda compilation tools, release 12.8, V12.8.0"
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            with self.assertRaisesRegex(AuthorityConflictError, "nvcc_version must realize frozen value"):
+                emit_environment_manifests(
+                    bundle,
+                    consumer="build",
+                    output_dir=temp_dir,
+                    host_observations=host_observations,
+                    local_mirror_refs=sample_local_mirror_refs(),
+                )
+
+    def test_emit_environment_manifests_rejects_missing_local_mirror_refs(self) -> None:
+        bundle = load_authority_bundle(repo_root())
+        local_mirror_refs = sample_local_mirror_refs()
+        local_mirror_refs.pop("AmgX backend")
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            with self.assertRaisesRegex(AuthorityConflictError, "missing local mirror refs"):
+                emit_environment_manifests(
+                    bundle,
+                    consumer="profiling",
+                    output_dir=temp_dir,
+                    host_observations=sample_host_observations(),
+                    local_mirror_refs=local_mirror_refs,
+                )
 
 
 if __name__ == "__main__":
