@@ -27,7 +27,7 @@ DEFAULT_READY_TO_MERGE_STATE = "Ready to Merge"
 READY_MERGEABLE_STATUSES = {"CLEAN", "HAS_HOOKS"}
 REQUIRED_READY_CHECKS = {"review-loop-harness"}
 PASSING_CHECK_CONCLUSIONS = {"SUCCESS"}
-ISSUE_IDENTIFIER_PATTERN = re.compile(r"\bPRO-\d+\b")
+ISSUE_IDENTIFIER_PATTERN = re.compile(r"\b(?P<prefix>PRO)-(?P<number>\d+)\b", re.IGNORECASE)
 LINEAR_GRAPHQL_URL = "https://api.linear.app/graphql"
 REVIEW_BRIDGE_TOKEN_SECRET = "REVIEW_BRIDGE_GH_TOKEN"
 PR_FIELDS = ",".join(
@@ -150,9 +150,10 @@ def parse_args() -> argparse.Namespace:
 def extract_issue_identifiers(*texts: str) -> list[str]:
     identifiers: list[str] = []
     for text in texts:
-        for match in ISSUE_IDENTIFIER_PATTERN.findall(text or ""):
-            if match not in identifiers:
-                identifiers.append(match)
+        for match in ISSUE_IDENTIFIER_PATTERN.finditer(text or ""):
+            normalized = f"{match.group('prefix').upper()}-{match.group('number')}"
+            if normalized not in identifiers:
+                identifiers.append(normalized)
     return identifiers
 
 

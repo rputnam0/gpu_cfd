@@ -35,6 +35,24 @@ class ExtractIssueIdentifiersTests(unittest.TestCase):
             github_linear_bridge.select_issue_identifier(snapshot), "PRO-93"
         )
 
+    def test_normalizes_lowercase_branch_issue_identifier(self) -> None:
+        snapshot = github_linear_bridge.PullRequestSnapshot(
+            number=2,
+            title="FND-01: Authority ingestion scaffold",
+            body="",
+            head_ref_name="rputnam0/pro-5-fnd-01-authority-ingestion-scaffold",
+            url="https://github.com/rputnam0/gpu_cfd/pull/3",
+            state="OPEN",
+            is_draft=False,
+            mergeable="MERGEABLE",
+            merge_state_status="CLEAN",
+            review_decision="",
+        )
+
+        self.assertEqual(
+            github_linear_bridge.select_issue_identifier(snapshot), "PRO-5"
+        )
+
 
 class ParseIssueIdentifierTests(unittest.TestCase):
     def test_parses_team_key_and_number(self) -> None:
