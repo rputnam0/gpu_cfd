@@ -186,6 +186,33 @@ class EvaluateReviewStateTests(unittest.TestCase):
         )
         self.assertEqual(summary.review_state, "clean")
 
+    def test_clean_when_latest_fresh_review_supersedes_changes_requested(self) -> None:
+        pull_request = self.make_pull_request()
+        pull_request["reviews"]["nodes"].extend(
+            [
+                {
+                    "author": {"login": "devin-ai-integration[bot]"},
+                    "state": "CHANGES_REQUESTED",
+                    "submittedAt": "2026-03-13T20:05:00Z",
+                    "body": "",
+                    "url": "https://example.com/review/1",
+                },
+                {
+                    "author": {"login": "devin-ai-integration[bot]"},
+                    "state": "APPROVED",
+                    "submittedAt": "2026-03-13T20:06:00Z",
+                    "body": "",
+                    "url": "https://example.com/review/2",
+                },
+            ]
+        )
+        summary = review_loop.evaluate_review_state(
+            pull_request,
+            {"devin-ai-integration[bot]"},
+        )
+        self.assertEqual(summary.review_state, "clean")
+        self.assertEqual(len(summary.actionable_reviews), 0)
+
     def test_clean_when_only_resolved_target_threads_exist(self) -> None:
         pull_request = self.make_pull_request()
         pull_request["reviewThreads"]["nodes"].append(
@@ -239,6 +266,41 @@ class EvaluateReviewStateTests(unittest.TestCase):
             review_loop.expand_reviewer_aliases(["devin-ai-integration[bot]"]),
         )
         self.assertEqual(summary.review_state, "pending_rereview")
+
+    def test_handles_missing_thread_comment_timestamps_without_crashing(self) -> None:
+        pull_request = self.make_pull_request()
+        pull_request["reviewThreads"]["nodes"].append(
+            {
+                "isResolved": False,
+                "isOutdated": False,
+                "path": "src/core.py",
+                "comments": {
+                    "nodes": [
+                        {
+                            "author": {"login": "devin-ai-integration[bot]"},
+                            "body": "Primary finding.",
+                            "createdAt": None,
+                            "url": "https://example.com/thread/1",
+                            "line": 42,
+                            "originalLine": 42,
+                        },
+                        {
+                            "author": {"login": "devin-ai-integration[bot]"},
+                            "body": "Follow-up note.",
+                            "createdAt": "2026-03-13T20:02:00Z",
+                            "url": "https://example.com/thread/2",
+                            "line": 43,
+                            "originalLine": 43,
+                        },
+                    ]
+                },
+            }
+        )
+        summary = review_loop.evaluate_review_state(
+            pull_request,
+            {"devin-ai-integration[bot]"},
+        )
+        self.assertEqual(summary.review_state, "action_required")
 
 
 class ActionableReviewBodyTests(unittest.TestCase):

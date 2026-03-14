@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import unittest
+from unittest import mock
 
 from scripts.symphony import github_linear_bridge, review_loop
 
@@ -11,9 +12,9 @@ class ExtractIssueIdentifiersTests(unittest.TestCase):
             github_linear_bridge.extract_issue_identifiers(
                 "Ref PRO-93 and PRO-93",
                 "Follow-up OPS-01 touches PRO-100 too",
-                "codex/pro-93-review-bridge",
+                "HTTP-404 should not be treated as a Linear issue",
             ),
-            ["PRO-93", "OPS-01", "PRO-100"],
+            ["PRO-93", "PRO-100"],
         )
 
     def test_prefers_body_then_title_then_branch_for_issue_selection(self) -> None:
@@ -21,6 +22,24 @@ class ExtractIssueIdentifiersTests(unittest.TestCase):
             number=2,
             title="OPS-01: Add automation bridge",
             body="Ref PRO-93",
+            head_ref_name="codex/pro-77-alt-branch",
+            url="https://github.com/rputnam0/gpu_cfd/pull/2",
+            state="OPEN",
+            is_draft=False,
+            mergeable="MERGEABLE",
+            merge_state_status="CLEAN",
+            review_decision="",
+        )
+
+        self.assertEqual(
+            github_linear_bridge.select_issue_identifier(snapshot), "PRO-93"
+        )
+
+    def test_ignores_non_project_identifiers_when_selecting_issue(self) -> None:
+        snapshot = github_linear_bridge.PullRequestSnapshot(
+            number=2,
+            title="OPS-01: Add automation bridge",
+            body="HTTP-404 appeared before Ref PRO-93",
             head_ref_name="codex/pro-77-alt-branch",
             url="https://github.com/rputnam0/gpu_cfd/pull/2",
             state="OPEN",
@@ -104,3 +123,42 @@ class DetermineBridgeDecisionTests(unittest.TestCase):
         )
 
         self.assertIsNone(decision.target_state)
+
+
+class UpdateLinearIssueStateTests(unittest.TestCase):
+    @mock.patch("scripts.symphony.github_linear_bridge.linear_graphql")
+    @mock.patch("scripts.symphony.github_linear_bridge.fetch_linear_issue")
+    def test_uses_internal_issue_id_for_state_update(
+        self,
+        fetch_linear_issue: mock.Mock,
+        linear_graphql: mock.Mock,
+    ) -> None:
+        fetch_linear_issue.return_value = {
+            "id": "35d69fd1-94de-4436-a58f-37a2faec86d9",
+            "identifier": "PRO-93",
+            "state": {"name": "In Review"},
+            "team": {
+                "key": "PRO",
+                "states": {
+                    "nodes": [
+                        {"id": "state-rework", "name": "Rework"},
+                    ]
+                },
+            },
+        }
+        linear_graphql.return_value = {
+            "issueUpdate": {
+                "issue": {
+                    "id": "35d69fd1-94de-4436-a58f-37a2faec86d9",
+                    "identifier": "PRO-93",
+                    "state": {"name": "Rework"},
+                }
+            }
+        }
+
+        github_linear_bridge.update_linear_issue_state("PRO-93", "Rework")
+
+        linear_graphql.assert_called_once_with(
+            github_linear_bridge.LINEAR_ISSUE_UPDATE_MUTATION,
+            {"id": "35d69fd1-94de-4436-a58f-37a2faec86d9", "stateId": "state-rework"},
+        )

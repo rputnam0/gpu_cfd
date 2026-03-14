@@ -36,6 +36,7 @@ ACTIONABLE_SUMMARY_PATTERNS = (
         r"\b(?P<count>\d+)\s+(?:new\s+)?potential issues?\s+found\b", re.IGNORECASE
     ),
 )
+
 GRAPHQL_QUERY = """
 query($owner:String!, $name:String!, $number:Int!) {
   repository(owner:$owner, name:$name) {
@@ -287,6 +288,7 @@ def evaluate_review_state(
     actionable_threads: list[dict[str, Any]] = []
     stale_reviews: list[dict[str, Any]] = []
     fresh_threads: list[dict[str, Any]] = []
+    latest_fresh_reviews_by_author: dict[str, dict[str, Any]] = {}
 
     for review in pull_request.get("reviews", {}).get("nodes", []):
         author_login = ((review.get("author") or {}).get("login") or "").strip()
@@ -304,6 +306,17 @@ def evaluate_review_state(
         if latest_commit_at and submitted_at and submitted_at < latest_commit_at:
             stale_reviews.append(review_summary)
             continue
+        latest_review = latest_fresh_reviews_by_author.get(author_login)
+        latest_review_at = (
+            parse_timestamp(latest_review["submitted_at"]) if latest_review else None
+        )
+        if latest_review is None or (
+            submitted_at is not None
+            and (latest_review_at is None or submitted_at >= latest_review_at)
+        ):
+            latest_fresh_reviews_by_author[author_login] = review_summary
+
+    for review_summary in latest_fresh_reviews_by_author.values():
         if review_summary["state"] == "CHANGES_REQUESTED":
             actionable_reviews.append(review_summary)
         elif review_summary["state"] == "COMMENTED" and is_actionable_review_body(
@@ -335,10 +348,12 @@ def evaluate_review_state(
             "comments": target_comments,
         }
         observed_threads.append(thread_summary)
-        latest_thread_comment_at = max(
-            (parse_timestamp(comment["created_at"]) for comment in target_comments),
-            default=None,
-        )
+        comment_timestamps = [
+            parse_timestamp(comment["created_at"])
+            for comment in target_comments
+            if comment["created_at"]
+        ]
+        latest_thread_comment_at = max(comment_timestamps, default=None)
         if latest_commit_at is None or (
             latest_thread_comment_at is not None
             and latest_thread_comment_at >= latest_commit_at

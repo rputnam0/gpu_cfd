@@ -25,7 +25,7 @@ DEFAULT_REVIEWERS = ("devin-ai-integration[bot]",)
 DEFAULT_REWORK_STATE = "Rework"
 DEFAULT_READY_TO_MERGE_STATE = "Ready to Merge"
 READY_MERGEABLE_STATUSES = {"CLEAN", "HAS_HOOKS"}
-ISSUE_IDENTIFIER_PATTERN = re.compile(r"\b[A-Z][A-Z0-9]+-\d+\b")
+ISSUE_IDENTIFIER_PATTERN = re.compile(r"\bPRO-\d+\b")
 LINEAR_GRAPHQL_URL = "https://api.linear.app/graphql"
 PR_FIELDS = ",".join(
     [
@@ -275,7 +275,7 @@ def update_linear_issue_state(
     state_id = resolve_linear_state_id(issue, target_state_name)
     mutation_data = linear_graphql(
         LINEAR_ISSUE_UPDATE_MUTATION,
-        {"id": issue_identifier, "stateId": state_id},
+        {"id": issue["id"], "stateId": state_id},
     )
     updated_issue = mutation_data["issueUpdate"]["issue"]
     return {
