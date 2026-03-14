@@ -55,6 +55,36 @@ class AuthorityBundleTests(unittest.TestCase):
             ):
                 load_authority_bundle(temp_root)
 
+    def test_missing_schema_version_fails_fast(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_root = pathlib.Path(temp_dir)
+            self._copy_tree(repo_root(), temp_root)
+            json_path = temp_root / "docs" / "authority" / "reference_case_contract.json"
+            payload = json.loads(json_path.read_text(encoding="utf-8"))
+            payload.pop("schema_version", None)
+            json_path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+
+            with self.assertRaisesRegex(
+                AuthoritySchemaError,
+                "reference_case_contract.json is missing schema_version",
+            ):
+                load_authority_bundle(temp_root)
+
+    def test_mismatched_authority_markdown_fails_fast(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_root = pathlib.Path(temp_dir)
+            self._copy_tree(repo_root(), temp_root)
+            json_path = temp_root / "docs" / "authority" / "support_matrix.json"
+            payload = json.loads(json_path.read_text(encoding="utf-8"))
+            payload["authority_markdown"] = "reference_case_contract.md"
+            json_path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+
+            with self.assertRaisesRegex(
+                AuthoritySchemaError,
+                "support_matrix.json.*support_matrix.md",
+            ):
+                load_authority_bundle(temp_root)
+
     def test_conflicting_authority_value_fails_fast(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             temp_root = pathlib.Path(temp_dir)

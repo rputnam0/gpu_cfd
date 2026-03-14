@@ -191,6 +191,13 @@ REQUIRED_JSON_FILES = (
     "docs/authority/graph_capture_support_matrix.json",
 )
 
+EXPECTED_JSON_AUTHORITY_MARKDOWN = {
+    "reference_case_contract.json": "reference_case_contract.md",
+    "support_matrix.json": "support_matrix.md",
+    "acceptance_manifest.json": "acceptance_manifest.md",
+    "graph_capture_support_matrix.json": "graph_capture_support_matrix.md",
+}
+
 
 def repo_root(start: pathlib.Path | None = None) -> pathlib.Path:
     if start is not None:
@@ -272,7 +279,9 @@ def load_json_artifact(path: pathlib.Path) -> dict[str, Any]:
     if not path.exists():
         raise FileNotFoundError(path.name)
     payload = json.loads(path.read_text(encoding="utf-8"))
-    schema_version = payload.get("schema_version")
+    if "schema_version" not in payload:
+        raise AuthoritySchemaError(f"{path.name} is missing schema_version")
+    schema_version = payload["schema_version"]
     if schema_version != SUPPORTED_SCHEMA_VERSION:
         raise AuthoritySchemaError(
             f"{path.name} has unsupported schema_version {schema_version!r}; "
@@ -280,6 +289,12 @@ def load_json_artifact(path: pathlib.Path) -> dict[str, Any]:
         )
     if "authority_markdown" not in payload:
         raise AuthoritySchemaError(f"{path.name} is missing authority_markdown")
+    expected_markdown = EXPECTED_JSON_AUTHORITY_MARKDOWN.get(path.name)
+    if expected_markdown is not None and payload["authority_markdown"] != expected_markdown:
+        raise AuthoritySchemaError(
+            f"{path.name} must reference authority_markdown {expected_markdown!r}; "
+            f"found {payload['authority_markdown']!r}"
+        )
     return payload
 
 
