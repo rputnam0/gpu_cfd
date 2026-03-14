@@ -28,6 +28,7 @@ hooks:
   before_run: |
     git status --short --branch >/dev/null
     python3 "$GPU_CFD_CONTROL_REPO_ROOT/scripts/symphony/workspace_sync.py" --workspace "$PWD"
+    python3 "$GPU_CFD_CONTROL_REPO_ROOT/scripts/symphony/resume_context.py" --workspace "$PWD"
 agent:
   max_concurrent_agents: 1
   max_turns: 40
@@ -53,6 +54,7 @@ This repository is doc-driven. Before changing code, open these files in order:
 2. `docs/tasks/pr_inventory.md`
 3. The owning `docs/tasks/NN_*.md` file for the PR ID in this issue
 4. `$GPU_CFD_CONTROL_REPO_ROOT/.codex/skills/gpu-cfd-symphony/SKILL.md` from the control repo, not the workspace copy
+5. `.codex/symphony/resume_context.md` when it exists, especially on `Rework` and `Ready to Merge` runs
 
 Issue context:
 
@@ -79,6 +81,7 @@ Execution contract:
 - Use the Linear MCP tools on the worker host for issue comments, state changes, and review follow-up. If Linear MCP is unavailable or not authenticated, leave a concise blocker note and stop.
 - Keep one persistent Linear workpad comment or concise progress-note trail up to date during implementation and review follow-up.
 - Record structured telemetry for important transitions with `uv run python scripts/symphony/telemetry.py event ...`; at minimum log issue start, blockers, PR open/update, `review_requested`, and merge.
+- Treat `.codex/symphony/resume_context.md` as the continuity brief for this issue workspace. Refresh it by rerunning the helper if you materially change the branch state during the run.
 - If the issue state is `Todo`, move it to `In Progress` before implementation work.
 - If the issue state is `Rework`, start with a Linear comment sweep plus a GitHub PR review sweep before new edits.
 - If the issue state is `Ready to Merge`, start by confirming the linked PR head is current and that required checks are green.

@@ -98,6 +98,7 @@ def run_repo_checks(root: pathlib.Path) -> list[Check]:
         root / "scripts/symphony/review_loop.py",
         root / "scripts/symphony/telemetry.py",
         root / "scripts/symphony/workspace_sync.py",
+        root / "scripts/symphony/resume_context.py",
     ]
 
     for path in required_files:
@@ -165,6 +166,21 @@ def run_repo_checks(root: pathlib.Path) -> list[Check]:
                 "missing",
                 "WORKFLOW pre-PR handoff",
                 "expected worker-owned pr_handoff flow without an after_run hook",
+            )
+
+        if "scripts/symphony/resume_context.py" in workflow_text:
+            add_check(
+                results,
+                "ok",
+                "WORKFLOW resume context",
+                "resume brief generation configured",
+            )
+        else:
+            add_check(
+                results,
+                "warn",
+                "WORKFLOW resume context",
+                "resume brief generation not configured",
             )
 
         if "{{ issue.blocked_by }}" in workflow_text:

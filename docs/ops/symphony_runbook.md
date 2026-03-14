@@ -13,6 +13,7 @@ project.
 - `scripts/symphony/review_loop.py`: local Codex review gate plus GitHub review-state helper
 - `scripts/symphony/github_linear_bridge.py`: GitHub-event bridge that moves linked Linear issues into `Rework` or `Ready to Merge`
 - `scripts/symphony/telemetry.py`: structured event logger for launcher, blocker, and review-loop telemetry
+- `scripts/symphony/resume_context.py`: deterministic resume brief generator for issue workspaces
 
 ## Supported board contract
 
@@ -28,12 +29,13 @@ This repository now expects the Linear statuses below to exist on the `Projects`
 
 Review loop:
 
-- Before a PR is opened or marked ready, this workflow runs one local Codex review pass from the worker host via Symphony's `after_run` hook.
-- The Codex worker itself does not run the local review. It commits, pushes, moves the issue to `In Review`, and exits; the host-side hook then runs the local review outside the worker sandbox, moves the issue to `Rework` if findings remain, or opens/updates the PR and leaves it in `In Review` when the review is clean.
+- Before a PR is opened or marked ready, the active worker run executes the sanctioned `scripts/symphony/pr_handoff.py` helper from the issue workspace.
+- That helper runs one local Codex review pass, opens or updates the PR when the review is clean, and moves the issue to `In Review`. If findings remain, it returns them to the same run so the worker can fix them immediately.
 - After the PR enters `In Review`, the worker stays dormant. No repo-owned watcher or local poll loop keeps running.
 - The GitHub Actions workflow `.github/workflows/linear-review-bridge.yml` moves the linked issue into `Rework` when Devin finds issues and into `Ready to Merge` when the current head is clean and mergeable.
 - `Rework` runs fix valid findings, revalidate, rerun the Codex review gate, and send the PR back to `In Review`.
 - `Ready to Merge` runs perform the final merge and move the issue to `Done`.
+- Each `before_run` also regenerates `.codex/symphony/resume_context.md` inside the issue workspace from the branch, PR, review artifacts, and telemetry so resumed runs inherit a deterministic continuity brief even though Symphony starts a fresh Codex thread for each wake-up.
 
 ## Remaining external prerequisites
 
@@ -211,9 +213,9 @@ cd ~/projects/gpu_cfd
 The launcher script reads `~/projects/symphony/.env`, fills in sane defaults for
 `SYMPHONY_WORKSPACE_ROOT`, `GPU_CFD_SOURCE_REPO_URL`, and `GPU_CFD_BOOTSTRAP_REF`, runs the
 runtime preflight, fast-forwards clean base-branch workspaces before each run, fails fast on dirty
-base-branch workspaces, and then starts Symphony from the checked-out `~/projects/symphony/elixir`
-directory, and passes the required preview acknowledgement flag for the current Symphony reference
-implementation.
+base-branch workspaces, regenerates each workspace's resume brief before execution, and then starts
+Symphony from the checked-out `~/projects/symphony/elixir` directory, and passes the required
+preview acknowledgement flag for the current Symphony reference implementation.
 
 ## Telemetry and operator visibility
 
