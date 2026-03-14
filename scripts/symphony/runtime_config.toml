@@ -6,3 +6,5 @@ extra_configs = ["shell_environment_policy.inherit=all"]
 [codex.review]
 model = "gpt-5.4"
 reasoning_effort = "xhigh"
+timeout_seconds = 900
+extra_configs = ["shell_environment_policy.inherit=all"]

@@ -7,3 +7,4 @@ __pycache__/
 .idea/
 .vscode/
 .codex/review_artifacts/
+.codex/symphony/

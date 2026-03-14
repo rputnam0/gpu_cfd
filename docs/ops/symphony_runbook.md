@@ -13,6 +13,7 @@ project.
 - `scripts/symphony/review_loop.py`: local Codex review gate plus GitHub review-state helper
 - `scripts/symphony/github_linear_bridge.py`: GitHub-event bridge that moves linked Linear issues into `Rework` or `Ready to Merge`
 - `scripts/symphony/telemetry.py`: structured event logger for launcher, blocker, and review-loop telemetry
+- `scripts/symphony/resume_context.py`: deterministic resume brief generator for issue workspaces
 
 ## Supported board contract
 
@@ -28,11 +29,13 @@ This repository now expects the Linear statuses below to exist on the `Projects`
 
 Review loop:
 
-- Before a PR is opened or marked ready, the agent must run one local Codex review pass.
-- After the PR enters `In Review`, the worker stops. No repo-owned watcher or local poll loop keeps running.
+- Before a PR is opened or marked ready, the active worker run executes the sanctioned `scripts/symphony/pr_handoff.py` helper from the issue workspace.
+- That helper runs one local Codex review pass, opens or updates the PR when the review is clean, and moves the issue to `In Review`. If findings remain, it returns them to the same run so the worker can fix them immediately.
+- After the PR enters `In Review`, the worker stays dormant. No repo-owned watcher or local poll loop keeps running.
 - The GitHub Actions workflow `.github/workflows/linear-review-bridge.yml` moves the linked issue into `Rework` when Devin finds issues and into `Ready to Merge` when the current head is clean and mergeable.
 - `Rework` runs fix valid findings, revalidate, rerun the Codex review gate, and send the PR back to `In Review`.
 - `Ready to Merge` runs perform the final merge and move the issue to `Done`.
+- Each `before_run` also regenerates `.codex/symphony/resume_context.md` inside the issue workspace from the branch, PR, review artifacts, and telemetry so resumed runs inherit a deterministic continuity brief even though Symphony starts a fresh Codex thread for each wake-up.
 
 ## Remaining external prerequisites
 
@@ -67,6 +70,11 @@ but non-interactive login shells may not inherit that path automatically. The ch
 therefore uses `scripts/symphony/codex_runner.py`, which resolves the binary and applies the
 repo-owned profile from `scripts/symphony/runtime_config.toml` so Symphony does not depend on
 shell-specific `PATH` setup or on a human-maintained global Codex profile.
+
+The checked-in workflow keeps issue workspaces on the supported `workspaceWrite` sandbox, but it
+also sets `networkAccess: true` for turn execution. That is intentional: the local pre-PR Codex
+review gate is a nested Codex invocation, so it needs outbound OpenAI/GitHub/Linear access even
+though filesystem writes stay scoped to the active issue workspace.
 
 The sanctioned agent-side Linear path is Codex MCP, not repo-local API helper scripts. On WSL the
 required config entry is:
@@ -147,6 +155,7 @@ to start Symphony for this repository.
 
 - It sources `~/projects/symphony/.env`
 - It exports the runtime paths expected by the workflow
+- It exports `GPU_CFD_CONTROL_REPO_ROOT` so the control-plane scripts always come from the sanctioned repo checkout, not a potentially stale issue workspace
 - It runs the worker-host preflight
 - It emits launcher telemetry
 - It starts Symphony with the required preview acknowledgement flag
@@ -203,9 +212,10 @@ cd ~/projects/gpu_cfd
 
 The launcher script reads `~/projects/symphony/.env`, fills in sane defaults for
 `SYMPHONY_WORKSPACE_ROOT`, `GPU_CFD_SOURCE_REPO_URL`, and `GPU_CFD_BOOTSTRAP_REF`, runs the
-runtime preflight, and then starts Symphony from the checked-out `~/projects/symphony/elixir`
-directory, and passes the required preview acknowledgement flag for the current Symphony reference
-implementation.
+runtime preflight, fast-forwards clean base-branch workspaces before each run, fails fast on dirty
+base-branch workspaces, regenerates each workspace's resume brief before execution, and then starts
+Symphony from the checked-out `~/projects/symphony/elixir` directory, and passes the required
+preview acknowledgement flag for the current Symphony reference implementation.
 
 ## Telemetry and operator visibility
 
@@ -246,18 +256,19 @@ This repository now expects a two-stage automated review flow for every Symphony
 
 ```bash
 cd ~/projects/gpu_cfd
-uv run python scripts/symphony/review_loop.py codex-review --base origin/main
+python3 scripts/symphony/pr_handoff.py --workspace ~/projects/symphony-workspaces/gpu_cfd/<ISSUE>
 ```
 
-This stores Codex review artifacts under `.codex/review_artifacts/<branch>/`. The agent must inspect
-the latest report, fix material findings, and rerun the gate once before sending the PR to GitHub
-review. The local gate now has a hard timeout so a single slow review cannot stall Symphony forever.
+This runs the local Codex review gate, stores artifacts under `.codex/review_artifacts/<branch>/`,
+opens or updates the PR when the gate is clean, emits `review_requested`, and moves the issue into
+`In Review`. If the handoff reports findings, the worker must fix the valid findings, rerun the
+smallest relevant validation, and rerun the handoff helper once before external review.
 
 2. Linear-driven review handoff after PR submission:
 
 - record the PR URL in a Linear comment before moving it to `In Review`
-- emit `review_requested` telemetry right before each review handoff
-- stop the worker after moving to `In Review`
+- let the worker-owned handoff helper emit `review_requested` right before it moves the issue to `In Review`
+- stop the worker after the handoff helper moves the issue to `In Review`
 - rely on Linear workflow transitions to move the issue into `Rework` or `Ready to Merge`
 - let `.github/workflows/linear-review-bridge.yml` perform the `In Review -> Rework` and
   `In Review -> Ready to Merge` transitions from GitHub events
@@ -276,4 +287,4 @@ review. The local gate now has a hard timeout so a single slow review cannot sta
 - The repository docs remain the technical source of truth.
 - Linear state decides whether Symphony runs an issue.
 - Only move an issue to `Todo` when its blockers are truly resolved.
-- Use `In Review` as the dormant review queue. The next work run should start only after Linear moves the issue into an active follow-up state such as `Rework` or `Ready to Merge`.
+- Use `In Review` as the dormant review queue. The worker owns the pre-PR handoff via `scripts/symphony/pr_handoff.py`, and the next work run should start only after Linear moves the issue into an active follow-up state such as `Rework` or `Ready to Merge`.

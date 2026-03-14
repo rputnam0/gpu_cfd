@@ -70,9 +70,10 @@ def parse_details(raw_pairs: list[str]) -> dict[str, str]:
     return details
 
 
-def detect_git_value(args: list[str]) -> str | None:
+def detect_git_value(args: list[str], *, cwd: pathlib.Path | None = None) -> str | None:
     completed = subprocess.run(
         ["git", *args],
+        cwd=cwd,
         text=True,
         capture_output=True,
         check=False,
@@ -92,12 +93,21 @@ def build_event(
     state: str | None = None,
     branch: str | None = None,
     commit: str | None = None,
+    cwd: pathlib.Path | str | None = None,
+    repo_root: pathlib.Path | str | None = None,
     details: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     timestamp = dt.datetime.now(tz=dt.UTC).isoformat().replace("+00:00", "Z")
-    resolved_branch = branch or detect_git_value(["branch", "--show-current"])
-    resolved_commit = commit or detect_git_value(["rev-parse", "HEAD"])
-    resolved_repo_root = detect_git_value(["rev-parse", "--show-toplevel"])
+    resolved_cwd = pathlib.Path(cwd).resolve() if cwd is not None else pathlib.Path.cwd()
+    resolved_branch = branch or detect_git_value(
+        ["branch", "--show-current"], cwd=resolved_cwd
+    )
+    resolved_commit = commit or detect_git_value(["rev-parse", "HEAD"], cwd=resolved_cwd)
+    resolved_repo_root = (
+        pathlib.Path(repo_root).resolve().as_posix()
+        if repo_root is not None
+        else detect_git_value(["rev-parse", "--show-toplevel"], cwd=resolved_cwd)
+    )
     event = {
         "timestamp": timestamp,
         "event_type": event_type,
@@ -108,7 +118,7 @@ def build_event(
         "branch": resolved_branch,
         "commit": resolved_commit,
         "repo_root": resolved_repo_root,
-        "cwd": pathlib.Path.cwd().as_posix(),
+        "cwd": resolved_cwd.as_posix(),
         "hostname": socket.gethostname(),
         "username": getpass.getuser(),
         "details": details or {},

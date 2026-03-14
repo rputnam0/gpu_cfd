@@ -27,6 +27,8 @@ hooks:
     git fetch origin --prune
   before_run: |
     git status --short --branch >/dev/null
+    python3 "$GPU_CFD_CONTROL_REPO_ROOT/scripts/symphony/workspace_sync.py" --workspace "$PWD"
+    python3 "$GPU_CFD_CONTROL_REPO_ROOT/scripts/symphony/resume_context.py" --workspace "$PWD"
 agent:
   max_concurrent_agents: 1
   max_turns: 40
@@ -36,11 +38,12 @@ agent:
     rework: 1
     ready to merge: 1
 codex:
-  command: "python3 scripts/symphony/codex_runner.py implementation app-server"
+  command: "python3 \"$GPU_CFD_CONTROL_REPO_ROOT/scripts/symphony/codex_runner.py\" implementation app-server"
   approval_policy: never
   thread_sandbox: workspace-write
   turn_sandbox_policy:
     type: workspaceWrite
+    networkAccess: true
 ---
 
 You are working on Linear issue `{{ issue.identifier }}` for the `gpu_cfd` repository.
@@ -50,7 +53,8 @@ This repository is doc-driven. Before changing code, open these files in order:
 1. `docs/README_FIRST.md`
 2. `docs/tasks/pr_inventory.md`
 3. The owning `docs/tasks/NN_*.md` file for the PR ID in this issue
-4. `.codex/skills/gpu-cfd-symphony/SKILL.md`
+4. `$GPU_CFD_CONTROL_REPO_ROOT/.codex/skills/gpu-cfd-symphony/SKILL.md` from the control repo, not the workspace copy
+5. `.codex/symphony/resume_context.md` when it exists, especially on `Rework` and `Ready to Merge` runs
 
 Issue context:
 
@@ -60,7 +64,7 @@ Issue context:
 - Labels: `{{ issue.labels }}`
 - URL: `{{ issue.url }}`
 - Attempt: `{% if attempt %}{{ attempt }}{% else %}first run{% endif %}`
-- Blockers: `{{ issue.blocked_by }}`
+- Blockers: inspect the Linear issue relations directly before starting any blocked work.
 
 Description:
 {% if issue.description %}
@@ -77,17 +81,21 @@ Execution contract:
 - Use the Linear MCP tools on the worker host for issue comments, state changes, and review follow-up. If Linear MCP is unavailable or not authenticated, leave a concise blocker note and stop.
 - Keep one persistent Linear workpad comment or concise progress-note trail up to date during implementation and review follow-up.
 - Record structured telemetry for important transitions with `uv run python scripts/symphony/telemetry.py event ...`; at minimum log issue start, blockers, PR open/update, `review_requested`, and merge.
+- Treat `.codex/symphony/resume_context.md` as the continuity brief for this issue workspace. Refresh it by rerunning the helper if you materially change the branch state during the run.
 - If the issue state is `Todo`, move it to `In Progress` before implementation work.
 - If the issue state is `Rework`, start with a Linear comment sweep plus a GitHub PR review sweep before new edits.
 - If the issue state is `Ready to Merge`, start by confirming the linked PR head is current and that required checks are green.
 - If the issue already has a PR attached, start with a review-feedback sweep before new edits.
+- If the branch is already clean and pushed but no PR exists, treat the run as ready for the sanctioned pre-PR handoff instead of reopening implementation planning.
+- Never move an issue back to `Backlog` after implementation has started. `Backlog` is only for untouched dependency-gated work.
 - Use the issue branch name when available; otherwise create a `codex/` branch derived from the issue identifier.
 - Run the smallest relevant validation first, then broader checks when the scope requires it.
-- Before opening or marking a PR ready for review, run `uv run python scripts/symphony/review_loop.py codex-review --issue {{ issue.identifier }} --base origin/main`, inspect the saved review artifact, fix material findings, and rerun the review gate once.
-- When the task is implementation-complete, open or update the GitHub PR, record the PR URL in a Linear comment, emit a `review_requested` telemetry event, move the issue to `In Review`, and stop. Do not sit in a local sleep or polling loop.
-- `In Review` is a dormant state for Symphony. The GitHub event bridge at `.github/workflows/linear-review-bridge.yml` is responsible for moving the linked issue into `Rework` when Devin leaves actionable feedback and into `Ready to Merge` when the current PR head is clean and mergeable.
-- On a resumed `Rework` run, use the latest Devin-authored Linear comments as the primary review signal and GitHub review comments as detail when needed. Fix valid findings, rerun the smallest relevant validation, rerun the local Codex review gate, push, emit `review_requested`, and move the issue back to `In Review`.
-- On a resumed `Ready to Merge` run, verify the linked PR is clean on the current head and branch protection is satisfied, merge with GitHub CLI, confirm the default branch contains the change, and then move the Linear issue to `Done`.
+- When the task is implementation-complete, commit and push the branch, record validation evidence in the workpad, then run `python3 "$GPU_CFD_CONTROL_REPO_ROOT/scripts/symphony/pr_handoff.py" --workspace "$PWD"`.
+- If the handoff helper reports findings, inspect the latest artifact under `.codex/review_artifacts/`, fix the valid findings in the same run, rerun the smallest relevant validation, and rerun the handoff helper once.
+- When the handoff helper succeeds, it opens or updates the GitHub PR, emits `review_requested`, moves the issue to `In Review`, and the run should stop after you update the workpad with the PR URL.
+- `In Review` is a dormant state for Symphony workers. The GitHub event bridge at `.github/workflows/linear-review-bridge.yml` moves the linked issue into `Rework` when Devin leaves actionable feedback and into `Ready to Merge` when the current PR head is clean and mergeable.
+- On a resumed `Rework` run, use the latest Devin-authored Linear comments when a PR exists, or the latest local review artifact under `.codex/review_artifacts/` when no PR exists, as the primary review signal. Fix valid findings, rerun the smallest relevant validation, push, and rerun the handoff helper before returning to `In Review`.
+- On a resumed `Ready to Merge` run, verify the linked PR is clean on the current head and branch protection is satisfied, merge with GitHub CLI, confirm the default branch contains the change, move the Linear issue to `Done`, and then use Linear MCP to inspect direct blocked issues and promote any newly unblocked dependents from `Backlog` to `Todo`.
 - `Backlog` means parked or blocked work and is out of scope for this run.
 - If required auth, secrets, or external tools are missing, record a concise blocker note and stop instead of widening scope.
 

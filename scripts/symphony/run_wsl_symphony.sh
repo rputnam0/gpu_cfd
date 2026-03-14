@@ -52,6 +52,7 @@ export LINEAR_API_KEY
 export SYMPHONY_WORKSPACE_ROOT
 export GPU_CFD_SOURCE_REPO_URL
 export GPU_CFD_BOOTSTRAP_REF
+export GPU_CFD_CONTROL_REPO_ROOT="$repo_root"
 export SYMPHONY_LOGS_ROOT="$logs_root"
 export GPU_CFD_TELEMETRY_ROOT="$telemetry_root"
 

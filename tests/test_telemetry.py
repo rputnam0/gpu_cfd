@@ -73,6 +73,28 @@ class TelemetryWriteTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             telemetry.parse_details(["missing_separator"])
 
+    def test_build_event_uses_explicit_workspace_context(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            cwd = pathlib.Path(temp_dir) / "workspace"
+            repo_root = cwd / "repo"
+            repo_root.mkdir(parents=True)
+
+            event = telemetry.build_event(
+                event_type="host_local_review_completed",
+                message="Review finished",
+                issue="PRO-5",
+                cwd=cwd,
+                repo_root=repo_root,
+                branch="rputnam0/pro-5-fnd-01-authority-ingestion-scaffold",
+                commit="abc123",
+            )
+
+            self.assertEqual(event["cwd"], cwd.resolve().as_posix())
+            self.assertEqual(event["repo_root"], repo_root.resolve().as_posix())
+            self.assertEqual(
+                event["branch"], "rputnam0/pro-5-fnd-01-authority-ingestion-scaffold"
+            )
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -6,6 +6,7 @@ from __future__ import annotations
 import argparse
 import datetime as dt
 import json
+import os
 import pathlib
 import re
 import subprocess
@@ -32,6 +33,10 @@ DEVIN_COMMENT_KIND_PATTERN = re.compile(
     r'<!--\s*devin-review-comment\s+\{.*?"id"\s*:\s*"(?P<kind>[A-Z]+)_',
     re.DOTALL,
 )
+AGENT_MESSAGE_EVENT_TYPES = {
+    "assistant_message",
+    "agent_message",
+}
 
 GRAPHQL_QUERY = """
 query($owner:String!, $name:String!, $number:Int!) {
@@ -134,7 +139,7 @@ def parse_args() -> argparse.Namespace:
     codex_review_parser.add_argument(
         "--timeout-seconds",
         type=int,
-        default=DEFAULT_CODEX_REVIEW_TIMEOUT_SECONDS,
+        default=None,
         help="Maximum runtime for the local Codex review gate.",
     )
 
@@ -206,11 +211,19 @@ def require_command(
 
 
 def repo_root() -> pathlib.Path:
+    override = os.environ.get("GPU_CFD_REVIEW_REPO_ROOT")
+    if override:
+        return pathlib.Path(override).resolve()
     return pathlib.Path(__file__).resolve().parents[2]
 
 
 def utc_timestamp() -> str:
     return dt.datetime.now(tz=dt.UTC).strftime("%Y%m%dT%H%M%SZ")
+
+
+def review_timeout_seconds() -> int:
+    profile = runtime_config.load_codex_profile("review")
+    return profile.timeout_seconds or DEFAULT_CODEX_REVIEW_TIMEOUT_SECONDS
 
 
 def parse_remote(remote_url: str) -> tuple[str, str]:
@@ -454,6 +467,27 @@ def sanitize_path_component(value: str) -> str:
     return re.sub(r"[^A-Za-z0-9._-]+", "-", value).strip("-") or "unknown"
 
 
+def extract_last_agent_message(jsonl_text: str) -> str:
+    last_message = ""
+    for raw_line in jsonl_text.splitlines():
+        stripped = raw_line.strip()
+        if not stripped:
+            continue
+        try:
+            payload = json.loads(stripped)
+        except json.JSONDecodeError:
+            continue
+        item = payload.get("item")
+        if not isinstance(item, dict):
+            continue
+        if item.get("type") not in AGENT_MESSAGE_EVENT_TYPES:
+            continue
+        text = item.get("text")
+        if isinstance(text, str) and text.strip():
+            last_message = text
+    return last_message
+
+
 def emit_review_telemetry(
     *,
     event_type: str,
@@ -529,6 +563,10 @@ def run_codex_review(
 
     jsonl_path.write_text(completed.stdout, encoding="utf-8")
     stderr_path.write_text(completed.stderr, encoding="utf-8")
+    if not message_path.exists() or not message_path.read_text(encoding="utf-8").strip():
+        fallback_message = extract_last_agent_message(completed.stdout)
+        if fallback_message:
+            message_path.write_text(fallback_message + "\n", encoding="utf-8")
 
     manifest = {
         "timestamp": timestamp,
@@ -590,7 +628,7 @@ def main() -> int:
             args.artifact_dir,
             args.prompt,
             args.issue,
-            args.timeout_seconds,
+            args.timeout_seconds or review_timeout_seconds(),
         )
     if args.command == "status":
         return status_command(args)

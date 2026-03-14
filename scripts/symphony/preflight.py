@@ -93,9 +93,12 @@ def run_repo_checks(root: pathlib.Path) -> list[Check]:
         root / ".github/workflows/linear-review-bridge.yml",
         root / "scripts/symphony/runtime_config.toml",
         root / "scripts/symphony/codex_runner.py",
+        root / "scripts/symphony/pr_handoff.py",
         root / "scripts/symphony/github_linear_bridge.py",
         root / "scripts/symphony/review_loop.py",
         root / "scripts/symphony/telemetry.py",
+        root / "scripts/symphony/workspace_sync.py",
+        root / "scripts/symphony/resume_context.py",
     ]
 
     for path in required_files:
@@ -130,6 +133,91 @@ def run_repo_checks(root: pathlib.Path) -> list[Check]:
                 "warn",
                 "WORKFLOW active states",
                 "unexpected active state list",
+            )
+
+        if re.search(
+            r"turn_sandbox_policy:\s*\n\s*type:\s*workspaceWrite\s*\n\s*networkAccess:\s*true",
+            workflow_text,
+        ):
+            add_check(
+                results,
+                "ok",
+                "WORKFLOW review network access",
+                "workspaceWrite + networkAccess=true",
+            )
+        else:
+            add_check(
+                results,
+                "missing",
+                "WORKFLOW review network access",
+                "expected workspaceWrite + networkAccess=true",
+            )
+
+        if "scripts/symphony/pr_handoff.py" in workflow_text and "after_run:" not in workflow_text:
+            add_check(
+                results,
+                "ok",
+                "WORKFLOW pre-PR handoff",
+                "worker-owned pr_handoff flow configured",
+            )
+        else:
+            add_check(
+                results,
+                "missing",
+                "WORKFLOW pre-PR handoff",
+                "expected worker-owned pr_handoff flow without an after_run hook",
+            )
+
+        if "scripts/symphony/resume_context.py" in workflow_text:
+            add_check(
+                results,
+                "ok",
+                "WORKFLOW resume context",
+                "resume brief generation configured",
+            )
+        else:
+            add_check(
+                results,
+                "warn",
+                "WORKFLOW resume context",
+                "resume brief generation not configured",
+            )
+
+        if "{{ issue.blocked_by }}" in workflow_text:
+            add_check(
+                results,
+                "missing",
+                "WORKFLOW blocker interpolation",
+                "raw issue.blocked_by interpolation breaks Symphony prompt rendering",
+            )
+        else:
+            add_check(
+                results,
+                "ok",
+                "WORKFLOW blocker interpolation",
+                "no raw issue.blocked_by interpolation",
+            )
+
+    runtime_config_path = root / "scripts/symphony/runtime_config.toml"
+    if runtime_config_path.exists():
+        runtime_config_text = read_text(runtime_config_path)
+        if re.search(
+            r"\[codex\.review\][^\[]*extra_configs\s*=\s*\[[^\]]*shell_environment_policy\.inherit=all",
+            runtime_config_text,
+            re.DOTALL,
+        ):
+            add_check(
+                results,
+                "ok",
+                "review profile shell env",
+                "shell_environment_policy.inherit=all",
+            )
+        else:
+            add_check(
+                results,
+                "missing",
+                "review profile shell env",
+                "expected shell_environment_policy.inherit=all",
             )
 
     backlog_path = root / "docs/backlog/gpu_cfd_pr_backlog.json"

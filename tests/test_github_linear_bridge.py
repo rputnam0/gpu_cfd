@@ -35,6 +35,36 @@ class ExtractIssueIdentifiersTests(unittest.TestCase):
             github_linear_bridge.select_issue_identifier(snapshot), "PRO-93"
         )
 
+    def test_normalizes_lowercase_branch_issue_identifier(self) -> None:
+        snapshot = github_linear_bridge.PullRequestSnapshot(
+            number=2,
+            title="FND-01: Authority ingestion scaffold",
+            body="",
+            head_ref_name="rputnam0/pro-5-fnd-01-authority-ingestion-scaffold",
+            url="https://github.com/rputnam0/gpu_cfd/pull/3",
+            state="OPEN",
+            is_draft=False,
+            mergeable="MERGEABLE",
+            merge_state_status="CLEAN",
+            review_decision="",
+        )
+
+        self.assertEqual(
+            github_linear_bridge.select_issue_identifier(snapshot), "PRO-5"
+        )
+
+
+class ParseIssueIdentifierTests(unittest.TestCase):
+    def test_parses_team_key_and_number(self) -> None:
+        parsed = github_linear_bridge.parse_issue_identifier("PRO-5")
+
+        self.assertEqual(parsed.team_key, "PRO")
+        self.assertEqual(parsed.number, 5)
+
+    def test_rejects_unsupported_identifier_shapes(self) -> None:
+        with self.assertRaises(ValueError):
+            github_linear_bridge.parse_issue_identifier("pro-5")
+
     def test_ignores_non_project_identifiers_when_selecting_issue(self) -> None:
         snapshot = github_linear_bridge.PullRequestSnapshot(
             number=2,
@@ -106,6 +136,15 @@ class DetermineBridgeDecisionTests(unittest.TestCase):
         decision = github_linear_bridge.determine_bridge_decision(
             self.make_snapshot(),
             self.make_summary(review_state="clean"),
+            "PRO-93",
+        )
+
+        self.assertEqual(decision.target_state, "Ready to Merge")
+
+    def test_moves_to_ready_to_merge_when_review_is_pending_rereview(self) -> None:
+        decision = github_linear_bridge.determine_bridge_decision(
+            self.make_snapshot(),
+            self.make_summary(review_state="pending_rereview"),
             "PRO-93",
         )
 
@@ -187,6 +226,32 @@ class UpdateLinearIssueStateTests(unittest.TestCase):
         )
 
 
+class FetchLinearIssueTests(unittest.TestCase):
+    @mock.patch("scripts.symphony.github_linear_bridge.linear_graphql")
+    def test_looks_up_issue_by_identifier(self, linear_graphql: mock.Mock) -> None:
+        linear_graphql.return_value = {
+            "issues": {
+                "nodes": [
+                    {
+                        "id": "35d69fd1-94de-4436-a58f-37a2faec86d9",
+                        "identifier": "PRO-5",
+                        "title": "Authority ingestion scaffold",
+                        "state": {"name": "In Review"},
+                        "team": {"key": "PRO", "states": {"nodes": []}},
+                    }
+                ]
+            }
+        }
+
+        issue = github_linear_bridge.fetch_linear_issue("PRO-5")
+
+        self.assertEqual(issue["identifier"], "PRO-5")
+        linear_graphql.assert_called_once_with(
+            github_linear_bridge.LINEAR_ISSUE_BY_IDENTIFIER_QUERY,
+            {"teamKey": "PRO", "number": 5},
+        )
+
+
 class ResolvableThreadTests(unittest.TestCase):
     def make_summary(self) -> review_loop.ReviewSummary:
         return review_loop.ReviewSummary(
@@ -249,6 +314,17 @@ class ResolvableThreadTests(unittest.TestCase):
         self.assertEqual(
             github_linear_bridge.collect_resolvable_thread_ids(summary),
             ["thread-analysis"],
+        )
+
+    def test_collects_stale_actionable_threads_after_new_head(self) -> None:
+        summary = self.make_summary()
+        summary.review_state = "action_required"
+        summary.latest_commit_at = "2026-03-14T01:16:30Z"
+        summary.actionable_threads = [summary.observed_threads[1]]
+
+        self.assertEqual(
+            github_linear_bridge.collect_resolvable_thread_ids(summary),
+            ["thread-analysis", "thread-bug"],
         )
 
 
