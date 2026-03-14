@@ -32,6 +32,8 @@ def sample_host_observations(*, lane: str = "primary") -> dict[str, str]:
         "ncu_version": "NVIDIA Nsight Compute version 2025.3",
         "compute_sanitizer_version": "Compute Sanitizer version 2025.1",
         "compiler_version": "gcc (Ubuntu 14.2.0) 14.2.0",
+        "os_release": "Ubuntu 24.04.2 LTS",
+        "kernel": "6.8.0-60-generic",
     }
 
 
@@ -354,6 +356,47 @@ class PinManifestResolutionTests(unittest.TestCase):
             host_env["host_observations"]["gpu_csv"],
             "NVIDIA GeForce RTX 5080, 595.50.00, 16384 MiB",
         )
+
+    def test_emit_environment_manifests_requires_os_release_and_kernel(self) -> None:
+        bundle = load_authority_bundle(repo_root())
+        host_observations = sample_canonical_host_observations()
+        host_observations.pop("os_release")
+        host_observations.pop("kernel")
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            with self.assertRaisesRegex(AuthorityConflictError, "os_release, kernel"):
+                emit_environment_manifests(
+                    bundle,
+                    consumer="build",
+                    output_dir=temp_dir,
+                    host_observations=host_observations,
+                    local_mirror_refs=sample_local_mirror_refs(),
+                )
+
+    def test_emit_environment_manifests_preserves_exact_tool_binary_paths(self) -> None:
+        bundle = load_authority_bundle(repo_root())
+        host_observations = sample_canonical_host_observations()
+        host_observations.update(
+            {
+                "nvcc_path": "/opt/cuda/bin/nvcc",
+                "nsys_path": "/opt/nsight-systems/bin/nsys",
+                "ncu_path": "/opt/nsight-compute/bin/ncu",
+                "compute_sanitizer_path": "/opt/cuda/bin/compute-sanitizer",
+            }
+        )
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            emitted = emit_environment_manifests(
+                bundle,
+                consumer="profiling",
+                output_dir=temp_dir,
+                host_observations=host_observations,
+                local_mirror_refs=sample_local_mirror_refs(),
+            )
+            host_env = json.loads(emitted.host_env_path.read_text(encoding="utf-8"))
+
+        self.assertEqual(host_env["host_observations"]["nvcc_path"], "/opt/cuda/bin/nvcc")
+        self.assertEqual(host_env["host_observations"]["nsys_path"], "/opt/nsight-systems/bin/nsys")
 
 
 if __name__ == "__main__":

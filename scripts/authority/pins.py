@@ -31,6 +31,10 @@ CANONICAL_HOST_OBSERVATION_FIELDS = (
     "compute_sanitizer_version",
     "os_release",
     "kernel",
+    "nvcc_path",
+    "nsys_path",
+    "ncu_path",
+    "compute_sanitizer_path",
 )
 HOST_OBSERVATION_ALIASES = {
     "gpu_query": "gpu_csv",
@@ -428,6 +432,8 @@ def _validate_host_observations(
         "nsys_version",
         "ncu_version",
         "compute_sanitizer_version",
+        "os_release",
+        "kernel",
     )
     missing_fields = [
         field_name
