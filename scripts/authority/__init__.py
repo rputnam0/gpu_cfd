@@ -9,6 +9,12 @@ from .bundle import (
     load_authority_bundle,
     main,
 )
+from .pins import (
+    ConsumerPinResolution,
+    EmittedEnvironmentManifests,
+    emit_environment_manifests,
+    resolve_consumer_pin_manifest,
+)
 
 __all__ = [
     "AuthorityBundle",
@@ -16,6 +22,10 @@ __all__ = [
     "AuthorityLoadError",
     "AuthorityLoadReport",
     "AuthoritySchemaError",
+    "ConsumerPinResolution",
+    "EmittedEnvironmentManifests",
+    "emit_environment_manifests",
     "load_authority_bundle",
     "main",
+    "resolve_consumer_pin_manifest",
 ]
