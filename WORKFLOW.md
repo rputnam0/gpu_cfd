@@ -54,7 +54,7 @@ This repository is doc-driven. Before changing code, open these files in order:
 1. `docs/README_FIRST.md`
 2. `docs/tasks/pr_inventory.md`
 3. The owning `docs/tasks/NN_*.md` file for the PR ID in this issue
-4. `.codex/skills/gpu-cfd-symphony/SKILL.md`
+4. `$GPU_CFD_CONTROL_REPO_ROOT/.codex/skills/gpu-cfd-symphony/SKILL.md` from the control repo, not the workspace copy
 
 Issue context:
 
