@@ -147,6 +147,7 @@ to start Symphony for this repository.
 
 - It sources `~/projects/symphony/.env`
 - It exports the runtime paths expected by the workflow
+- It exports `GPU_CFD_CONTROL_REPO_ROOT` so the control-plane scripts always come from the sanctioned repo checkout, not a potentially stale issue workspace
 - It runs the worker-host preflight
 - It emits launcher telemetry
 - It starts Symphony with the required preview acknowledgement flag
@@ -203,7 +204,8 @@ cd ~/projects/gpu_cfd
 
 The launcher script reads `~/projects/symphony/.env`, fills in sane defaults for
 `SYMPHONY_WORKSPACE_ROOT`, `GPU_CFD_SOURCE_REPO_URL`, and `GPU_CFD_BOOTSTRAP_REF`, runs the
-runtime preflight, and then starts Symphony from the checked-out `~/projects/symphony/elixir`
+runtime preflight, fast-forwards clean base-branch workspaces before each run, fails fast on dirty
+base-branch workspaces, and then starts Symphony from the checked-out `~/projects/symphony/elixir`
 directory, and passes the required preview acknowledgement flag for the current Symphony reference
 implementation.
 

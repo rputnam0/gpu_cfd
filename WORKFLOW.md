@@ -27,6 +27,7 @@ hooks:
     git fetch origin --prune
   before_run: |
     git status --short --branch >/dev/null
+    python3 "$GPU_CFD_CONTROL_REPO_ROOT/scripts/symphony/workspace_sync.py" --workspace "$PWD"
 agent:
   max_concurrent_agents: 1
   max_turns: 40
@@ -36,7 +37,7 @@ agent:
     rework: 1
     ready to merge: 1
 codex:
-  command: "python3 scripts/symphony/codex_runner.py implementation app-server"
+  command: "python3 \"$GPU_CFD_CONTROL_REPO_ROOT/scripts/symphony/codex_runner.py\" implementation app-server"
   approval_policy: never
   thread_sandbox: workspace-write
   turn_sandbox_policy:

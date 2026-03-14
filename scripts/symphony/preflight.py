@@ -96,6 +96,7 @@ def run_repo_checks(root: pathlib.Path) -> list[Check]:
         root / "scripts/symphony/github_linear_bridge.py",
         root / "scripts/symphony/review_loop.py",
         root / "scripts/symphony/telemetry.py",
+        root / "scripts/symphony/workspace_sync.py",
     ]
 
     for path in required_files:
