@@ -28,6 +28,14 @@ DEFAULT_REVIEW_PROMPT = (
     "and missing validation evidence. Focus on concrete bugs, behavioral risks, "
     "missing tests, and workflow violations. If no material findings remain, say so explicitly."
 )
+ACTIONABLE_SUMMARY_PATTERNS = (
+    re.compile(
+        r"\bfound\s+(?P<count>\d+)\s+(?:new\s+)?potential issues?\b", re.IGNORECASE
+    ),
+    re.compile(
+        r"\b(?P<count>\d+)\s+(?:new\s+)?potential issues?\s+found\b", re.IGNORECASE
+    ),
+)
 GRAPHQL_QUERY = """
 query($owner:String!, $name:String!, $number:Int!) {
   repository(owner:$owner, name:$name) {
@@ -254,12 +262,22 @@ def expand_reviewer_aliases(reviewers: list[str]) -> set[str]:
     return expanded
 
 
+def is_actionable_review_body(body: str) -> bool:
+    normalized = re.sub(r"\s+", " ", body).strip()
+    if not normalized:
+        return False
+    for pattern in ACTIONABLE_SUMMARY_PATTERNS:
+        match = pattern.search(normalized)
+        if match:
+            return int(match.group("count")) > 0
+    return False
+
+
 def evaluate_review_state(
     pull_request: dict[str, Any], reviewer_logins: set[str]
 ) -> ReviewSummary:
-    latest_commit = (
-        pull_request.get("commits", {}).get("nodes", [{}])[0].get("commit", {})
-    )
+    commit_nodes = pull_request.get("commits", {}).get("nodes") or [{}]
+    latest_commit = commit_nodes[0].get("commit", {})
     latest_commit_at = parse_timestamp(latest_commit.get("committedDate"))
     latest_commit_at_raw = latest_commit.get("committedDate")
 
@@ -288,7 +306,9 @@ def evaluate_review_state(
             continue
         if review_summary["state"] == "CHANGES_REQUESTED":
             actionable_reviews.append(review_summary)
-        elif review_summary["state"] == "COMMENTED" and review_summary["body"]:
+        elif review_summary["state"] == "COMMENTED" and is_actionable_review_body(
+            review_summary["body"]
+        ):
             actionable_reviews.append(review_summary)
 
     for thread in pull_request.get("reviewThreads", {}).get("nodes", []):

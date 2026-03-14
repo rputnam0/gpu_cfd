@@ -85,7 +85,7 @@ Execution contract:
 - Run the smallest relevant validation first, then broader checks when the scope requires it.
 - Before opening or marking a PR ready for review, run `uv run python scripts/symphony/review_loop.py codex-review --issue {{ issue.identifier }} --base origin/main`, inspect the saved review artifact, fix material findings, and rerun the review gate once.
 - When the task is implementation-complete, open or update the GitHub PR, record the PR URL in a Linear comment, emit a `review_requested` telemetry event, move the issue to `In Review`, and stop. Do not sit in a local sleep or polling loop.
-- `In Review` is a dormant state for Symphony. The Linear and GitHub integrations should move the issue into `Rework` when changes are needed and `Ready to Merge` when the PR is clear to land.
+- `In Review` is a dormant state for Symphony. The GitHub event bridge at `.github/workflows/linear-review-bridge.yml` is responsible for moving the linked issue into `Rework` when Devin leaves actionable feedback and into `Ready to Merge` when the current PR head is clean and mergeable.
 - On a resumed `Rework` run, use the latest Devin-authored Linear comments as the primary review signal and GitHub review comments as detail when needed. Fix valid findings, rerun the smallest relevant validation, rerun the local Codex review gate, push, emit `review_requested`, and move the issue back to `In Review`.
 - On a resumed `Ready to Merge` run, verify the linked PR is clean on the current head and branch protection is satisfied, merge with GitHub CLI, confirm the default branch contains the change, and then move the Linear issue to `Done`.
 - `Backlog` means parked or blocked work and is out of scope for this run.

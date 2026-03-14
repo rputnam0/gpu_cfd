@@ -90,8 +90,10 @@ def run_repo_checks(root: pathlib.Path) -> list[Check]:
         root / "docs/backlog/gpu_cfd_pr_backlog.json",
         root / "docs/ops/symphony_runbook.md",
         root / ".github/workflows/review-loop-harness.yml",
+        root / ".github/workflows/linear-review-bridge.yml",
         root / "scripts/symphony/runtime_config.toml",
         root / "scripts/symphony/codex_runner.py",
+        root / "scripts/symphony/github_linear_bridge.py",
         root / "scripts/symphony/review_loop.py",
         root / "scripts/symphony/telemetry.py",
     ]

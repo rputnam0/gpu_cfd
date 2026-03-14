@@ -11,6 +11,7 @@ project.
 - `.codex/skills/gpu-cfd-symphony/SKILL.md`: project-specific execution skill
 - `scripts/symphony/preflight.py`: preflight checker for repo and worker-host readiness
 - `scripts/symphony/review_loop.py`: local Codex review gate plus GitHub review-state helper
+- `scripts/symphony/github_linear_bridge.py`: GitHub-event bridge that moves linked Linear issues into `Rework` or `Ready to Merge`
 - `scripts/symphony/telemetry.py`: structured event logger for launcher, blocker, and review-loop telemetry
 
 ## Supported board contract
@@ -29,7 +30,7 @@ Review loop:
 
 - Before a PR is opened or marked ready, the agent must run one local Codex review pass.
 - After the PR enters `In Review`, the worker stops. No repo-owned watcher or local poll loop keeps running.
-- Linear and GitHub integrations should move the issue into `Rework` when Devin finds issues and into `Ready to Merge` when the PR is clear to land.
+- The GitHub Actions workflow `.github/workflows/linear-review-bridge.yml` moves the linked issue into `Rework` when Devin finds issues and into `Ready to Merge` when the current head is clean and mergeable.
 - `Rework` runs fix valid findings, revalidate, rerun the Codex review gate, and send the PR back to `In Review`.
 - `Ready to Merge` runs perform the final merge and move the issue to `Done`.
 
@@ -123,6 +124,11 @@ Recommended GitHub setting:
 
 That does not replace the local Codex review or the Devin review loop. It complements them with a
 merge-time enforcement point that GitHub can actually block on.
+
+This repository also includes `.github/workflows/linear-review-bridge.yml`, which reacts to PR and
+review events, inspects the latest Devin review state on the current head, resolves the linked
+Linear issue from the PR body/title/branch, and updates that issue into `Rework` or `Ready to Merge`
+without keeping a repo-owned daemon alive.
 
 ## Recommended worker host
 
@@ -248,6 +254,8 @@ review. The local gate now has a hard timeout so a single slow review cannot sta
 - emit `review_requested` telemetry right before each review handoff
 - stop the worker after moving to `In Review`
 - rely on Linear workflow transitions to move the issue into `Rework` or `Ready to Merge`
+- let `.github/workflows/linear-review-bridge.yml` perform the `In Review -> Rework` and
+  `In Review -> Ready to Merge` transitions from GitHub events
 - use GitHub review comments as detail lookup when working a `Rework` or `Ready to Merge` run
 - merge only after the current head is clean and GitHub protection is green
 

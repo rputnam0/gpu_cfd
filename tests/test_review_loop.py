@@ -48,6 +48,17 @@ class EvaluateReviewStateTests(unittest.TestCase):
         )
         self.assertEqual(summary.review_state, "pending_initial_review")
 
+    def test_handles_empty_commit_nodes_without_crashing(self) -> None:
+        pull_request = self.make_pull_request()
+        pull_request["commits"]["nodes"] = []
+
+        summary = review_loop.evaluate_review_state(
+            pull_request,
+            {"devin-ai-integration[bot]"},
+        )
+
+        self.assertEqual(summary.review_state, "pending_initial_review")
+
     def test_normalizes_devin_aliases(self) -> None:
         self.assertEqual(
             review_loop.expand_reviewer_aliases(["devin-ai-integration[bot]"]),
@@ -99,6 +110,46 @@ class EvaluateReviewStateTests(unittest.TestCase):
         )
         self.assertEqual(summary.review_state, "action_required")
         self.assertEqual(len(summary.actionable_reviews), 1)
+
+    def test_action_required_for_positive_devin_summary_review(self) -> None:
+        pull_request = self.make_pull_request()
+        pull_request["reviews"]["nodes"].append(
+            {
+                "author": {"login": "devin-ai-integration[bot]"},
+                "state": "COMMENTED",
+                "submittedAt": "2026-03-13T20:05:00Z",
+                "body": "**Devin Review** found 4 new potential issues.",
+                "url": "https://example.com/review",
+            }
+        )
+
+        summary = review_loop.evaluate_review_state(
+            pull_request,
+            {"devin-ai-integration[bot]"},
+        )
+
+        self.assertEqual(summary.review_state, "action_required")
+        self.assertEqual(len(summary.actionable_reviews), 1)
+
+    def test_clean_for_zero_issue_devin_summary_review(self) -> None:
+        pull_request = self.make_pull_request()
+        pull_request["reviews"]["nodes"].append(
+            {
+                "author": {"login": "devin-ai-integration[bot]"},
+                "state": "COMMENTED",
+                "submittedAt": "2026-03-13T20:05:00Z",
+                "body": "**Devin Review** found 0 new potential issues.",
+                "url": "https://example.com/review",
+            }
+        )
+
+        summary = review_loop.evaluate_review_state(
+            pull_request,
+            {"devin-ai-integration[bot]"},
+        )
+
+        self.assertEqual(summary.review_state, "clean")
+        self.assertEqual(len(summary.actionable_reviews), 0)
 
     def test_pending_rereview_when_only_stale_review_exists(self) -> None:
         pull_request = self.make_pull_request()
@@ -188,6 +239,25 @@ class EvaluateReviewStateTests(unittest.TestCase):
             review_loop.expand_reviewer_aliases(["devin-ai-integration[bot]"]),
         )
         self.assertEqual(summary.review_state, "pending_rereview")
+
+
+class ActionableReviewBodyTests(unittest.TestCase):
+    def test_devin_positive_issue_summary_is_actionable(self) -> None:
+        self.assertTrue(
+            review_loop.is_actionable_review_body(
+                "**Devin Review** found 6 new potential issues."
+            )
+        )
+
+    def test_devin_zero_issue_summary_is_not_actionable(self) -> None:
+        self.assertFalse(
+            review_loop.is_actionable_review_body(
+                "**Devin Review** found 0 new potential issues."
+            )
+        )
+
+    def test_generic_review_body_is_not_actionable_without_issue_count(self) -> None:
+        self.assertFalse(review_loop.is_actionable_review_body("Looks good overall."))
 
 
 if __name__ == "__main__":
