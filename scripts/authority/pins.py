@@ -55,6 +55,7 @@ class PinDetails:
     experimental_toolkit_lane: str
     driver_floor: str
     gpu_target: str
+    workstation_target: str
     instrumentation: str
     nsight_systems: str
     nsight_compute: str
@@ -102,6 +103,7 @@ def resolve_consumer_pin_manifest(
     local_mirror_refs = local_mirror_refs or {}
 
     _validate_overrides(pin_details, overrides)
+    _validate_host_observations(pin_details, host_observations, lane=lane)
     _validate_local_mirror_refs(pin_details, local_mirror_refs)
 
     selected_lane = (
@@ -186,7 +188,7 @@ def emit_environment_manifests(
     repo_commit: str | None = None,
 ) -> EmittedEnvironmentManifests:
     pin_details = load_pin_details(bundle)
-    resolved_host_observations = host_observations or {}
+    resolved_host_observations = normalize_host_observations(host_observations or {})
     resolved_local_mirror_refs = local_mirror_refs or {}
     _validate_host_observations(pin_details, resolved_host_observations, lane=lane)
     _validate_local_mirror_refs(
@@ -247,6 +249,9 @@ def load_pin_details(bundle: AuthorityBundle) -> PinDetails:
         ),
         driver_floor=_normalize_value(frozen_defaults["Driver floor"]["Frozen value"]),
         gpu_target=_normalize_value(frozen_defaults["GPU target"]["Frozen value"]),
+        workstation_target=_normalize_value(
+            frozen_defaults["Workstation target"]["Frozen value"]
+        ),
         instrumentation=_normalize_value(frozen_defaults["Instrumentation"]["Frozen value"]),
         nsight_systems=_normalize_value(frozen_defaults["Nsight Systems"]["Frozen value"]),
         nsight_compute=_normalize_value(frozen_defaults["Nsight Compute"]["Frozen value"]),
@@ -417,13 +422,12 @@ def _validate_host_observations(
     lane: str,
 ) -> None:
     required_fields = (
-        "gpu_query",
+        "gpu_csv",
         "nvcc_version",
         "gcc_version",
         "nsys_version",
         "ncu_version",
         "compute_sanitizer_version",
-        "compiler_version",
     )
     missing_fields = [
         field_name
@@ -453,6 +457,43 @@ def _validate_host_observations(
                 f"{field_name} must realize frozen value {expected_value!r}; "
                 f"found {observed_value!r}"
             )
+
+    gpu_name, driver_version = _parse_gpu_csv(host_observations["gpu_csv"])
+    expected_gpu = _expected_workstation_gpu(pin_details.workstation_target)
+    if expected_gpu and expected_gpu not in gpu_name:
+        raise AuthorityConflictError(
+            f"gpu_csv must realize workstation target {expected_gpu!r}; found {gpu_name!r}"
+        )
+    if not _driver_meets_floor(driver_version, pin_details.driver_floor):
+        raise AuthorityConflictError(
+            f"gpu_csv driver {driver_version!r} does not satisfy frozen driver floor {pin_details.driver_floor!r}"
+        )
+
+
+def _parse_gpu_csv(gpu_csv: str) -> tuple[str, str]:
+    parts = [part.strip() for part in gpu_csv.split(",")]
+    if len(parts) < 2:
+        raise AuthorityConflictError(
+            f"gpu_csv must include GPU name and driver version; found {gpu_csv!r}"
+        )
+    return parts[0], parts[1]
+
+
+def _expected_workstation_gpu(workstation_target: str) -> str | None:
+    for fragment in ("RTX 5080",):
+        if fragment in workstation_target:
+            return fragment
+    return None
+
+
+def _driver_meets_floor(driver_version: str, driver_floor: str) -> bool:
+    required_version = driver_floor.removeprefix(">=").strip()
+    observed_parts = tuple(int(part) for part in driver_version.split("."))
+    required_parts = tuple(int(part) for part in required_version.split("."))
+    length = max(len(observed_parts), len(required_parts))
+    padded_observed = observed_parts + (0,) * (length - len(observed_parts))
+    padded_required = required_parts + (0,) * (length - len(required_parts))
+    return padded_observed >= padded_required
 
 
 def _parse_required_revalidation(text: str) -> list[str]:

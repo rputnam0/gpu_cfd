@@ -20,15 +20,31 @@ def repo_root() -> pathlib.Path:
     return pathlib.Path(__file__).resolve().parents[1]
 
 
-def sample_host_observations() -> dict[str, str]:
+def sample_host_observations(*, lane: str = "primary") -> dict[str, str]:
+    nvcc_version = "Cuda compilation tools, release 12.9, V12.9.1"
+    if lane == "experimental":
+        nvcc_version = "Cuda compilation tools, release 13.2, V13.2.0"
     return {
         "gpu_query": "NVIDIA GeForce RTX 5080, 595.50.00, 16384 MiB",
-        "nvcc_version": "Cuda compilation tools, release 12.9, V12.9.1",
+        "nvcc_version": nvcc_version,
         "gcc_version": "gcc (Ubuntu 14.2.0) 14.2.0",
         "nsys_version": "NVIDIA Nsight Systems version 2025.2",
         "ncu_version": "NVIDIA Nsight Compute version 2025.3",
         "compute_sanitizer_version": "Compute Sanitizer version 2025.1",
         "compiler_version": "gcc (Ubuntu 14.2.0) 14.2.0",
+    }
+
+
+def sample_canonical_host_observations() -> dict[str, str]:
+    return {
+        "gpu_csv": "NVIDIA GeForce RTX 5080, 595.50.00, 16384 MiB",
+        "nvcc_version": "Cuda compilation tools, release 12.9, V12.9.1",
+        "gcc_version": "gcc (Ubuntu 14.2.0) 14.2.0",
+        "nsys_version": "NVIDIA Nsight Systems version 2025.2",
+        "ncu_version": "NVIDIA Nsight Compute version 2025.3",
+        "compute_sanitizer_version": "Compute Sanitizer version 2025.1",
+        "os_release": "Ubuntu 24.04.2 LTS",
+        "kernel": "6.8.0-60-generic",
     }
 
 
@@ -235,7 +251,7 @@ class PinManifestResolutionTests(unittest.TestCase):
             bundle,
             consumer="profiling",
             lane="experimental",
-            host_observations=sample_host_observations(),
+            host_observations=sample_host_observations(lane="experimental"),
         )
 
         self.assertNotEqual(
@@ -263,6 +279,32 @@ class PinManifestResolutionTests(unittest.TestCase):
                     host_observations={"gpu_query": "NVIDIA GeForce RTX 5080"},
                     local_mirror_refs=sample_local_mirror_refs(),
                 )
+
+    def test_resolve_consumer_pin_manifest_rejects_observed_tool_version_drift(self) -> None:
+        bundle = load_authority_bundle(repo_root())
+        host_observations = sample_host_observations()
+        host_observations["nvcc_version"] = "Cuda compilation tools, release 12.8, V12.8.0"
+
+        with self.assertRaisesRegex(AuthorityConflictError, "nvcc_version must realize frozen value"):
+            resolve_consumer_pin_manifest(
+                bundle,
+                consumer="build",
+                host_observations=host_observations,
+                local_mirror_refs=sample_local_mirror_refs(),
+            )
+
+    def test_resolve_consumer_pin_manifest_rejects_non_frozen_gpu_and_driver(self) -> None:
+        bundle = load_authority_bundle(repo_root())
+        host_observations = sample_host_observations()
+        host_observations["gpu_query"] = "NVIDIA GeForce RTX 4090, 570.12.00, 24576 MiB"
+
+        with self.assertRaisesRegex(AuthorityConflictError, "driver floor|workstation target"):
+            resolve_consumer_pin_manifest(
+                bundle,
+                consumer="profiling",
+                host_observations=host_observations,
+                local_mirror_refs=sample_local_mirror_refs(),
+            )
 
     def test_emit_environment_manifests_rejects_observed_tool_version_drift(self) -> None:
         bundle = load_authority_bundle(repo_root())
@@ -293,6 +335,25 @@ class PinManifestResolutionTests(unittest.TestCase):
                     host_observations=sample_host_observations(),
                     local_mirror_refs=local_mirror_refs,
                 )
+
+    def test_emit_environment_manifests_accepts_canonical_host_observation_keys(self) -> None:
+        bundle = load_authority_bundle(repo_root())
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            emitted = emit_environment_manifests(
+                bundle,
+                consumer="build",
+                output_dir=temp_dir,
+                host_observations=sample_canonical_host_observations(),
+                local_mirror_refs=sample_local_mirror_refs(),
+            )
+
+            host_env = json.loads(emitted.host_env_path.read_text(encoding="utf-8"))
+
+        self.assertEqual(
+            host_env["host_observations"]["gpu_csv"],
+            "NVIDIA GeForce RTX 5080, 595.50.00, 16384 MiB",
+        )
 
 
 if __name__ == "__main__":
