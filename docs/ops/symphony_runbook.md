@@ -28,8 +28,9 @@ This repository now expects the Linear statuses below to exist on the `Projects`
 
 Review loop:
 
-- Before a PR is opened or marked ready, the agent must run one local Codex review pass.
-- After the PR enters `In Review`, the worker stops. No repo-owned watcher or local poll loop keeps running.
+- Before a PR is opened or marked ready, this workflow runs one local Codex review pass from the worker host via Symphony's `after_run` hook.
+- The Codex worker itself does not run the local review. It commits, pushes, moves the issue to `In Review`, and exits; the host-side hook then runs the local review outside the worker sandbox, moves the issue to `Rework` if findings remain, or opens/updates the PR and leaves it in `In Review` when the review is clean.
+- After the PR enters `In Review`, the worker stays dormant. No repo-owned watcher or local poll loop keeps running.
 - The GitHub Actions workflow `.github/workflows/linear-review-bridge.yml` moves the linked issue into `Rework` when Devin finds issues and into `Ready to Merge` when the current head is clean and mergeable.
 - `Rework` runs fix valid findings, revalidate, rerun the Codex review gate, and send the PR back to `In Review`.
 - `Ready to Merge` runs perform the final merge and move the issue to `Done`.

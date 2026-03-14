@@ -18,6 +18,16 @@ class ParseRemoteTests(unittest.TestCase):
             ("rputnam0", "gpu_cfd"),
         )
 
+    def test_extracts_last_agent_message_from_jsonl(self) -> None:
+        jsonl_text = "\n".join(
+            [
+                '{"type":"item.completed","item":{"type":"agent_message","text":"first"}}',
+                '{"type":"item.completed","item":{"type":"agent_message","text":"second"}}',
+            ]
+        )
+
+        self.assertEqual(review_loop.extract_last_agent_message(jsonl_text), "second")
+
 
 class EvaluateReviewStateTests(unittest.TestCase):
     def make_pull_request(self) -> dict:

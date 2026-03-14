@@ -28,6 +28,8 @@ hooks:
   before_run: |
     git status --short --branch >/dev/null
     python3 "$GPU_CFD_CONTROL_REPO_ROOT/scripts/symphony/workspace_sync.py" --workspace "$PWD"
+  after_run: |
+    python3 "$GPU_CFD_CONTROL_REPO_ROOT/scripts/symphony/after_run.py" --workspace "$PWD"
 agent:
   max_concurrent_agents: 1
   max_turns: 40
@@ -83,12 +85,13 @@ Execution contract:
 - If the issue state is `Rework`, start with a Linear comment sweep plus a GitHub PR review sweep before new edits.
 - If the issue state is `Ready to Merge`, start by confirming the linked PR head is current and that required checks are green.
 - If the issue already has a PR attached, start with a review-feedback sweep before new edits.
+- Never move an issue back to `Backlog` after implementation has started. `Backlog` is only for untouched dependency-gated work.
 - Use the issue branch name when available; otherwise create a `codex/` branch derived from the issue identifier.
 - Run the smallest relevant validation first, then broader checks when the scope requires it.
-- Before opening or marking a PR ready for review, run `uv run python scripts/symphony/review_loop.py codex-review --issue {{ issue.identifier }} --base origin/main`, inspect the saved review artifact, fix material findings, and rerun the review gate once.
-- When the task is implementation-complete, open or update the GitHub PR, record the PR URL in a Linear comment, emit a `review_requested` telemetry event, move the issue to `In Review`, and stop. Do not sit in a local sleep or polling loop.
-- `In Review` is a dormant state for Symphony. The GitHub event bridge at `.github/workflows/linear-review-bridge.yml` is responsible for moving the linked issue into `Rework` when Devin leaves actionable feedback and into `Ready to Merge` when the current PR head is clean and mergeable.
-- On a resumed `Rework` run, use the latest Devin-authored Linear comments as the primary review signal and GitHub review comments as detail when needed. Fix valid findings, rerun the smallest relevant validation, rerun the local Codex review gate, push, emit `review_requested`, and move the issue back to `In Review`.
+- Do not run the local Codex review gate inside the worker. The sanctioned host-side `hooks.after_run` path runs `scripts/symphony/after_run.py`, which executes the local Codex review on the worker host outside the Codex workspace sandbox.
+- When the task is implementation-complete, commit and push the branch, record validation evidence in the workpad, move the issue to `In Review`, and stop. The host-side `after_run` hook will run the local Codex review; if it finds issues it will move the issue to `Rework`, and if it is clean it will open or update the GitHub PR and keep the issue in `In Review`.
+- `In Review` is a dormant state for Symphony workers. The host-side `after_run` hook handles the local pre-PR Codex review plus PR open/update when no PR exists, and the GitHub event bridge at `.github/workflows/linear-review-bridge.yml` moves the linked issue into `Rework` when Devin leaves actionable feedback and into `Ready to Merge` when the current PR head is clean and mergeable.
+- On a resumed `Rework` run, use the latest Devin-authored Linear comments when a PR exists, or the latest local review artifact under `.codex/review_artifacts/` when no PR exists, as the primary review signal. Fix valid findings, rerun the smallest relevant validation, push, and move the issue back to `In Review`. The host-side `after_run` hook will rerun the local Codex review and reopen the normal PR flow when the branch is ready.
 - On a resumed `Ready to Merge` run, verify the linked PR is clean on the current head and branch protection is satisfied, merge with GitHub CLI, confirm the default branch contains the change, and then move the Linear issue to `Done`.
 - `Backlog` means parked or blocked work and is out of scope for this run.
 - If required auth, secrets, or external tools are missing, record a concise blocker note and stop instead of widening scope.
