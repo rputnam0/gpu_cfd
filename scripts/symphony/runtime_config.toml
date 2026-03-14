@@ -6,3 +6,4 @@ extra_configs = ["shell_environment_policy.inherit=all"]
 [codex.review]
 model = "gpt-5.4"
 reasoning_effort = "xhigh"
+extra_configs = ["shell_environment_policy.inherit=all"]

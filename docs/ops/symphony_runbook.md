@@ -68,6 +68,11 @@ therefore uses `scripts/symphony/codex_runner.py`, which resolves the binary and
 repo-owned profile from `scripts/symphony/runtime_config.toml` so Symphony does not depend on
 shell-specific `PATH` setup or on a human-maintained global Codex profile.
 
+The checked-in workflow keeps issue workspaces on the supported `workspaceWrite` sandbox, but it
+also sets `networkAccess: true` for turn execution. That is intentional: the local pre-PR Codex
+review gate is a nested Codex invocation, so it needs outbound OpenAI/GitHub/Linear access even
+though filesystem writes stay scoped to the active issue workspace.
+
 The sanctioned agent-side Linear path is Codex MCP, not repo-local API helper scripts. On WSL the
 required config entry is:
 

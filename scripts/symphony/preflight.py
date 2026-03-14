@@ -133,6 +133,46 @@ def run_repo_checks(root: pathlib.Path) -> list[Check]:
                 "unexpected active state list",
             )
 
+        if re.search(
+            r"turn_sandbox_policy:\s*\n\s*type:\s*workspaceWrite\s*\n\s*networkAccess:\s*true",
+            workflow_text,
+        ):
+            add_check(
+                results,
+                "ok",
+                "WORKFLOW review network access",
+                "workspaceWrite + networkAccess=true",
+            )
+        else:
+            add_check(
+                results,
+                "missing",
+                "WORKFLOW review network access",
+                "expected workspaceWrite + networkAccess=true",
+            )
+
+    runtime_config_path = root / "scripts/symphony/runtime_config.toml"
+    if runtime_config_path.exists():
+        runtime_config_text = read_text(runtime_config_path)
+        if re.search(
+            r"\[codex\.review\][^\[]*extra_configs\s*=\s*\[[^\]]*shell_environment_policy\.inherit=all",
+            runtime_config_text,
+            re.DOTALL,
+        ):
+            add_check(
+                results,
+                "ok",
+                "review profile shell env",
+                "shell_environment_policy.inherit=all",
+            )
+        else:
+            add_check(
+                results,
+                "missing",
+                "review profile shell env",
+                "expected shell_environment_policy.inherit=all",
+            )
+
     backlog_path = root / "docs/backlog/gpu_cfd_pr_backlog.json"
     if backlog_path.exists():
         try:
