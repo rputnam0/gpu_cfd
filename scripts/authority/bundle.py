@@ -432,15 +432,19 @@ def parse_graph_capture_matrix(payload: dict[str, Any]) -> GraphCaptureMatrix:
 
 def parse_semantic_source_map(text: str) -> SemanticSourceMap:
     rows = markdown_table_rows(text, "Frozen Mapping")
-    entries = {
-        row["Contract surface"]: SemanticSourceEntry(
-            contract_surface=row["Contract surface"],
+    entries: dict[str, SemanticSourceEntry] = {}
+    for row in rows:
+        surface = row["Contract surface"]
+        if surface in entries:
+            raise AuthorityConflictError(
+                f"duplicate contract surface {surface!r} in semantic_source_map.md"
+            )
+        entries[surface] = SemanticSourceEntry(
+            contract_surface=surface,
             semantic_reference=row["Semantic reference"],
             local_target_family=row["Local implementation target family"],
             notes=row["Notes"],
         )
-        for row in rows
-    }
     return SemanticSourceMap(entries_by_surface=entries)
 
 
@@ -488,6 +492,14 @@ def validate_consistency(
         raise AuthorityConflictError(
             "locked_defaults.r1_core_required_case_id must remain R1-core"
         )
+    unknown_phase_gate_cases = sorted(
+        extract_unknown_phase_gate_cases(cases.phase_gate_mapping, set(cases.by_case_id))
+    )
+    if unknown_phase_gate_cases:
+        raise AuthorityConflictError(
+            "phase_gate_mapping references unknown case ids: "
+            + ", ".join(unknown_phase_gate_cases)
+        )
     if support.global_policy.default_fallback_policy != "failFast":
         raise AuthorityConflictError(
             "support_matrix.json default_fallback_policy must remain failFast"
@@ -515,6 +527,18 @@ def validate_consistency(
         raise AuthorityConflictError(
             "acceptance_manifest.json references unknown stage ids: "
             + ", ".join(unknown_stage_ids)
+        )
+    unknown_execution_modes = sorted(
+        {
+            accepted_tuple.execution_mode
+            for accepted_tuple in acceptance.tuples_by_id.values()
+            if accepted_tuple.execution_mode not in graph.run_modes
+        }
+    )
+    if unknown_execution_modes:
+        raise AuthorityConflictError(
+            "acceptance_manifest.json references unknown execution modes: "
+            + ", ".join(unknown_execution_modes)
         )
     graph_fallbacks = {
         stage.fallback_mode
@@ -571,7 +595,15 @@ def markdown_table_by_first_column(text: str, heading: str) -> dict[str, dict[st
     if not rows:
         raise AuthorityConflictError(f"empty markdown table: {heading}")
     first_key = next(iter(rows[0]))
-    return {row[first_key]: row for row in rows}
+    indexed_rows: dict[str, dict[str, str]] = {}
+    for row in rows:
+        row_key = row[first_key]
+        if row_key in indexed_rows:
+            raise AuthorityConflictError(
+                f"duplicate markdown key {row_key!r} in section: {heading}"
+            )
+        indexed_rows[row_key] = row
+    return indexed_rows
 
 
 def markdown_table_rows(text: str, heading: str) -> list[dict[str, str]]:
@@ -606,6 +638,48 @@ def build_unique_index(
             )
         indexed[item_id] = item_builder(item)
     return indexed
+
+
+def extract_unknown_phase_gate_cases(
+    value: Any,
+    known_case_ids: set[str],
+    *,
+    field_name: str | None = None,
+) -> set[str]:
+    if isinstance(value, dict):
+        unknown: set[str] = set()
+        for nested_field, nested_value in value.items():
+            unknown.update(
+                extract_unknown_phase_gate_cases(
+                    nested_value,
+                    known_case_ids,
+                    field_name=str(nested_field),
+                )
+            )
+        return unknown
+    if isinstance(value, list):
+        if field_name and field_name in CASE_REFERENCE_SEQUENCE_FIELDS:
+            return {str(item) for item in value if str(item) not in known_case_ids}
+        return set()
+    if isinstance(value, str) and field_name and field_name in CASE_REFERENCE_SCALAR_FIELDS:
+        return {value} if value not in known_case_ids else set()
+    return set()
+
+
+CASE_REFERENCE_SEQUENCE_FIELDS = {
+    "ordered_case_ladder",
+    "default_cases",
+    "conditional_cases",
+    "hard_gate_cases",
+}
+
+
+CASE_REFERENCE_SCALAR_FIELDS = {
+    "accepted_case",
+    "routine_architecture_baseline_case",
+    "production_shape_acceptance_case",
+    "backend_or_execution_parity_case",
+}
 
 
 def build_arg_parser() -> argparse.ArgumentParser:

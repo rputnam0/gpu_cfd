@@ -150,6 +150,82 @@ class AuthorityBundleTests(unittest.TestCase):
             ):
                 load_authority_bundle(temp_root)
 
+    def test_phase_gate_mapping_unknown_case_fails_fast(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_root = pathlib.Path(temp_dir)
+            self._copy_tree(repo_root(), temp_root)
+            json_path = temp_root / "docs" / "authority" / "reference_case_contract.json"
+            payload = json.loads(json_path.read_text(encoding="utf-8"))
+            payload["phase_gate_mapping"]["Phase 6"]["accepted_case"] = "R9"
+            json_path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+
+            with self.assertRaisesRegex(
+                AuthorityConflictError,
+                "phase_gate_mapping references unknown case ids: R9",
+            ):
+                load_authority_bundle(temp_root)
+
+    def test_accepted_tuple_unknown_execution_mode_fails_fast(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_root = pathlib.Path(temp_dir)
+            self._copy_tree(repo_root(), temp_root)
+            json_path = temp_root / "docs" / "authority" / "acceptance_manifest.json"
+            payload = json.loads(json_path.read_text(encoding="utf-8"))
+            payload["accepted_tuples"][0]["execution_mode"] = "graphFixd"
+            json_path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+
+            with self.assertRaisesRegex(
+                AuthorityConflictError,
+                "acceptance_manifest.json references unknown execution modes: graphFixd",
+            ):
+                load_authority_bundle(temp_root)
+
+    def test_duplicate_markdown_authority_key_fails_fast(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_root = pathlib.Path(temp_dir)
+            self._copy_tree(repo_root(), temp_root)
+            markdown_path = temp_root / "docs" / "authority" / "master_pin_manifest.md"
+            text = markdown_path.read_text(encoding="utf-8")
+            duplicate_row = (
+                "| Primary toolkit lane | CUDA 99.0 | Synthetic duplicate for test. |\n"
+            )
+            marker = "| GPU target | `NVARCH=120`, native `sm_120` plus PTX | PTX/JIT validation remains mandatory. |\n"
+            markdown_path.write_text(
+                text.replace(marker, marker + duplicate_row),
+                encoding="utf-8",
+            )
+
+            with self.assertRaisesRegex(
+                AuthorityConflictError,
+                "duplicate markdown key 'Primary toolkit lane' in section: Frozen Defaults",
+            ):
+                load_authority_bundle(temp_root)
+
+    def test_duplicate_semantic_source_surface_fails_fast(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_root = pathlib.Path(temp_dir)
+            self._copy_tree(repo_root(), temp_root)
+            markdown_path = temp_root / "docs" / "authority" / "semantic_source_map.md"
+            text = markdown_path.read_text(encoding="utf-8")
+            duplicate_row = (
+                "| Pressure bridge | duplicate.cc | `PressureMatrixCache` | Synthetic duplicate for test. |\n"
+            )
+            marker = (
+                "| Pressure bridge | linear-solver boundary and matrix staging | `PressureMatrixCache`, "
+                "`packDeviceStaging(...)`, `DeviceDirect`, existing `foamExternalSolvers` AmgX bridge | "
+                "`PinnedHost` is correctness-only. |\n"
+            )
+            markdown_path.write_text(
+                text.replace(marker, marker + duplicate_row),
+                encoding="utf-8",
+            )
+
+            with self.assertRaisesRegex(
+                AuthorityConflictError,
+                "duplicate contract surface 'Pressure bridge' in semantic_source_map.md",
+            ):
+                load_authority_bundle(temp_root)
+
     def test_downstream_callers_resolve_every_authority_category_from_one_api(self) -> None:
         bundle = load_authority_bundle(repo_root())
 
