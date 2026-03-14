@@ -1,0 +1,603 @@
+from __future__ import annotations
+
+import json
+import os
+import pathlib
+import hashlib
+import shutil
+import subprocess
+import tempfile
+import unittest
+from dataclasses import replace
+from unittest import mock
+
+from scripts.authority import (
+    AuthorityConflictError,
+    emit_environment_manifests,
+    load_authority_bundle,
+    resolve_consumer_pin_manifest,
+)
+
+
+def repo_root() -> pathlib.Path:
+    return pathlib.Path(__file__).resolve().parents[1]
+
+
+def sample_host_observations(*, lane: str = "primary") -> dict[str, str]:
+    nvcc_version = "Cuda compilation tools, release 12.9, V12.9.1"
+    if lane == "experimental":
+        nvcc_version = "Cuda compilation tools, release 13.2, V13.2.0"
+    return {
+        "gpu_query": "NVIDIA GeForce RTX 5080, 595.50.00, 16384 MiB",
+        "nvcc_version": nvcc_version,
+        "gcc_version": "gcc (Ubuntu 14.2.0) 14.2.0",
+        "nsys_version": "NVIDIA Nsight Systems version 2025.2",
+        "ncu_version": "NVIDIA Nsight Compute version 2025.3",
+        "compute_sanitizer_version": "Compute Sanitizer version 2025.1",
+        "compiler_version": "gcc (Ubuntu 14.2.0) 14.2.0",
+        "os_release": "Ubuntu 24.04.2 LTS",
+        "kernel": "6.8.0-60-generic",
+    }
+
+
+def sample_canonical_host_observations() -> dict[str, str]:
+    return {
+        "gpu_csv": "NVIDIA GeForce RTX 5080, 595.50.00, 16384 MiB",
+        "nvcc_version": "Cuda compilation tools, release 12.9, V12.9.1",
+        "gcc_version": "gcc (Ubuntu 14.2.0) 14.2.0",
+        "nsys_version": "NVIDIA Nsight Systems version 2025.2",
+        "ncu_version": "NVIDIA Nsight Compute version 2025.3",
+        "compute_sanitizer_version": "Compute Sanitizer version 2025.1",
+        "os_release": "Ubuntu 24.04.2 LTS",
+        "kernel": "6.8.0-60-generic",
+    }
+
+
+def sample_local_mirror_refs() -> dict[str, str]:
+    return {
+        "SPUMA runtime base": "3d1d7bf598ec8a66e099d8688b8597422c361960",
+        "SPUMA support-policy snapshot": "ad2a385e44f2c01b7d1df44c5bc51d7996c95554",
+        "External solver bridge": "4c764d027f8f124a1cc0b6df0520eb63593c2a2b",
+        "AmgX backend": "cc1cebdbb32b14d33762d4ddabcb2e23c1669f47",
+    }
+
+
+class PinManifestResolutionTests(unittest.TestCase):
+    def test_resolves_frozen_pin_manifest_and_emits_canonical_artifacts(self) -> None:
+        bundle = load_authority_bundle(repo_root())
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            output_dir = pathlib.Path(temp_dir)
+            emitted = emit_environment_manifests(
+                bundle,
+                consumer="build",
+                output_dir=output_dir,
+                host_observations=sample_host_observations(),
+                local_mirror_refs=sample_local_mirror_refs(),
+                repo_commit="abc123def456",
+            )
+
+            self.assertEqual(emitted.host_env_path.name, "host_env.json")
+            self.assertEqual(emitted.manifest_refs_path.name, "manifest_refs.json")
+            self.assertEqual(emitted.alias_paths["env.json"].name, "env.json")
+
+            host_env = json.loads(emitted.host_env_path.read_text(encoding="utf-8"))
+            manifest_refs = json.loads(emitted.manifest_refs_path.read_text(encoding="utf-8"))
+            env_alias = json.loads(emitted.alias_paths["env.json"].read_text(encoding="utf-8"))
+
+        self.assertEqual(host_env["consumer"], "build")
+        self.assertEqual(host_env["runtime_base"], "exaFOAM/SPUMA 0.1-v2412")
+        self.assertEqual(host_env["toolkit"]["primary_lane"], "CUDA 12.9.1")
+        self.assertEqual(host_env["toolkit"]["experimental_lane"], "CUDA 13.2")
+        self.assertEqual(host_env["toolkit"]["selected_lane"], "primary")
+        self.assertEqual(host_env["toolkit"]["driver_floor"], ">=595.45.04")
+        self.assertEqual(host_env["gpu_target"], "`NVARCH=120`, native `sm_120` plus PTX")
+        self.assertEqual(host_env["instrumentation"], "NVTX3")
+        self.assertEqual(host_env["profilers"]["nsight_systems"], "2025.2")
+        self.assertEqual(host_env["profilers"]["nsight_compute"], "2025.3")
+        self.assertEqual(host_env["profilers"]["compute_sanitizer"], "2025.1")
+        self.assertEqual(
+            host_env["compatibility_aliases"],
+            {"env.json": "host_env.json"},
+        )
+        self.assertEqual(env_alias["canonical_name"], "host_env.json")
+        self.assertEqual(
+            host_env["host_observations"]["gpu_csv"],
+            "NVIDIA GeForce RTX 5080, 595.50.00, 16384 MiB",
+        )
+        self.assertEqual(
+            host_env["host_observations"]["gcc_version"],
+            "gcc (Ubuntu 14.2.0) 14.2.0",
+        )
+        self.assertNotIn("gpu_query", host_env["host_observations"])
+        self.assertNotIn("compiler_version", host_env["host_observations"])
+
+        self.assertEqual(
+            manifest_refs["reviewed_source_tuple_id"],
+            "SRC_SPUMA_V2412_AD2A_FES_MAIN_AMGX_2_5_0",
+        )
+        self.assertEqual(
+            manifest_refs["source_components"]["AmgX backend"]["resolved_commit"],
+            "cc1cebdbb32b14d33762d4ddabcb2e23c1669f47",
+        )
+        self.assertEqual(
+            manifest_refs["source_components"]["External solver bridge"]["frozen_ref"],
+            "main",
+        )
+        self.assertEqual(manifest_refs["repo"]["git_commit"], "abc123def456")
+        self.assertIn("master_pin_manifest", manifest_refs["authority_revisions"])
+
+    def test_conflicting_local_override_fails_fast(self) -> None:
+        bundle = load_authority_bundle(repo_root())
+
+        with self.assertRaisesRegex(
+            AuthorityConflictError,
+            "primary_toolkit_lane.*CUDA 12.9.1.*CUDA 12.8",
+        ):
+            resolve_consumer_pin_manifest(
+                bundle,
+                consumer="run",
+                overrides={"primary_toolkit_lane": "CUDA 12.8"},
+                host_observations=sample_host_observations(),
+            )
+
+    def test_build_run_and_profiling_consumers_share_same_frozen_resolution(self) -> None:
+        bundle = load_authority_bundle(repo_root())
+
+        build_resolution = resolve_consumer_pin_manifest(
+            bundle,
+            consumer="build",
+            host_observations=sample_host_observations(),
+        )
+        run_resolution = resolve_consumer_pin_manifest(
+            bundle,
+            consumer="run",
+            host_observations=sample_host_observations(),
+        )
+        profiling_resolution = resolve_consumer_pin_manifest(
+            bundle,
+            consumer="profiling",
+            host_observations=sample_host_observations(),
+        )
+
+        self.assertEqual(
+            build_resolution.shared_resolution_key,
+            run_resolution.shared_resolution_key,
+        )
+        self.assertEqual(
+            run_resolution.shared_resolution_key,
+            profiling_resolution.shared_resolution_key,
+        )
+        self.assertEqual(build_resolution.host_env["toolkit"]["primary_lane"], "CUDA 12.9.1")
+        self.assertEqual(run_resolution.host_env["toolkit"]["primary_lane"], "CUDA 12.9.1")
+        self.assertEqual(
+            profiling_resolution.host_env["profilers"]["compute_sanitizer"],
+            "2025.1",
+        )
+
+    def test_manifest_refs_include_required_revalidation_steps(self) -> None:
+        bundle = load_authority_bundle(repo_root())
+
+        resolution = resolve_consumer_pin_manifest(
+            bundle,
+            consumer="build",
+            host_observations=sample_host_observations(),
+        )
+
+        self.assertEqual(
+            resolution.manifest_refs["required_revalidation"],
+            [
+                "Phase 1 smoke/build lane on the primary toolkit.",
+                "Phase 3 `async_no_graph` and `graph_fixed` smoke coverage.",
+                "Phase 5 `R1-core` native baseline.",
+                "Phase 8 baseline timeline acceptance on `R1` and `R0`.",
+            ],
+        )
+
+    def test_repo_commit_is_resolved_from_bundle_root_when_caller_cwd_differs(self) -> None:
+        bundle = load_authority_bundle(repo_root())
+        expected_commit = subprocess.run(
+            ["git", "rev-parse", "HEAD"],
+            cwd=repo_root(),
+            text=True,
+            capture_output=True,
+            check=True,
+        ).stdout.strip()
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            original_cwd = pathlib.Path.cwd()
+            try:
+                temp_path = pathlib.Path(temp_dir)
+                # Use a non-repo working directory to verify git metadata still resolves from bundle.root.
+                os.chdir(temp_path)
+                resolution = resolve_consumer_pin_manifest(
+                    bundle,
+                    consumer="run",
+                    host_observations=sample_host_observations(),
+                )
+            finally:
+                os.chdir(original_cwd)
+
+        self.assertEqual(resolution.host_env["repo"]["git_commit"], expected_commit)
+        self.assertEqual(resolution.manifest_refs["repo"]["git_commit"], expected_commit)
+
+    def test_resolve_consumer_pin_manifest_uses_loaded_bundle_snapshot(self) -> None:
+        bundle = load_authority_bundle(repo_root())
+        snapshot_bundle = replace(
+            bundle,
+            pins=replace(bundle.pins, primary_toolkit_lane="CUDA 12.8.0"),
+        )
+
+        with self.assertRaisesRegex(
+            AuthorityConflictError,
+            "nvcc_version must realize frozen value '12.8.0'",
+        ):
+            resolve_consumer_pin_manifest(
+                snapshot_bundle,
+                consumer="build",
+                host_observations=sample_host_observations(),
+                local_mirror_refs=sample_local_mirror_refs(),
+            )
+
+    def test_resolve_consumer_pin_manifest_uses_loaded_authority_revision_snapshot(
+        self,
+    ) -> None:
+        bundle = load_authority_bundle(repo_root())
+        snapshot_bundle = replace(
+            bundle,
+            authority_revisions={
+                **bundle.authority_revisions,
+                "master_pin_manifest": {
+                    "path": "docs/authority/master_pin_manifest.md",
+                    "sha256": "snapshot-master-pin-sha",
+                },
+            },
+        )
+
+        resolution = resolve_consumer_pin_manifest(
+            snapshot_bundle,
+            consumer="build",
+            host_observations=sample_host_observations(),
+            local_mirror_refs=sample_local_mirror_refs(),
+            repo_commit="abc123def456",
+        )
+
+        self.assertEqual(
+            resolution.host_env["authority_revisions"]["master_pin_manifest"]["sha256"],
+            "snapshot-master-pin-sha",
+        )
+
+    def test_requires_host_observations_to_emit_host_env_manifest(self) -> None:
+        bundle = load_authority_bundle(repo_root())
+
+        with self.assertRaisesRegex(ValueError, "host_observations"):
+            resolve_consumer_pin_manifest(bundle, consumer="build")
+
+    @mock.patch("scripts.authority.pins.detect_git_value", return_value=None)
+    def test_requires_repo_commit_when_git_metadata_is_unavailable(
+        self,
+        detect_git_value: mock.Mock,
+    ) -> None:
+        bundle = load_authority_bundle(repo_root())
+
+        with self.assertRaisesRegex(ValueError, "repo_commit"):
+            resolve_consumer_pin_manifest(
+                bundle,
+                consumer="build",
+                host_observations=sample_host_observations(),
+            )
+
+        detect_git_value.assert_called_once()
+
+    def test_shared_resolution_key_changes_with_selected_lane(self) -> None:
+        bundle = load_authority_bundle(repo_root())
+
+        primary_resolution = resolve_consumer_pin_manifest(
+            bundle,
+            consumer="profiling",
+            lane="primary",
+            host_observations=sample_host_observations(),
+        )
+        experimental_resolution = resolve_consumer_pin_manifest(
+            bundle,
+            consumer="profiling",
+            lane="experimental",
+            host_observations=sample_host_observations(lane="experimental"),
+        )
+
+        self.assertNotEqual(
+            primary_resolution.shared_resolution_key,
+            experimental_resolution.shared_resolution_key,
+        )
+        self.assertEqual(
+            primary_resolution.host_env["toolkit"]["selected_lane_value"],
+            "CUDA 12.9.1",
+        )
+        self.assertEqual(
+            experimental_resolution.host_env["toolkit"]["selected_lane_value"],
+            "CUDA 13.2",
+        )
+
+    def test_emit_environment_manifests_rejects_missing_required_host_observations(self) -> None:
+        bundle = load_authority_bundle(repo_root())
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            with self.assertRaisesRegex(AuthorityConflictError, "missing required host observation"):
+                emit_environment_manifests(
+                    bundle,
+                    consumer="build",
+                    output_dir=temp_dir,
+                    host_observations={"gpu_query": "NVIDIA GeForce RTX 5080"},
+                    local_mirror_refs=sample_local_mirror_refs(),
+                )
+
+    def test_resolve_consumer_pin_manifest_rejects_observed_tool_version_drift(self) -> None:
+        bundle = load_authority_bundle(repo_root())
+        host_observations = sample_host_observations()
+        host_observations["nvcc_version"] = "Cuda compilation tools, release 12.8, V12.8.0"
+
+        with self.assertRaisesRegex(AuthorityConflictError, "nvcc_version must realize frozen value"):
+            resolve_consumer_pin_manifest(
+                bundle,
+                consumer="build",
+                host_observations=host_observations,
+                local_mirror_refs=sample_local_mirror_refs(),
+            )
+
+    def test_resolve_consumer_pin_manifest_rejects_substring_tool_version_match(self) -> None:
+        bundle = load_authority_bundle(repo_root())
+        host_observations = sample_host_observations()
+        host_observations["compute_sanitizer_version"] = "Compute Sanitizer version 2025.10"
+
+        with self.assertRaisesRegex(
+            AuthorityConflictError,
+            "compute_sanitizer_version must realize frozen value",
+        ):
+            resolve_consumer_pin_manifest(
+                bundle,
+                consumer="build",
+                host_observations=host_observations,
+                local_mirror_refs=sample_local_mirror_refs(),
+            )
+
+    def test_resolve_consumer_pin_manifest_allows_experimental_lane_below_production_driver_floor(
+        self,
+    ) -> None:
+        bundle = load_authority_bundle(repo_root())
+        host_observations = sample_host_observations(lane="experimental")
+        host_observations["gpu_query"] = "NVIDIA GeForce RTX 5080, 580.12.00, 16384 MiB"
+
+        resolution = resolve_consumer_pin_manifest(
+            bundle,
+            consumer="profiling",
+            lane="experimental",
+            host_observations=host_observations,
+            local_mirror_refs=sample_local_mirror_refs(),
+            repo_commit="abc123def456",
+        )
+
+        self.assertEqual(
+            resolution.host_env["toolkit"]["selected_lane_value"],
+            "CUDA 13.2",
+        )
+
+    def test_resolve_consumer_pin_manifest_rejects_non_frozen_gpu_and_driver(self) -> None:
+        bundle = load_authority_bundle(repo_root())
+        host_observations = sample_host_observations()
+        host_observations["gpu_query"] = "NVIDIA GeForce RTX 4090, 570.12.00, 24576 MiB"
+
+        with self.assertRaisesRegex(AuthorityConflictError, "driver floor|workstation target"):
+            resolve_consumer_pin_manifest(
+                bundle,
+                consumer="profiling",
+                host_observations=host_observations,
+                local_mirror_refs=sample_local_mirror_refs(),
+            )
+
+    def test_resolve_consumer_pin_manifest_rejects_non_frozen_desktop_gpu_variant(self) -> None:
+        bundle = load_authority_bundle(repo_root())
+        host_observations = sample_host_observations()
+        host_observations["gpu_query"] = "NVIDIA GeForce RTX 5080 Ti, 595.50.00, 16384 MiB"
+
+        with self.assertRaisesRegex(AuthorityConflictError, "workstation target"):
+            resolve_consumer_pin_manifest(
+                bundle,
+                consumer="profiling",
+                host_observations=host_observations,
+                local_mirror_refs=sample_local_mirror_refs(),
+            )
+
+    def test_resolve_consumer_pin_manifest_rejects_laptop_gpu_variant(self) -> None:
+        bundle = load_authority_bundle(repo_root())
+        host_observations = sample_host_observations()
+        host_observations["gpu_query"] = "NVIDIA GeForce RTX 5080 Laptop GPU, 595.50.00, 16384 MiB"
+
+        with self.assertRaisesRegex(AuthorityConflictError, "workstation target"):
+            resolve_consumer_pin_manifest(
+                bundle,
+                consumer="profiling",
+                host_observations=host_observations,
+                local_mirror_refs=sample_local_mirror_refs(),
+            )
+
+    def test_resolve_consumer_pin_manifest_rejects_wrong_gpu_memory(self) -> None:
+        bundle = load_authority_bundle(repo_root())
+        host_observations = sample_host_observations()
+        host_observations["gpu_query"] = "NVIDIA GeForce RTX 5080, 595.50.00, 8192 MiB"
+
+        with self.assertRaisesRegex(AuthorityConflictError, "memory"):
+            resolve_consumer_pin_manifest(
+                bundle,
+                consumer="profiling",
+                host_observations=host_observations,
+                local_mirror_refs=sample_local_mirror_refs(),
+            )
+
+    def test_resolve_consumer_pin_manifest_accepts_real_gpu_memory_total_near_marketing_capacity(
+        self,
+    ) -> None:
+        bundle = load_authority_bundle(repo_root())
+        host_observations = sample_host_observations()
+        host_observations["gpu_query"] = "NVIDIA GeForce RTX 5080, 595.50.00, 16192 MiB"
+
+        resolution = resolve_consumer_pin_manifest(
+            bundle,
+            consumer="profiling",
+            host_observations=host_observations,
+            local_mirror_refs=sample_local_mirror_refs(),
+            repo_commit="abc123def456",
+        )
+
+        self.assertEqual(
+            resolution.host_env["host_observations"]["gpu_csv"],
+            "NVIDIA GeForce RTX 5080, 595.50.00, 16192 MiB",
+        )
+
+    def test_resolve_consumer_pin_manifest_derives_workstation_gpu_from_bundle_snapshot(
+        self,
+    ) -> None:
+        bundle = load_authority_bundle(repo_root())
+        workstation_bundle = replace(
+            bundle,
+            pins=replace(
+                bundle.pins,
+                workstation_target=(
+                    "Single RTX 4090, compute capability 8.9, 24 GB GDDR6X, no NVLink assumption"
+                ),
+            ),
+        )
+        host_observations = sample_host_observations()
+        host_observations["gpu_query"] = "NVIDIA GeForce RTX 4090, 595.50.00, 24576 MiB"
+
+        resolution = resolve_consumer_pin_manifest(
+            workstation_bundle,
+            consumer="profiling",
+            host_observations=host_observations,
+            local_mirror_refs=sample_local_mirror_refs(),
+        )
+
+        self.assertEqual(
+            resolution.host_env["host_observations"]["gpu_csv"],
+            "NVIDIA GeForce RTX 4090, 595.50.00, 24576 MiB",
+        )
+
+    def test_load_authority_bundle_hashes_pin_manifest_from_file_bytes(self) -> None:
+        source_root = repo_root()
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_root = pathlib.Path(temp_dir)
+            shutil.copytree(source_root / "docs", temp_root / "docs")
+            manifest_path = temp_root / "docs" / "authority" / "master_pin_manifest.md"
+            manifest_text = manifest_path.read_text(encoding="utf-8")
+            manifest_path.write_text(manifest_text.replace("\n", "\r\n"), encoding="utf-8")
+            expected_hash = hashlib.sha256(manifest_path.read_bytes()).hexdigest()
+
+            bundle = load_authority_bundle(temp_root)
+
+        self.assertEqual(
+            bundle.authority_revisions["master_pin_manifest"]["sha256"],
+            expected_hash,
+        )
+
+    def test_emit_environment_manifests_rejects_observed_tool_version_drift(self) -> None:
+        bundle = load_authority_bundle(repo_root())
+        host_observations = sample_host_observations()
+        host_observations["nvcc_version"] = "Cuda compilation tools, release 12.8, V12.8.0"
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            with self.assertRaisesRegex(AuthorityConflictError, "nvcc_version must realize frozen value"):
+                emit_environment_manifests(
+                    bundle,
+                    consumer="build",
+                    output_dir=temp_dir,
+                    host_observations=host_observations,
+                    local_mirror_refs=sample_local_mirror_refs(),
+                )
+
+    def test_emit_environment_manifests_rejects_missing_local_mirror_refs(self) -> None:
+        bundle = load_authority_bundle(repo_root())
+        local_mirror_refs = sample_local_mirror_refs()
+        local_mirror_refs.pop("AmgX backend")
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            with self.assertRaisesRegex(AuthorityConflictError, "missing local mirror refs"):
+                emit_environment_manifests(
+                    bundle,
+                    consumer="profiling",
+                    output_dir=temp_dir,
+                    host_observations=sample_host_observations(),
+                    local_mirror_refs=local_mirror_refs,
+                )
+
+    def test_emit_environment_manifests_accepts_canonical_host_observation_keys(self) -> None:
+        bundle = load_authority_bundle(repo_root())
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            emitted = emit_environment_manifests(
+                bundle,
+                consumer="build",
+                output_dir=temp_dir,
+                host_observations=sample_canonical_host_observations(),
+                local_mirror_refs=sample_local_mirror_refs(),
+            )
+
+            host_env = json.loads(emitted.host_env_path.read_text(encoding="utf-8"))
+
+        self.assertEqual(
+            host_env["host_observations"]["gpu_csv"],
+            "NVIDIA GeForce RTX 5080, 595.50.00, 16384 MiB",
+        )
+
+    def test_emit_environment_manifests_requires_os_release_and_kernel(self) -> None:
+        bundle = load_authority_bundle(repo_root())
+        host_observations = sample_canonical_host_observations()
+        host_observations.pop("os_release")
+        host_observations.pop("kernel")
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            with self.assertRaisesRegex(AuthorityConflictError, "os_release, kernel"):
+                emit_environment_manifests(
+                    bundle,
+                    consumer="build",
+                    output_dir=temp_dir,
+                    host_observations=host_observations,
+                    local_mirror_refs=sample_local_mirror_refs(),
+                )
+
+    def test_emit_environment_manifests_preserves_exact_tool_binary_paths(self) -> None:
+        bundle = load_authority_bundle(repo_root())
+        host_observations = sample_canonical_host_observations()
+        host_observations.update(
+            {
+                "nvcc_path": "/opt/cuda/bin/nvcc",
+                "nsys_path": "/opt/nsight-systems/bin/nsys",
+                "ncu_path": "/opt/nsight-compute/bin/ncu",
+                "compute_sanitizer_path": "/opt/cuda/bin/compute-sanitizer",
+            }
+        )
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            emitted = emit_environment_manifests(
+                bundle,
+                consumer="profiling",
+                output_dir=temp_dir,
+                host_observations=host_observations,
+                local_mirror_refs=sample_local_mirror_refs(),
+            )
+            host_env = json.loads(emitted.host_env_path.read_text(encoding="utf-8"))
+            manifest_refs = json.loads(emitted.manifest_refs_path.read_text(encoding="utf-8"))
+
+        self.assertEqual(host_env["host_observations"]["nvcc_path"], "/opt/cuda/bin/nvcc")
+        self.assertEqual(host_env["host_observations"]["nsys_path"], "/opt/nsight-systems/bin/nsys")
+        self.assertEqual(
+            manifest_refs["invoked_tool_paths"]["compute_sanitizer_path"],
+            "/opt/cuda/bin/compute-sanitizer",
+        )
+        self.assertEqual(
+            manifest_refs["invoked_tool_paths"]["ncu_path"],
+            "/opt/nsight-compute/bin/ncu",
+        )
+
+
+if __name__ == "__main__":
+    unittest.main()
