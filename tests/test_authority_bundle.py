@@ -100,6 +100,46 @@ class AuthorityBundleTests(unittest.TestCase):
             ):
                 load_authority_bundle(temp_root)
 
+    def test_reference_case_markdown_drift_fails_fast(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_root = pathlib.Path(temp_dir)
+            self._copy_tree(repo_root(), temp_root)
+            markdown_path = temp_root / "docs" / "authority" / "reference_case_contract.md"
+            text = markdown_path.read_text(encoding="utf-8")
+            markdown_path.write_text(
+                text.replace(
+                    "| `R2` | `phase0_r2_dambreak_reference_v1` |",
+                    "| `R9` | `phase0_r2_dambreak_reference_v1` |",
+                ),
+                encoding="utf-8",
+            )
+
+            with self.assertRaisesRegex(
+                AuthorityConflictError,
+                "reference_case_contract.md.*reference_case_contract.json",
+            ):
+                load_authority_bundle(temp_root)
+
+    def test_reference_case_phase_gate_markdown_drift_fails_fast(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_root = pathlib.Path(temp_dir)
+            self._copy_tree(repo_root(), temp_root)
+            markdown_path = temp_root / "docs" / "authority" / "reference_case_contract.md"
+            text = markdown_path.read_text(encoding="utf-8")
+            markdown_path.write_text(
+                text.replace(
+                    "- Phase 6 and Phase 7 use `R1` as the reduced nozzle acceptance case.",
+                    "- Phase 6 and Phase 7 use `R0` as the reduced nozzle acceptance case.",
+                ),
+                encoding="utf-8",
+            )
+
+            with self.assertRaisesRegex(
+                AuthorityConflictError,
+                "reference_case_contract.md.*phase-gate mapping",
+            ):
+                load_authority_bundle(temp_root)
+
     def test_duplicate_authority_ids_fail_fast(self) -> None:
         duplicate_cases = {
             "path": pathlib.Path("docs/authority/reference_case_contract.json"),
@@ -177,6 +217,143 @@ class AuthorityBundleTests(unittest.TestCase):
             with self.assertRaisesRegex(
                 AuthorityConflictError,
                 "acceptance_manifest.json references unknown execution modes: graphFixd",
+            ):
+                load_authority_bundle(temp_root)
+
+    def test_acceptance_markdown_hard_gate_drift_fails_fast(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_root = pathlib.Path(temp_dir)
+            self._copy_tree(repo_root(), temp_root)
+            markdown_path = temp_root / "docs" / "authority" / "acceptance_manifest.md"
+            text = markdown_path.read_text(encoding="utf-8")
+            markdown_path.write_text(
+                text.replace(
+                    "- `unexpected_htod_bytes == 0`",
+                    "- `unexpected_htod_bytes_total == 0`",
+                ),
+                encoding="utf-8",
+            )
+
+            with self.assertRaisesRegex(
+                AuthorityConflictError,
+                "acceptance_manifest.md.*hard gates",
+            ):
+                load_authority_bundle(temp_root)
+
+    def test_acceptance_markdown_tuple_content_drift_fails_fast(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_root = pathlib.Path(temp_dir)
+            self._copy_tree(repo_root(), temp_root)
+            markdown_path = temp_root / "docs" / "authority" / "acceptance_manifest.md"
+            text = markdown_path.read_text(encoding="utf-8")
+            markdown_path.write_text(
+                text.replace(
+                    "| `P5_R2_TRANSPORT_NATIVE_ASYNC_BASELINE` | Phase 5 | `R2` / generic boundedness + interface-transport slice | `native` |",
+                    "| `P5_R2_TRANSPORT_NATIVE_ASYNC_BASELINE` | Phase 5 | `R2` / generic boundedness + interface-transport slice | `amgx` |",
+                ),
+                encoding="utf-8",
+            )
+
+            with self.assertRaisesRegex(
+                AuthorityConflictError,
+                "acceptance_manifest.md.*tuple rows",
+            ):
+                load_authority_bundle(temp_root)
+
+    def test_required_orchestration_ranges_drift_fails_fast(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_root = pathlib.Path(temp_dir)
+            self._copy_tree(repo_root(), temp_root)
+            json_path = temp_root / "docs" / "authority" / "acceptance_manifest.json"
+            payload = json.loads(json_path.read_text(encoding="utf-8"))
+            payload["nvtx_contract_defaults"]["required_orchestration_ranges"][0] = (
+                "solver/outerLoop"
+            )
+            json_path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+
+            with self.assertRaisesRegex(
+                AuthorityConflictError,
+                "required_orchestration_ranges",
+            ):
+                load_authority_bundle(temp_root)
+
+    def test_acceptance_soft_gate_markdown_drift_fails_fast(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_root = pathlib.Path(temp_dir)
+            self._copy_tree(repo_root(), temp_root)
+            markdown_path = temp_root / "docs" / "authority" / "acceptance_manifest.md"
+            text = markdown_path.read_text(encoding="utf-8")
+            markdown_path.write_text(
+                text.replace(
+                    "- `graph_launches_per_step <= 4`",
+                    "- `graph_launches_per_step <= 8`",
+                ),
+                encoding="utf-8",
+            )
+
+            with self.assertRaisesRegex(
+                AuthorityConflictError,
+                "acceptance_manifest.md.*soft gates",
+            ):
+                load_authority_bundle(temp_root)
+
+    def test_graph_stage_markdown_content_drift_fails_fast(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_root = pathlib.Path(temp_dir)
+            self._copy_tree(repo_root(), temp_root)
+            markdown_path = temp_root / "docs" / "authority" / "graph_capture_support_matrix.md"
+            text = markdown_path.read_text(encoding="utf-8")
+            markdown_path.write_text(
+                text.replace(
+                    "| `pressure_solve_native` | P3+ | graph-external until individually validated | host outer loop | `async_no_graph` | Native pressure solve remains outside capture until explicitly promoted. |",
+                    "| `pressure_solve_native` | P3+ | graph-external until individually validated | host outer loop | `sync_debug` | Native pressure solve remains outside capture until explicitly promoted. |",
+                ),
+                encoding="utf-8",
+            )
+
+            with self.assertRaisesRegex(
+                AuthorityConflictError,
+                "graph_capture_support_matrix.md.*stage rows",
+            ):
+                load_authority_bundle(temp_root)
+
+    def test_graph_global_capture_rule_drift_fails_fast(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_root = pathlib.Path(temp_dir)
+            self._copy_tree(repo_root(), temp_root)
+            markdown_path = temp_root / "docs" / "authority" / "graph_capture_support_matrix.md"
+            text = markdown_path.read_text(encoding="utf-8")
+            markdown_path.write_text(
+                text.replace(
+                    "- No hidden CPU patch evaluation in capture-safe stages.",
+                    "- Hidden CPU patch evaluation is allowed in capture-safe stages.",
+                ),
+                encoding="utf-8",
+            )
+
+            with self.assertRaisesRegex(
+                AuthorityConflictError,
+                "graph_capture_support_matrix.md.*global capture rules",
+            ):
+                load_authority_bundle(temp_root)
+
+    def test_support_matrix_global_policy_drift_fails_fast(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_root = pathlib.Path(temp_dir)
+            self._copy_tree(repo_root(), temp_root)
+            markdown_path = temp_root / "docs" / "authority" / "support_matrix.md"
+            text = markdown_path.read_text(encoding="utf-8")
+            markdown_path.write_text(
+                text.replace(
+                    "- Contact-angle is out of milestone-1 scope.",
+                    "- Contact-angle is in milestone-1 scope.",
+                ),
+                encoding="utf-8",
+            )
+
+            with self.assertRaisesRegex(
+                AuthorityConflictError,
+                "support_matrix.md.*global policy",
             ):
                 load_authority_bundle(temp_root)
 

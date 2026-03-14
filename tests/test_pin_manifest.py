@@ -3,9 +3,12 @@ from __future__ import annotations
 import json
 import os
 import pathlib
+import hashlib
+import shutil
 import subprocess
 import tempfile
 import unittest
+from dataclasses import replace
 from unittest import mock
 
 from scripts.authority import (
@@ -218,6 +221,52 @@ class PinManifestResolutionTests(unittest.TestCase):
         self.assertEqual(resolution.host_env["repo"]["git_commit"], expected_commit)
         self.assertEqual(resolution.manifest_refs["repo"]["git_commit"], expected_commit)
 
+    def test_resolve_consumer_pin_manifest_uses_loaded_bundle_snapshot(self) -> None:
+        bundle = load_authority_bundle(repo_root())
+        snapshot_bundle = replace(
+            bundle,
+            pins=replace(bundle.pins, primary_toolkit_lane="CUDA 12.8.0"),
+        )
+
+        with self.assertRaisesRegex(
+            AuthorityConflictError,
+            "nvcc_version must realize frozen value '12.8.0'",
+        ):
+            resolve_consumer_pin_manifest(
+                snapshot_bundle,
+                consumer="build",
+                host_observations=sample_host_observations(),
+                local_mirror_refs=sample_local_mirror_refs(),
+            )
+
+    def test_resolve_consumer_pin_manifest_uses_loaded_authority_revision_snapshot(
+        self,
+    ) -> None:
+        bundle = load_authority_bundle(repo_root())
+        snapshot_bundle = replace(
+            bundle,
+            authority_revisions={
+                **bundle.authority_revisions,
+                "master_pin_manifest": {
+                    "path": "docs/authority/master_pin_manifest.md",
+                    "sha256": "snapshot-master-pin-sha",
+                },
+            },
+        )
+
+        resolution = resolve_consumer_pin_manifest(
+            snapshot_bundle,
+            consumer="build",
+            host_observations=sample_host_observations(),
+            local_mirror_refs=sample_local_mirror_refs(),
+            repo_commit="abc123def456",
+        )
+
+        self.assertEqual(
+            resolution.host_env["authority_revisions"]["master_pin_manifest"]["sha256"],
+            "snapshot-master-pin-sha",
+        )
+
     def test_requires_host_observations_to_emit_host_env_manifest(self) -> None:
         bundle = load_authority_bundle(repo_root())
 
@@ -295,6 +344,43 @@ class PinManifestResolutionTests(unittest.TestCase):
                 local_mirror_refs=sample_local_mirror_refs(),
             )
 
+    def test_resolve_consumer_pin_manifest_rejects_substring_tool_version_match(self) -> None:
+        bundle = load_authority_bundle(repo_root())
+        host_observations = sample_host_observations()
+        host_observations["compute_sanitizer_version"] = "Compute Sanitizer version 2025.10"
+
+        with self.assertRaisesRegex(
+            AuthorityConflictError,
+            "compute_sanitizer_version must realize frozen value",
+        ):
+            resolve_consumer_pin_manifest(
+                bundle,
+                consumer="build",
+                host_observations=host_observations,
+                local_mirror_refs=sample_local_mirror_refs(),
+            )
+
+    def test_resolve_consumer_pin_manifest_allows_experimental_lane_below_production_driver_floor(
+        self,
+    ) -> None:
+        bundle = load_authority_bundle(repo_root())
+        host_observations = sample_host_observations(lane="experimental")
+        host_observations["gpu_query"] = "NVIDIA GeForce RTX 5080, 580.12.00, 16384 MiB"
+
+        resolution = resolve_consumer_pin_manifest(
+            bundle,
+            consumer="profiling",
+            lane="experimental",
+            host_observations=host_observations,
+            local_mirror_refs=sample_local_mirror_refs(),
+            repo_commit="abc123def456",
+        )
+
+        self.assertEqual(
+            resolution.host_env["toolkit"]["selected_lane_value"],
+            "CUDA 13.2",
+        )
+
     def test_resolve_consumer_pin_manifest_rejects_non_frozen_gpu_and_driver(self) -> None:
         bundle = load_authority_bundle(repo_root())
         host_observations = sample_host_observations()
@@ -307,6 +393,111 @@ class PinManifestResolutionTests(unittest.TestCase):
                 host_observations=host_observations,
                 local_mirror_refs=sample_local_mirror_refs(),
             )
+
+    def test_resolve_consumer_pin_manifest_rejects_non_frozen_desktop_gpu_variant(self) -> None:
+        bundle = load_authority_bundle(repo_root())
+        host_observations = sample_host_observations()
+        host_observations["gpu_query"] = "NVIDIA GeForce RTX 5080 Ti, 595.50.00, 16384 MiB"
+
+        with self.assertRaisesRegex(AuthorityConflictError, "workstation target"):
+            resolve_consumer_pin_manifest(
+                bundle,
+                consumer="profiling",
+                host_observations=host_observations,
+                local_mirror_refs=sample_local_mirror_refs(),
+            )
+
+    def test_resolve_consumer_pin_manifest_rejects_laptop_gpu_variant(self) -> None:
+        bundle = load_authority_bundle(repo_root())
+        host_observations = sample_host_observations()
+        host_observations["gpu_query"] = "NVIDIA GeForce RTX 5080 Laptop GPU, 595.50.00, 16384 MiB"
+
+        with self.assertRaisesRegex(AuthorityConflictError, "workstation target"):
+            resolve_consumer_pin_manifest(
+                bundle,
+                consumer="profiling",
+                host_observations=host_observations,
+                local_mirror_refs=sample_local_mirror_refs(),
+            )
+
+    def test_resolve_consumer_pin_manifest_rejects_wrong_gpu_memory(self) -> None:
+        bundle = load_authority_bundle(repo_root())
+        host_observations = sample_host_observations()
+        host_observations["gpu_query"] = "NVIDIA GeForce RTX 5080, 595.50.00, 8192 MiB"
+
+        with self.assertRaisesRegex(AuthorityConflictError, "memory"):
+            resolve_consumer_pin_manifest(
+                bundle,
+                consumer="profiling",
+                host_observations=host_observations,
+                local_mirror_refs=sample_local_mirror_refs(),
+            )
+
+    def test_resolve_consumer_pin_manifest_accepts_real_gpu_memory_total_near_marketing_capacity(
+        self,
+    ) -> None:
+        bundle = load_authority_bundle(repo_root())
+        host_observations = sample_host_observations()
+        host_observations["gpu_query"] = "NVIDIA GeForce RTX 5080, 595.50.00, 16192 MiB"
+
+        resolution = resolve_consumer_pin_manifest(
+            bundle,
+            consumer="profiling",
+            host_observations=host_observations,
+            local_mirror_refs=sample_local_mirror_refs(),
+            repo_commit="abc123def456",
+        )
+
+        self.assertEqual(
+            resolution.host_env["host_observations"]["gpu_csv"],
+            "NVIDIA GeForce RTX 5080, 595.50.00, 16192 MiB",
+        )
+
+    def test_resolve_consumer_pin_manifest_derives_workstation_gpu_from_bundle_snapshot(
+        self,
+    ) -> None:
+        bundle = load_authority_bundle(repo_root())
+        workstation_bundle = replace(
+            bundle,
+            pins=replace(
+                bundle.pins,
+                workstation_target=(
+                    "Single RTX 4090, compute capability 8.9, 24 GB GDDR6X, no NVLink assumption"
+                ),
+            ),
+        )
+        host_observations = sample_host_observations()
+        host_observations["gpu_query"] = "NVIDIA GeForce RTX 4090, 595.50.00, 24576 MiB"
+
+        resolution = resolve_consumer_pin_manifest(
+            workstation_bundle,
+            consumer="profiling",
+            host_observations=host_observations,
+            local_mirror_refs=sample_local_mirror_refs(),
+        )
+
+        self.assertEqual(
+            resolution.host_env["host_observations"]["gpu_csv"],
+            "NVIDIA GeForce RTX 4090, 595.50.00, 24576 MiB",
+        )
+
+    def test_load_authority_bundle_hashes_pin_manifest_from_file_bytes(self) -> None:
+        source_root = repo_root()
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_root = pathlib.Path(temp_dir)
+            shutil.copytree(source_root / "docs", temp_root / "docs")
+            manifest_path = temp_root / "docs" / "authority" / "master_pin_manifest.md"
+            manifest_text = manifest_path.read_text(encoding="utf-8")
+            manifest_path.write_text(manifest_text.replace("\n", "\r\n"), encoding="utf-8")
+            expected_hash = hashlib.sha256(manifest_path.read_bytes()).hexdigest()
+
+            bundle = load_authority_bundle(temp_root)
+
+        self.assertEqual(
+            bundle.authority_revisions["master_pin_manifest"]["sha256"],
+            expected_hash,
+        )
 
     def test_emit_environment_manifests_rejects_observed_tool_version_drift(self) -> None:
         bundle = load_authority_bundle(repo_root())
@@ -394,9 +585,18 @@ class PinManifestResolutionTests(unittest.TestCase):
                 local_mirror_refs=sample_local_mirror_refs(),
             )
             host_env = json.loads(emitted.host_env_path.read_text(encoding="utf-8"))
+            manifest_refs = json.loads(emitted.manifest_refs_path.read_text(encoding="utf-8"))
 
         self.assertEqual(host_env["host_observations"]["nvcc_path"], "/opt/cuda/bin/nvcc")
         self.assertEqual(host_env["host_observations"]["nsys_path"], "/opt/nsight-systems/bin/nsys")
+        self.assertEqual(
+            manifest_refs["invoked_tool_paths"]["compute_sanitizer_path"],
+            "/opt/cuda/bin/compute-sanitizer",
+        )
+        self.assertEqual(
+            manifest_refs["invoked_tool_paths"]["ncu_path"],
+            "/opt/nsight-compute/bin/ncu",
+        )
 
 
 if __name__ == "__main__":

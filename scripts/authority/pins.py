@@ -5,6 +5,7 @@ from __future__ import annotations
 import hashlib
 import json
 import pathlib
+import re
 import subprocess
 from dataclasses import dataclass
 from typing import Any
@@ -12,8 +13,6 @@ from typing import Any
 from .bundle import (
     AuthorityBundle,
     AuthorityConflictError,
-    markdown_section,
-    markdown_table_by_first_column,
 )
 
 
@@ -115,8 +114,6 @@ def resolve_consumer_pin_manifest(
         if lane == "primary"
         else pin_details.experimental_toolkit_lane
     )
-    authority_revisions = build_authority_revisions(bundle.root)
-
     repo_git_commit = resolve_repo_git_commit(bundle.root, repo_commit=repo_commit)
 
     host_env = {
@@ -143,7 +140,7 @@ def resolve_consumer_pin_manifest(
         "host_observations": host_observations,
         "manifest_refs": CANONICAL_MANIFEST_REFS_NAME,
         "compatibility_aliases": dict(COMPATIBILITY_ALIASES),
-        "authority_revisions": authority_revisions,
+        "authority_revisions": bundle.authority_revisions,
         "repo": {
             "git_commit": repo_git_commit,
         },
@@ -165,7 +162,17 @@ def resolve_consumer_pin_manifest(
             }
             for component, source in pin_details.source_components.items()
         },
-        "authority_revisions": authority_revisions,
+        "authority_revisions": bundle.authority_revisions,
+        "invoked_tool_paths": {
+            field_name: host_observations[field_name]
+            for field_name in (
+                "nvcc_path",
+                "nsys_path",
+                "ncu_path",
+                "compute_sanitizer_path",
+            )
+            if str(host_observations.get(field_name, "")).strip()
+        },
         "required_revalidation": list(pin_details.required_revalidation),
         "repo": {
             "git_commit": repo_git_commit,
@@ -235,67 +242,35 @@ def emit_environment_manifests(
 
 
 def load_pin_details(bundle: AuthorityBundle) -> PinDetails:
-    manifest_path = bundle.root / "docs" / "authority" / "master_pin_manifest.md"
-    text = manifest_path.read_text(encoding="utf-8")
-    frozen_defaults = markdown_table_by_first_column(text, "Frozen Defaults")
-    source_rows = markdown_table_by_first_column(text, "Resolved Frozen Source Tuple")
-    required_revalidation = tuple(_parse_required_revalidation(text))
-    runtime_base = frozen_defaults["Runtime base"]["Frozen value"]
+    runtime_base = bundle.pins.runtime_base
     runtime_family, _, mapped_release = runtime_base.partition(" mapped to ")
     return PinDetails(
         runtime_base=_normalize_value(runtime_family),
         openfoam_release=_normalize_value(mapped_release),
-        primary_toolkit_lane=_normalize_value(
-            frozen_defaults["Primary toolkit lane"]["Frozen value"]
-        ),
-        experimental_toolkit_lane=_normalize_value(
-            frozen_defaults["Experimental toolkit lane"]["Frozen value"]
-        ),
-        driver_floor=_normalize_value(frozen_defaults["Driver floor"]["Frozen value"]),
-        gpu_target=_normalize_value(frozen_defaults["GPU target"]["Frozen value"]),
-        workstation_target=_normalize_value(
-            frozen_defaults["Workstation target"]["Frozen value"]
-        ),
-        instrumentation=_normalize_value(frozen_defaults["Instrumentation"]["Frozen value"]),
-        nsight_systems=_normalize_value(frozen_defaults["Nsight Systems"]["Frozen value"]),
-        nsight_compute=_normalize_value(frozen_defaults["Nsight Compute"]["Frozen value"]),
-        compute_sanitizer=_normalize_value(
-            frozen_defaults["Compute Sanitizer"]["Frozen value"]
-        ),
-        reviewed_source_tuple_id=_normalize_value(
-            frozen_defaults["Reviewed source tuple ID"]["Frozen value"]
-        ),
+        primary_toolkit_lane=_normalize_value(bundle.pins.primary_toolkit_lane),
+        experimental_toolkit_lane=_normalize_value(bundle.pins.experimental_toolkit_lane),
+        driver_floor=_normalize_value(bundle.pins.driver_floor),
+        gpu_target=_normalize_value(bundle.pins.gpu_target),
+        workstation_target=_normalize_value(bundle.pins.workstation_target),
+        instrumentation=_normalize_value(bundle.pins.instrumentation),
+        nsight_systems=_normalize_value(bundle.pins.nsight_systems),
+        nsight_compute=_normalize_value(bundle.pins.nsight_compute),
+        compute_sanitizer=_normalize_value(bundle.pins.compute_sanitizer),
+        reviewed_source_tuple_id=_normalize_value(bundle.pins.reviewed_source_tuple_id),
         source_components={
             component: SourceComponent(
                 component=component,
-                upstream_object=_normalize_value(row["Upstream object"]),
-                frozen_ref_kind=_normalize_value(row["Frozen ref kind"]),
-                frozen_ref=_normalize_value(row["Frozen ref / version"]),
-                resolved_commit=_normalize_value(row["Exact resolved commit / snapshot"]),
+                upstream_object=_normalize_value(source.upstream_object),
+                frozen_ref_kind=_normalize_value(source.frozen_ref_kind),
+                frozen_ref=_normalize_value(source.frozen_ref),
+                resolved_commit=_normalize_value(source.resolved_commit),
             )
-            for component, row in source_rows.items()
+            for component, source in bundle.pins.source_components.items()
         },
-        required_revalidation=required_revalidation,
+        required_revalidation=tuple(
+            _normalize_value(step) for step in bundle.pins.required_revalidation
+        ),
     )
-
-
-def build_authority_revisions(root: pathlib.Path) -> dict[str, dict[str, str]]:
-    tracked = {
-        "master_pin_manifest": root / "docs" / "authority" / "master_pin_manifest.md",
-        "acceptance_manifest": root / "docs" / "authority" / "acceptance_manifest.json",
-        "support_matrix": root / "docs" / "authority" / "support_matrix.json",
-        "graph_capture_support_matrix": root
-        / "docs"
-        / "authority"
-        / "graph_capture_support_matrix.json",
-    }
-    return {
-        key: {
-            "path": path.relative_to(root).as_posix(),
-            "sha256": compute_sha256(path),
-        }
-        for key, path in tracked.items()
-    }
 
 
 def build_shared_resolution_key(pin_details: PinDetails, *, lane: str) -> str:
@@ -458,38 +433,101 @@ def _validate_host_observations(
     }
     for field_name, expected_value in version_expectations.items():
         observed_value = str(host_observations[field_name]).strip()
-        if expected_value not in observed_value:
+        if not _matches_frozen_version(observed_value, expected_value):
             raise AuthorityConflictError(
                 f"{field_name} must realize frozen value {expected_value!r}; "
                 f"found {observed_value!r}"
             )
 
-    gpu_name, driver_version = _parse_gpu_csv(host_observations["gpu_csv"])
-    expected_gpu = _expected_workstation_gpu(pin_details.workstation_target)
-    if expected_gpu and expected_gpu not in gpu_name:
+    gpu_name, driver_version, gpu_memory_mib = _parse_gpu_csv(host_observations["gpu_csv"])
+    expected_gpu, expected_memory_mib = _parse_workstation_target(pin_details.workstation_target)
+    if expected_gpu and not _gpu_name_matches_workstation(gpu_name, expected_gpu):
         raise AuthorityConflictError(
             f"gpu_csv must realize workstation target {expected_gpu!r}; found {gpu_name!r}"
         )
-    if not _driver_meets_floor(driver_version, pin_details.driver_floor):
+    if expected_memory_mib is not None:
+        if gpu_memory_mib is None:
+            raise AuthorityConflictError(
+                "gpu_csv must include GPU memory for the frozen workstation target"
+            )
+        memory_tolerance_mib = max(256, int(expected_memory_mib * 0.02))
+        if abs(gpu_memory_mib - expected_memory_mib) > memory_tolerance_mib:
+            raise AuthorityConflictError(
+                f"gpu_csv memory {gpu_memory_mib} MiB does not satisfy frozen workstation target memory {expected_memory_mib} MiB"
+            )
+    if lane == "primary" and not _driver_meets_floor(driver_version, pin_details.driver_floor):
         raise AuthorityConflictError(
             f"gpu_csv driver {driver_version!r} does not satisfy frozen driver floor {pin_details.driver_floor!r}"
         )
 
 
-def _parse_gpu_csv(gpu_csv: str) -> tuple[str, str]:
+def _parse_gpu_csv(gpu_csv: str) -> tuple[str, str, int | None]:
     parts = [part.strip() for part in gpu_csv.split(",")]
     if len(parts) < 2:
         raise AuthorityConflictError(
             f"gpu_csv must include GPU name and driver version; found {gpu_csv!r}"
         )
-    return parts[0], parts[1]
+    memory_mib = _parse_memory_mib(parts[2]) if len(parts) >= 3 else None
+    return parts[0], parts[1], memory_mib
 
 
-def _expected_workstation_gpu(workstation_target: str) -> str | None:
-    for fragment in ("RTX 5080",):
-        if fragment in workstation_target:
-            return fragment
+def _parse_workstation_target(workstation_target: str) -> tuple[str | None, int | None]:
+    first_clause = workstation_target.split(",", 1)[0].strip()
+    normalized = re.sub(r"^(single|dual|multi)\s+", "", first_clause, flags=re.IGNORECASE)
+    memory_match = re.search(r"(\d+(?:\.\d+)?)\s*GB", workstation_target, flags=re.IGNORECASE)
+    expected_memory_mib = None
+    if memory_match:
+        expected_memory_mib = int(float(memory_match.group(1)) * 1024)
+    return normalized or None, expected_memory_mib
+
+
+def _gpu_name_matches_workstation(gpu_name: str, expected_gpu: str) -> bool:
+    normalized_name = gpu_name.lower()
+    normalized_expected = _normalize_gpu_model(expected_gpu)
+    actual_model = _extract_gpu_model(gpu_name)
+    if actual_model:
+        if _normalize_gpu_model(actual_model) != normalized_expected:
+            return False
+    elif normalized_expected.lower() not in normalized_name:
+        return False
+    disallowed_tokens = {"laptop", "mobile", "notebook", "max-q"}
+    return not any(token in normalized_name for token in disallowed_tokens)
+
+
+def _matches_frozen_version(observed_value: str, expected_value: str) -> bool:
+    expected = expected_value.strip()
+    observed_versions = set(re.findall(r"\d+(?:\.\d+)+", observed_value))
+    if observed_versions:
+        return expected in observed_versions
+    return observed_value.strip() == expected
+
+
+def _parse_memory_mib(value: str) -> int | None:
+    mib_match = re.search(r"(\d+)\s*MiB", value, flags=re.IGNORECASE)
+    if mib_match:
+        return int(mib_match.group(1))
+    gib_match = re.search(r"(\d+(?:\.\d+)?)\s*GiB", value, flags=re.IGNORECASE)
+    if gib_match:
+        return int(float(gib_match.group(1)) * 1024)
+    gb_match = re.search(r"(\d+(?:\.\d+)?)\s*GB", value, flags=re.IGNORECASE)
+    if gb_match:
+        return int(float(gb_match.group(1)) * 1024)
     return None
+
+
+def _extract_gpu_model(value: str) -> str | None:
+    match = re.search(
+        r"\b(?:RTX|GTX)\s+\d{3,4}(?:\s+(?:Ti|SUPER))?\b",
+        value,
+        flags=re.IGNORECASE,
+    )
+    if not match:
+        return None
+    return " ".join(match.group(0).split())
+
+
+def _normalize_gpu_model(value: str) -> str:
+    return " ".join(value.lower().split())
 
 
 def _driver_meets_floor(driver_version: str, driver_floor: str) -> bool:
@@ -500,19 +538,6 @@ def _driver_meets_floor(driver_version: str, driver_floor: str) -> bool:
     padded_observed = observed_parts + (0,) * (length - len(observed_parts))
     padded_required = required_parts + (0,) * (length - len(required_parts))
     return padded_observed >= padded_required
-
-
-def _parse_required_revalidation(text: str) -> list[str]:
-    section = markdown_section(text, "Required Revalidation If This Manifest Changes")
-    results: list[str] = []
-    for raw_line in section.splitlines():
-        line = raw_line.strip()
-        if not line:
-            continue
-        number, separator, content = line.partition(". ")
-        if separator and number.isdigit():
-            results.append(content)
-    return results
 
 
 def _normalize_value(value: str) -> str:
