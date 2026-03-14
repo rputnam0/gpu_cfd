@@ -45,22 +45,24 @@ PR_FIELDS = ",".join(
         "statusCheckRollup",
     ]
 )
-LINEAR_ISSUE_QUERY = """
-query($id: String!) {
-  issue(id: $id) {
-    id
-    identifier
-    title
-    state {
+LINEAR_ISSUE_BY_IDENTIFIER_QUERY = """
+query($identifier: String!) {
+  issues(filter: { identifier: { eq: $identifier } }) {
+    nodes {
       id
-      name
-    }
-    team {
-      key
-      states {
-        nodes {
-          id
-          name
+      identifier
+      title
+      state {
+        id
+        name
+      }
+      team {
+        key
+        states {
+          nodes {
+            id
+            name
+          }
         }
       }
     }
@@ -280,8 +282,11 @@ def linear_graphql(query: str, variables: dict[str, Any]) -> dict[str, Any]:
 
 
 def fetch_linear_issue(issue_identifier: str) -> dict[str, Any]:
-    data = linear_graphql(LINEAR_ISSUE_QUERY, {"id": issue_identifier})
-    issue = data.get("issue")
+    data = linear_graphql(
+        LINEAR_ISSUE_BY_IDENTIFIER_QUERY, {"identifier": issue_identifier}
+    )
+    nodes = data.get("issues", {}).get("nodes", [])
+    issue = nodes[0] if nodes else None
     if issue is None:
         raise ValueError(f"Linear issue not found: {issue_identifier}")
     return issue

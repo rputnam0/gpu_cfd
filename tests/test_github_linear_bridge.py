@@ -187,6 +187,32 @@ class UpdateLinearIssueStateTests(unittest.TestCase):
         )
 
 
+class FetchLinearIssueTests(unittest.TestCase):
+    @mock.patch("scripts.symphony.github_linear_bridge.linear_graphql")
+    def test_looks_up_issue_by_identifier(self, linear_graphql: mock.Mock) -> None:
+        linear_graphql.return_value = {
+            "issues": {
+                "nodes": [
+                    {
+                        "id": "35d69fd1-94de-4436-a58f-37a2faec86d9",
+                        "identifier": "PRO-5",
+                        "title": "Authority ingestion scaffold",
+                        "state": {"name": "In Review"},
+                        "team": {"key": "PRO", "states": {"nodes": []}},
+                    }
+                ]
+            }
+        }
+
+        issue = github_linear_bridge.fetch_linear_issue("PRO-5")
+
+        self.assertEqual(issue["identifier"], "PRO-5")
+        linear_graphql.assert_called_once_with(
+            github_linear_bridge.LINEAR_ISSUE_BY_IDENTIFIER_QUERY,
+            {"identifier": "PRO-5"},
+        )
+
+
 class ResolvableThreadTests(unittest.TestCase):
     def make_summary(self) -> review_loop.ReviewSummary:
         return review_loop.ReviewSummary(
