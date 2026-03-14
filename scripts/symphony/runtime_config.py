@@ -13,6 +13,7 @@ from dataclasses import dataclass
 class CodexProfile:
     model: str
     reasoning_effort: str
+    timeout_seconds: int | None = None
     extra_configs: tuple[str, ...] = ()
 
 
@@ -38,6 +39,11 @@ def load_runtime_config(path: pathlib.Path | None = None) -> RuntimeConfig:
         codex_profiles[name] = CodexProfile(
             model=str(profile_data["model"]),
             reasoning_effort=str(profile_data["reasoning_effort"]),
+            timeout_seconds=(
+                int(profile_data["timeout_seconds"])
+                if profile_data.get("timeout_seconds") is not None
+                else None
+            ),
             extra_configs=tuple(
                 str(item) for item in profile_data.get("extra_configs", [])
             ),

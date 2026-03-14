@@ -14,6 +14,7 @@ class RuntimeConfigTests(unittest.TestCase):
         self.assertEqual(config.codex["implementation"].reasoning_effort, "medium")
         self.assertEqual(config.codex["review"].model, "gpt-5.4")
         self.assertEqual(config.codex["review"].reasoning_effort, "xhigh")
+        self.assertEqual(config.codex["review"].timeout_seconds, 900)
 
     def test_build_codex_command_uses_profile_settings(self) -> None:
         command = runtime_config.build_codex_command(

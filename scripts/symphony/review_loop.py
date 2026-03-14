@@ -139,7 +139,7 @@ def parse_args() -> argparse.Namespace:
     codex_review_parser.add_argument(
         "--timeout-seconds",
         type=int,
-        default=DEFAULT_CODEX_REVIEW_TIMEOUT_SECONDS,
+        default=None,
         help="Maximum runtime for the local Codex review gate.",
     )
 
@@ -219,6 +219,11 @@ def repo_root() -> pathlib.Path:
 
 def utc_timestamp() -> str:
     return dt.datetime.now(tz=dt.UTC).strftime("%Y%m%dT%H%M%SZ")
+
+
+def review_timeout_seconds() -> int:
+    profile = runtime_config.load_codex_profile("review")
+    return profile.timeout_seconds or DEFAULT_CODEX_REVIEW_TIMEOUT_SECONDS
 
 
 def parse_remote(remote_url: str) -> tuple[str, str]:
@@ -623,7 +628,7 @@ def main() -> int:
             args.artifact_dir,
             args.prompt,
             args.issue,
-            args.timeout_seconds,
+            args.timeout_seconds or review_timeout_seconds(),
         )
     if args.command == "status":
         return status_command(args)
