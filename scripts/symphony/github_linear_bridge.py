@@ -25,8 +25,11 @@ DEFAULT_REVIEWERS = ("devin-ai-integration[bot]",)
 DEFAULT_REWORK_STATE = "Rework"
 DEFAULT_READY_TO_MERGE_STATE = "Ready to Merge"
 READY_MERGEABLE_STATUSES = {"CLEAN", "HAS_HOOKS"}
+REQUIRED_READY_CHECKS = {"review-loop-harness"}
+PASSING_CHECK_CONCLUSIONS = {"SUCCESS"}
 ISSUE_IDENTIFIER_PATTERN = re.compile(r"\bPRO-\d+\b")
 LINEAR_GRAPHQL_URL = "https://api.linear.app/graphql"
+REVIEW_BRIDGE_TOKEN_SECRET = "REVIEW_BRIDGE_GH_TOKEN"
 PR_FIELDS = ",".join(
     [
         "number",
@@ -39,6 +42,7 @@ PR_FIELDS = ",".join(
         "mergeable",
         "mergeStateStatus",
         "reviewDecision",
+        "statusCheckRollup",
     ]
 )
 LINEAR_ISSUE_QUERY = """
@@ -102,6 +106,7 @@ class PullRequestSnapshot:
     mergeable: str | None
     merge_state_status: str | None
     review_decision: str | None
+    status_check_rollup: list[dict[str, Any]] | None = None
 
 
 @dataclass
@@ -184,7 +189,26 @@ def fetch_pr_snapshot(repo: str | None, pr_number: int | None) -> PullRequestSna
         mergeable=payload.get("mergeable"),
         merge_state_status=payload.get("mergeStateStatus"),
         review_decision=payload.get("reviewDecision"),
+        status_check_rollup=payload.get("statusCheckRollup"),
     )
+
+
+def has_passing_required_ready_checks(snapshot: PullRequestSnapshot) -> bool:
+    if not REQUIRED_READY_CHECKS:
+        return True
+    check_results = {
+        str(check.get("name")): (
+            str(check.get("status") or check.get("state") or ""),
+            str(check.get("conclusion") or ""),
+        )
+        for check in (snapshot.status_check_rollup or [])
+        if check.get("name")
+    }
+    for check_name in REQUIRED_READY_CHECKS:
+        status, conclusion = check_results.get(check_name, ("", ""))
+        if status != "COMPLETED" or conclusion not in PASSING_CHECK_CONCLUSIONS:
+            return False
+    return True
 
 
 def determine_bridge_decision(
@@ -211,7 +235,10 @@ def determine_bridge_decision(
         and snapshot.state == "OPEN"
         and not snapshot.is_draft
         and snapshot.mergeable == "MERGEABLE"
-        and snapshot.merge_state_status in READY_MERGEABLE_STATUSES
+        and (
+            snapshot.merge_state_status in READY_MERGEABLE_STATUSES
+            or has_passing_required_ready_checks(snapshot)
+        )
     ):
         return BridgeDecision(
             issue_identifier=issue_identifier,
@@ -316,18 +343,26 @@ def collect_resolvable_thread_ids(summary: review_loop.ReviewSummary) -> list[st
 
 
 def resolve_review_thread(thread_id: str) -> None:
-    review_loop.require_command(
-        [
-            "gh",
-            "api",
-            "graphql",
-            "-F",
-            f"threadId={thread_id}",
-            "-f",
-            f"query={RESOLVE_REVIEW_THREAD_MUTATION}",
-        ],
-        cwd=review_loop.repo_root(),
-    )
+    command = [
+        "gh",
+        "api",
+        "graphql",
+        "-F",
+        f"threadId={thread_id}",
+        "-f",
+        f"query={RESOLVE_REVIEW_THREAD_MUTATION}",
+    ]
+    try:
+        review_loop.require_command(command, cwd=review_loop.repo_root())
+    except review_loop.CommandError as exc:
+        message = str(exc)
+        if "Resource not accessible by integration" in message:
+            raise ValueError(
+                "Resolving Devin review threads from GitHub Actions requires "
+                f"the repo secret {REVIEW_BRIDGE_TOKEN_SECRET} to contain a "
+                "GitHub token with pull request write access."
+            ) from exc
+        raise
 
 
 def main() -> int:

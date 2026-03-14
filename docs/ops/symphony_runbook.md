@@ -44,6 +44,7 @@ These items still must exist on the worker host before Symphony can run end-to-e
 - Linear MCP configured in `~/.codex/config.toml` on the worker host and authenticated with `codex mcp login linear`
 - GitHub push/PR auth on the worker host (`gh auth login` or SSH push access)
 - Symphony itself installed on the worker host
+- Repo secret `REVIEW_BRIDGE_GH_TOKEN` configured with a GitHub token that can resolve PR review threads
 - Recommended for the remote GPU workflow: `tmux` and `ts`
 
 Fresh Symphony workspaces clone from Git, so any workflow changes must be available on a pushed
@@ -129,6 +130,10 @@ This repository also includes `.github/workflows/linear-review-bridge.yml`, whic
 review events, inspects the latest Devin review state on the current head, resolves the linked
 Linear issue from the PR body/title/branch, and updates that issue into `Rework` or `Ready to Merge`
 without keeping a repo-owned daemon alive.
+
+The bridge uses the repo secret `REVIEW_BRIDGE_GH_TOKEN` when it needs to resolve non-actionable
+Devin review threads. GitHub's default Actions token can read review state, but it cannot resolve
+threads for the conversation-resolution gate on this repository.
 
 ## Recommended worker host
 

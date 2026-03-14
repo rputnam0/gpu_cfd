@@ -50,7 +50,7 @@ jobs:
 
       - name: Sync Linear review state
         env:
-          GH_TOKEN: ${{ github.token }}
+          GH_TOKEN: ${{ secrets.REVIEW_BRIDGE_GH_TOKEN != '' && secrets.REVIEW_BRIDGE_GH_TOKEN || github.token }}
           LINEAR_API_KEY: ${{ secrets.LINEAR_API_KEY }}
           PR_NUMBER: ${{ github.event.pull_request.number || inputs.pr }}
           GITHUB_REPOSITORY: ${{ github.repository }}

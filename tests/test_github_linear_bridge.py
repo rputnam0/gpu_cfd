@@ -56,7 +56,11 @@ class ExtractIssueIdentifiersTests(unittest.TestCase):
 
 class DetermineBridgeDecisionTests(unittest.TestCase):
     def make_snapshot(
-        self, *, mergeable: str = "MERGEABLE", merge_state_status: str = "CLEAN"
+        self,
+        *,
+        mergeable: str = "MERGEABLE",
+        merge_state_status: str = "CLEAN",
+        status_check_rollup: list[dict[str, object]] | None = None,
     ) -> github_linear_bridge.PullRequestSnapshot:
         return github_linear_bridge.PullRequestSnapshot(
             number=2,
@@ -69,6 +73,7 @@ class DetermineBridgeDecisionTests(unittest.TestCase):
             mergeable=mergeable,
             merge_state_status=merge_state_status,
             review_decision="",
+            status_check_rollup=status_check_rollup,
         )
 
     def make_summary(self, *, review_state: str) -> review_loop.ReviewSummary:
@@ -114,6 +119,24 @@ class DetermineBridgeDecisionTests(unittest.TestCase):
         )
 
         self.assertIsNone(decision.target_state)
+
+    def test_moves_to_ready_to_merge_when_required_checks_pass(self) -> None:
+        decision = github_linear_bridge.determine_bridge_decision(
+            self.make_snapshot(
+                merge_state_status="BLOCKED",
+                status_check_rollup=[
+                    {
+                        "name": "review-loop-harness",
+                        "status": "COMPLETED",
+                        "conclusion": "SUCCESS",
+                    }
+                ],
+            ),
+            self.make_summary(review_state="clean"),
+            "PRO-93",
+        )
+
+        self.assertEqual(decision.target_state, "Ready to Merge")
 
     def test_noop_when_pr_has_no_linear_issue_reference(self) -> None:
         decision = github_linear_bridge.determine_bridge_decision(
@@ -227,3 +250,19 @@ class ResolvableThreadTests(unittest.TestCase):
             github_linear_bridge.collect_resolvable_thread_ids(summary),
             ["thread-analysis"],
         )
+
+
+class ResolveReviewThreadTests(unittest.TestCase):
+    @mock.patch("scripts.symphony.github_linear_bridge.review_loop.require_command")
+    def test_surfaces_actionable_message_when_actions_token_cannot_resolve_thread(
+        self, require_command: mock.Mock
+    ) -> None:
+        require_command.side_effect = review_loop.CommandError(
+            "gh: Resource not accessible by integration"
+        )
+
+        with self.assertRaisesRegex(
+            ValueError,
+            "REVIEW_BRIDGE_GH_TOKEN",
+        ):
+            github_linear_bridge.resolve_review_thread("thread-123")
