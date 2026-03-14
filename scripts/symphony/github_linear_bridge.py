@@ -78,6 +78,16 @@ mutation($id: String!, $stateId: String!) {
   }
 }
 """
+RESOLVE_REVIEW_THREAD_MUTATION = """
+mutation($threadId: ID!) {
+  resolveReviewThread(input: { threadId: $threadId }) {
+    thread {
+      id
+      isResolved
+    }
+  }
+}
+"""
 
 
 @dataclass
@@ -286,6 +296,40 @@ def update_linear_issue_state(
     }
 
 
+def collect_resolvable_thread_ids(summary: review_loop.ReviewSummary) -> list[str]:
+    actionable_thread_ids = {
+        str(thread["id"])
+        for thread in summary.actionable_threads
+        if thread.get("id") is not None
+    }
+    resolvable: list[str] = []
+    for thread in summary.observed_threads:
+        thread_id = thread.get("id")
+        if thread_id is None:
+            continue
+        if thread.get("is_resolved") or thread.get("is_outdated"):
+            continue
+        if str(thread_id) in actionable_thread_ids:
+            continue
+        resolvable.append(str(thread_id))
+    return resolvable
+
+
+def resolve_review_thread(thread_id: str) -> None:
+    review_loop.require_command(
+        [
+            "gh",
+            "api",
+            "graphql",
+            "-F",
+            f"threadId={thread_id}",
+            "-f",
+            f"query={RESOLVE_REVIEW_THREAD_MUTATION}",
+        ],
+        cwd=review_loop.repo_root(),
+    )
+
+
 def main() -> int:
     args = parse_args()
     reviewers = args.reviewers or list(DEFAULT_REVIEWERS)
@@ -306,6 +350,30 @@ def main() -> int:
         },
         "decision": asdict(decision),
     }
+
+    resolved_thread_ids: list[str] = []
+    if not args.dry_run and summary.review_state == "clean":
+        resolvable_thread_ids = collect_resolvable_thread_ids(summary)
+        for thread_id in resolvable_thread_ids:
+            resolve_review_thread(thread_id)
+            resolved_thread_ids.append(thread_id)
+        if resolved_thread_ids:
+            snapshot = fetch_pr_snapshot(args.repo, args.pr)
+            summary = review_loop.fetch_pr_summary(
+                args.repo, snapshot.number, reviewers
+            )
+            decision = determine_bridge_decision(snapshot, summary, issue_identifier)
+            result["pull_request"] = asdict(snapshot)
+            result["review_summary"] = {
+                "pr_number": summary.pr_number,
+                "review_state": summary.review_state,
+                "review_decision": summary.review_decision,
+                "actionable_reviews": len(summary.actionable_reviews),
+                "actionable_threads": len(summary.actionable_threads),
+                "stale_reviews": len(summary.stale_reviews),
+            }
+            result["decision"] = asdict(decision)
+    result["resolved_threads"] = resolved_thread_ids
 
     if args.dry_run or not decision.target_state:
         result["linear_update"] = {"applied": False}

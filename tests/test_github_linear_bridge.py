@@ -162,3 +162,68 @@ class UpdateLinearIssueStateTests(unittest.TestCase):
             github_linear_bridge.LINEAR_ISSUE_UPDATE_MUTATION,
             {"id": "35d69fd1-94de-4436-a58f-37a2faec86d9", "stateId": "state-rework"},
         )
+
+
+class ResolvableThreadTests(unittest.TestCase):
+    def make_summary(self) -> review_loop.ReviewSummary:
+        return review_loop.ReviewSummary(
+            pr_number=2,
+            pr_url="https://github.com/rputnam0/gpu_cfd/pull/2",
+            pr_state="OPEN",
+            review_state="clean",
+            review_decision="",
+            head_oid="abc123",
+            latest_commit_at="2026-03-14T01:04:19Z",
+            reviewers=["devin-ai-integration[bot]"],
+            actionable_reviews=[],
+            actionable_threads=[],
+            stale_reviews=[],
+            observed_reviews=[],
+            observed_threads=[
+                {
+                    "id": "thread-analysis",
+                    "path": "scripts/symphony/review_loop.py",
+                    "is_resolved": False,
+                    "is_outdated": False,
+                    "comments": [
+                        {
+                            "author": "devin-ai-integration[bot]",
+                            "body": "<!-- devin-review-comment "
+                            '{"id": "ANALYSIS_pr-review-job_0001"} -->\n\n'
+                            "Informational note.",
+                            "created_at": "2026-03-14T01:15:41Z",
+                            "line": 10,
+                            "original_line": 10,
+                            "url": "https://example.com/thread-analysis",
+                        }
+                    ],
+                },
+                {
+                    "id": "thread-bug",
+                    "path": "scripts/symphony/review_loop.py",
+                    "is_resolved": False,
+                    "is_outdated": False,
+                    "comments": [
+                        {
+                            "author": "devin-ai-integration[bot]",
+                            "body": "<!-- devin-review-comment "
+                            '{"id": "BUG_pr-review-job_0002"} -->\n\n'
+                            "Bug note.",
+                            "created_at": "2026-03-14T01:15:42Z",
+                            "line": 11,
+                            "original_line": 11,
+                            "url": "https://example.com/thread-bug",
+                        }
+                    ],
+                },
+            ],
+        )
+
+    def test_collects_only_non_actionable_unresolved_threads(self) -> None:
+        summary = self.make_summary()
+        summary.actionable_threads = [summary.observed_threads[1]]
+
+        self.assertEqual(
+            github_linear_bridge.collect_resolvable_thread_ids(summary),
+            ["thread-analysis"],
+        )

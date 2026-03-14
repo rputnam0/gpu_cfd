@@ -28,13 +28,9 @@ DEFAULT_REVIEW_PROMPT = (
     "and missing validation evidence. Focus on concrete bugs, behavioral risks, "
     "missing tests, and workflow violations. If no material findings remain, say so explicitly."
 )
-ACTIONABLE_SUMMARY_PATTERNS = (
-    re.compile(
-        r"\bfound\s+(?P<count>\d+)\s+(?:new\s+)?potential issues?\b", re.IGNORECASE
-    ),
-    re.compile(
-        r"\b(?P<count>\d+)\s+(?:new\s+)?potential issues?\s+found\b", re.IGNORECASE
-    ),
+DEVIN_COMMENT_KIND_PATTERN = re.compile(
+    r'<!--\s*devin-review-comment\s+\{.*?"id"\s*:\s*"(?P<kind>[A-Z]+)_',
+    re.DOTALL,
 )
 
 GRAPHQL_QUERY = """
@@ -68,6 +64,7 @@ query($owner:String!, $name:String!, $number:Int!) {
       }
       reviewThreads(first: 100) {
         nodes {
+          id
           isResolved
           isOutdated
           path
@@ -263,15 +260,23 @@ def expand_reviewer_aliases(reviewers: list[str]) -> set[str]:
     return expanded
 
 
-def is_actionable_review_body(body: str) -> bool:
-    normalized = re.sub(r"\s+", " ", body).strip()
+def extract_devin_comment_kind(body: str) -> str | None:
+    match = DEVIN_COMMENT_KIND_PATTERN.search(body)
+    if not match:
+        return None
+    return match.group("kind")
+
+
+def is_actionable_thread_comment(body: str) -> bool:
+    normalized = body.strip()
     if not normalized:
         return False
-    for pattern in ACTIONABLE_SUMMARY_PATTERNS:
-        match = pattern.search(normalized)
-        if match:
-            return int(match.group("count")) > 0
-    return False
+    kind = extract_devin_comment_kind(normalized)
+    if kind == "ANALYSIS":
+        return False
+    if kind is not None:
+        return True
+    return not normalized.startswith("✅ **Resolved**")
 
 
 def evaluate_review_state(
@@ -319,10 +324,6 @@ def evaluate_review_state(
     for review_summary in latest_fresh_reviews_by_author.values():
         if review_summary["state"] == "CHANGES_REQUESTED":
             actionable_reviews.append(review_summary)
-        elif review_summary["state"] == "COMMENTED" and is_actionable_review_body(
-            review_summary["body"]
-        ):
-            actionable_reviews.append(review_summary)
 
     for thread in pull_request.get("reviewThreads", {}).get("nodes", []):
         target_comments = []
@@ -342,6 +343,7 @@ def evaluate_review_state(
         if not target_comments:
             continue
         thread_summary = {
+            "id": thread.get("id"),
             "path": thread.get("path"),
             "is_resolved": bool(thread.get("isResolved")),
             "is_outdated": bool(thread.get("isOutdated")),
@@ -359,7 +361,14 @@ def evaluate_review_state(
             and latest_thread_comment_at >= latest_commit_at
         ):
             fresh_threads.append(thread_summary)
-        if not thread_summary["is_resolved"] and not thread_summary["is_outdated"]:
+        has_actionable_comment = any(
+            is_actionable_thread_comment(comment["body"]) for comment in target_comments
+        )
+        if (
+            not thread_summary["is_resolved"]
+            and not thread_summary["is_outdated"]
+            and has_actionable_comment
+        ):
             actionable_threads.append(thread_summary)
 
     if pull_request.get("state") != "OPEN":
