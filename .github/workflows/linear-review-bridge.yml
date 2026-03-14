@@ -1,0 +1,56 @@
+name: linear-review-bridge
+
+on:
+  pull_request:
+    types:
+      - opened
+      - reopened
+      - synchronize
+      - ready_for_review
+  pull_request_review:
+    types:
+      - submitted
+      - dismissed
+      - edited
+  pull_request_review_comment:
+    types:
+      - created
+      - edited
+      - deleted
+  workflow_dispatch:
+    inputs:
+      pr:
+        description: Pull request number to reconcile
+        required: true
+        type: string
+
+permissions:
+  contents: read
+  pull-requests: write
+
+concurrency:
+  group: linear-review-bridge-${{ github.event.pull_request.number || inputs.pr || github.run_id }}
+
+jobs:
+  linear-review-bridge:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v6
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Sync Linear review state
+        env:
+          GH_TOKEN: ${{ secrets.REVIEW_BRIDGE_GH_TOKEN != '' && secrets.REVIEW_BRIDGE_GH_TOKEN || github.token }}
+          LINEAR_API_KEY: ${{ secrets.LINEAR_API_KEY }}
+          PR_NUMBER: ${{ github.event.pull_request.number || inputs.pr }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+        run: uv run python scripts/symphony/github_linear_bridge.py --repo "$GITHUB_REPOSITORY" --pr "$PR_NUMBER"

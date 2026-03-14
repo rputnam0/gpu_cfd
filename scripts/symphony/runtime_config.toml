@@ -1,0 +1,8 @@
+[codex.implementation]
+model = "gpt-5.4"
+reasoning_effort = "medium"
+extra_configs = ["shell_environment_policy.inherit=all"]
+
+[codex.review]
+model = "gpt-5.4"
+reasoning_effort = "xhigh"
