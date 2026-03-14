@@ -6,6 +6,7 @@ import pathlib
 import subprocess
 import tempfile
 import unittest
+from unittest import mock
 
 from scripts.authority import (
     AuthorityConflictError,
@@ -75,6 +76,16 @@ class PinManifestResolutionTests(unittest.TestCase):
             {"env.json": "host_env.json"},
         )
         self.assertEqual(env_alias["canonical_name"], "host_env.json")
+        self.assertEqual(
+            host_env["host_observations"]["gpu_csv"],
+            "NVIDIA GeForce RTX 5080, 595.50.00, 16384 MiB",
+        )
+        self.assertEqual(
+            host_env["host_observations"]["gcc_version"],
+            "gcc (Ubuntu 14.2.0) 14.2.0",
+        )
+        self.assertNotIn("gpu_query", host_env["host_observations"])
+        self.assertNotIn("compiler_version", host_env["host_observations"])
 
         self.assertEqual(
             manifest_refs["reviewed_source_tuple_id"],
@@ -190,6 +201,22 @@ class PinManifestResolutionTests(unittest.TestCase):
 
         with self.assertRaisesRegex(ValueError, "host_observations"):
             resolve_consumer_pin_manifest(bundle, consumer="build")
+
+    @mock.patch("scripts.authority.pins.detect_git_value", return_value=None)
+    def test_requires_repo_commit_when_git_metadata_is_unavailable(
+        self,
+        detect_git_value: mock.Mock,
+    ) -> None:
+        bundle = load_authority_bundle(repo_root())
+
+        with self.assertRaisesRegex(ValueError, "repo_commit"):
+            resolve_consumer_pin_manifest(
+                bundle,
+                consumer="build",
+                host_observations=sample_host_observations(),
+            )
+
+        detect_git_value.assert_called_once()
 
     def test_shared_resolution_key_changes_with_selected_lane(self) -> None:
         bundle = load_authority_bundle(repo_root())

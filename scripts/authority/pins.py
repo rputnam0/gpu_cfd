@@ -22,6 +22,20 @@ CANONICAL_HOST_ENV_NAME = "host_env.json"
 CANONICAL_MANIFEST_REFS_NAME = "manifest_refs.json"
 COMPATIBILITY_ALIASES = {"env.json": CANONICAL_HOST_ENV_NAME}
 SUPPORTED_CONSUMERS = {"build", "run", "profiling"}
+CANONICAL_HOST_OBSERVATION_FIELDS = (
+    "gpu_csv",
+    "nvcc_version",
+    "gcc_version",
+    "nsys_version",
+    "ncu_version",
+    "compute_sanitizer_version",
+    "os_release",
+    "kernel",
+)
+HOST_OBSERVATION_ALIASES = {
+    "gpu_query": "gpu_csv",
+    "compiler_version": "gcc_version",
+}
 
 
 @dataclass(frozen=True)
@@ -84,6 +98,7 @@ def resolve_consumer_pin_manifest(
     overrides = overrides or {}
     if not host_observations:
         raise ValueError("host_observations are required to emit host_env.json")
+    host_observations = normalize_host_observations(host_observations)
     local_mirror_refs = local_mirror_refs or {}
 
     _validate_overrides(pin_details, overrides)
@@ -96,7 +111,7 @@ def resolve_consumer_pin_manifest(
     )
     authority_revisions = build_authority_revisions(bundle.root)
 
-    repo_git_commit = repo_commit or detect_git_value(["rev-parse", "HEAD"], cwd=bundle.root)
+    repo_git_commit = resolve_repo_git_commit(bundle.root, repo_commit=repo_commit)
 
     host_env = {
         "schema_version": MANIFEST_SCHEMA_VERSION,
@@ -294,6 +309,33 @@ def detect_git_value(args: list[str], *, cwd: pathlib.Path | None = None) -> str
         return None
     value = completed.stdout.strip()
     return value or None
+
+
+def normalize_host_observations(host_observations: dict[str, Any]) -> dict[str, Any]:
+    normalized: dict[str, Any] = {}
+    allowed_keys = set(CANONICAL_HOST_OBSERVATION_FIELDS)
+    for raw_key, value in host_observations.items():
+        canonical_key = HOST_OBSERVATION_ALIASES.get(raw_key, raw_key)
+        if canonical_key not in allowed_keys:
+            raise ValueError(
+                f"unsupported host observation field {raw_key!r}; expected canonical Phase 1 host_env keys"
+            )
+        existing = normalized.get(canonical_key)
+        if existing is not None and existing != value:
+            raise ValueError(
+                f"conflicting host observation values for {canonical_key!r}"
+            )
+        normalized[canonical_key] = value
+    return normalized
+
+
+def resolve_repo_git_commit(root: pathlib.Path, *, repo_commit: str | None) -> str:
+    resolved_commit = repo_commit or detect_git_value(["rev-parse", "HEAD"], cwd=root)
+    if not resolved_commit:
+        raise ValueError(
+            "repo_commit is required when git metadata cannot be resolved from the bundle root"
+        )
+    return resolved_commit
 
 
 def write_json(path: pathlib.Path, payload: dict[str, Any]) -> None:
