@@ -242,12 +242,23 @@ class AuthorityBundleTests(unittest.TestCase):
             "pressureCorrector.C",
         )
 
-    def test_cli_validation_path_reports_success(self) -> None:
+    def test_cli_validation_path_reports_text_summary_by_default(self) -> None:
         stdout = StringIO()
         with redirect_stdout(stdout):
             exit_code = main(["--root", str(repo_root())])
 
         self.assertEqual(exit_code, 0)
+        self.assertIn("Authority bundle load report", stdout.getvalue())
+        self.assertIn("reference_case_contract.json", stdout.getvalue())
+        self.assertNotIn('"loaded_json"', stdout.getvalue())
+
+    def test_cli_validation_path_reports_json_when_requested(self) -> None:
+        stdout = StringIO()
+        with redirect_stdout(stdout):
+            exit_code = main(["--root", str(repo_root()), "--json"])
+
+        self.assertEqual(exit_code, 0)
+        self.assertIn('"loaded_json"', stdout.getvalue())
         self.assertIn("reference_case_contract.json", stdout.getvalue())
 
     def _copy_tree(self, source: pathlib.Path, destination: pathlib.Path) -> None:

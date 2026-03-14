@@ -698,10 +698,30 @@ def build_arg_parser() -> argparse.ArgumentParser:
     return parser
 
 
+def format_text_report(report: AuthorityLoadReport) -> str:
+    lines = [
+        "Authority bundle load report",
+        f"Root: {report.root}",
+        "Markdown artifacts:",
+    ]
+    lines.extend(f"- {filename}" for filename in report.loaded_markdown)
+    lines.append("JSON companions:")
+    lines.extend(
+        f"- {artifact.filename} (schema {artifact.schema_version}, authority {artifact.authority_markdown})"
+        for artifact in report.loaded_json
+    )
+    lines.append("Diagnostics:")
+    lines.extend(f"- {diagnostic}" for diagnostic in report.diagnostics)
+    return "\n".join(lines)
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = build_arg_parser()
     args = parser.parse_args(argv)
     bundle = load_authority_bundle(args.root)
     payload = bundle.report.as_dict()
-    print(json.dumps(payload, indent=2, sort_keys=True))
+    if args.json:
+        print(json.dumps(payload, indent=2, sort_keys=True))
+    else:
+        print(format_text_report(bundle.report))
     return 0
