@@ -170,6 +170,21 @@ def run_repo_checks(root: pathlib.Path) -> list[Check]:
                 "expected after_run host-side review hook",
             )
 
+        if "{{ issue.blocked_by }}" in workflow_text:
+            add_check(
+                results,
+                "missing",
+                "WORKFLOW blocker interpolation",
+                "raw issue.blocked_by interpolation breaks Symphony prompt rendering",
+            )
+        else:
+            add_check(
+                results,
+                "ok",
+                "WORKFLOW blocker interpolation",
+                "no raw issue.blocked_by interpolation",
+            )
+
     runtime_config_path = root / "scripts/symphony/runtime_config.toml"
     if runtime_config_path.exists():
         runtime_config_text = read_text(runtime_config_path)

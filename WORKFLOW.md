@@ -64,7 +64,7 @@ Issue context:
 - Labels: `{{ issue.labels }}`
 - URL: `{{ issue.url }}`
 - Attempt: `{% if attempt %}{{ attempt }}{% else %}first run{% endif %}`
-- Blockers: `{{ issue.blocked_by }}`
+- Blockers: inspect the Linear issue relations directly before starting any blocked work.
 
 Description:
 {% if issue.description %}
