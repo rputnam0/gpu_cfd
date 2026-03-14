@@ -254,18 +254,19 @@ This repository now expects a two-stage automated review flow for every Symphony
 
 ```bash
 cd ~/projects/gpu_cfd
-uv run python scripts/symphony/review_loop.py codex-review --base origin/main
+python3 scripts/symphony/pr_handoff.py --workspace ~/projects/symphony-workspaces/gpu_cfd/<ISSUE>
 ```
 
-This stores Codex review artifacts under `.codex/review_artifacts/<branch>/`. The agent must inspect
-the latest report, fix material findings, and rerun the gate once before sending the PR to GitHub
-review. The local gate now has a hard timeout so a single slow review cannot stall Symphony forever.
+This runs the local Codex review gate, stores artifacts under `.codex/review_artifacts/<branch>/`,
+opens or updates the PR when the gate is clean, emits `review_requested`, and moves the issue into
+`In Review`. If the handoff reports findings, the worker must fix the valid findings, rerun the
+smallest relevant validation, and rerun the handoff helper once before external review.
 
 2. Linear-driven review handoff after PR submission:
 
 - record the PR URL in a Linear comment before moving it to `In Review`
-- emit `review_requested` telemetry right before each review handoff
-- stop the worker after moving to `In Review`
+- let the worker-owned handoff helper emit `review_requested` right before it moves the issue to `In Review`
+- stop the worker after the handoff helper moves the issue to `In Review`
 - rely on Linear workflow transitions to move the issue into `Rework` or `Ready to Merge`
 - let `.github/workflows/linear-review-bridge.yml` perform the `In Review -> Rework` and
   `In Review -> Ready to Merge` transitions from GitHub events
@@ -284,4 +285,4 @@ review. The local gate now has a hard timeout so a single slow review cannot sta
 - The repository docs remain the technical source of truth.
 - Linear state decides whether Symphony runs an issue.
 - Only move an issue to `Todo` when its blockers are truly resolved.
-- Use `In Review` as the dormant review queue. The next work run should start only after Linear moves the issue into an active follow-up state such as `Rework` or `Ready to Merge`.
+- Use `In Review` as the dormant review queue. The worker owns the pre-PR handoff via `scripts/symphony/pr_handoff.py`, and the next work run should start only after Linear moves the issue into an active follow-up state such as `Rework` or `Ready to Merge`.

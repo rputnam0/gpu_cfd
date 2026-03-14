@@ -93,7 +93,7 @@ def run_repo_checks(root: pathlib.Path) -> list[Check]:
         root / ".github/workflows/linear-review-bridge.yml",
         root / "scripts/symphony/runtime_config.toml",
         root / "scripts/symphony/codex_runner.py",
-        root / "scripts/symphony/after_run.py",
+        root / "scripts/symphony/pr_handoff.py",
         root / "scripts/symphony/github_linear_bridge.py",
         root / "scripts/symphony/review_loop.py",
         root / "scripts/symphony/telemetry.py",
@@ -152,22 +152,19 @@ def run_repo_checks(root: pathlib.Path) -> list[Check]:
                 "expected workspaceWrite + networkAccess=true",
             )
 
-        if re.search(
-            r'after_run:\s*\|\s*\n\s*python3\s+"?\$GPU_CFD_CONTROL_REPO_ROOT/scripts/symphony/after_run\.py"?\s+--workspace\s+"\$PWD"',
-            workflow_text,
-        ):
+        if "scripts/symphony/pr_handoff.py" in workflow_text and "after_run:" not in workflow_text:
             add_check(
                 results,
                 "ok",
-                "WORKFLOW host review handoff",
-                "after_run host-side review hook configured",
+                "WORKFLOW pre-PR handoff",
+                "worker-owned pr_handoff flow configured",
             )
         else:
             add_check(
                 results,
                 "missing",
-                "WORKFLOW host review handoff",
-                "expected after_run host-side review hook",
+                "WORKFLOW pre-PR handoff",
+                "expected worker-owned pr_handoff flow without an after_run hook",
             )
 
         if "{{ issue.blocked_by }}" in workflow_text:

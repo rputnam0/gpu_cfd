@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Host-side Symphony handoff for local Codex review and PR opening."""
+"""Worker-owned Symphony PR handoff for local Codex review and PR opening."""
 
 from __future__ import annotations
 
@@ -10,7 +10,6 @@ import pathlib
 import re
 import subprocess
 import sys
-import time
 from dataclasses import dataclass
 from typing import Any
 
@@ -22,9 +21,6 @@ except ModuleNotFoundError:  # pragma: no cover - script execution fallback
 
 
 IN_REVIEW_STATE = "In Review"
-REWORK_STATE = "Rework"
-STATE_SETTLE_TIMEOUT_SECONDS = 30
-STATE_SETTLE_POLL_SECONDS = 2
 NO_FINDINGS_MARKERS = (
     "no material findings remain",
     "no material issues remain",
@@ -49,7 +45,7 @@ class ReviewResult:
 
 
 class HandoffError(RuntimeError):
-    """Raised when the host-side review handoff cannot complete."""
+    """Raised when the PR handoff cannot complete."""
 
 
 def parse_args() -> argparse.Namespace:
@@ -223,9 +219,9 @@ def build_pr_title(issue_identifier: str, issue_title: str) -> str:
 def build_pr_body(issue_identifier: str, issue_title: str) -> str:
     return "\n".join(
         [
-            f"## Summary",
+            "## Summary",
             f"- Implement {issue_identifier}: {issue_title}",
-            f"",
+            "",
             f"Closes {issue_identifier}",
         ]
     )
@@ -292,11 +288,15 @@ def emit_handoff_telemetry(
     issue: str,
     details: dict[str, Any],
     workspace: pathlib.Path,
+    pr: int | None = None,
+    state: str | None = None,
 ) -> None:
     event = telemetry.build_event(
         event_type=event_type,
         message=message,
         issue=issue,
+        pr=pr,
+        state=state,
         details=details,
         cwd=workspace,
         repo_root=workspace,
@@ -304,55 +304,41 @@ def emit_handoff_telemetry(
     telemetry.write_event(telemetry.default_telemetry_root(), event)
 
 
-def wait_for_issue_state(
-    issue_identifier: str,
-    target_state: str,
+def result_payload(
     *,
-    timeout_seconds: int = STATE_SETTLE_TIMEOUT_SECONDS,
-    poll_seconds: int = STATE_SETTLE_POLL_SECONDS,
+    issue: str,
+    branch: str,
+    review_result: ReviewResult,
+    pr: PullRequestRef | None = None,
 ) -> dict[str, Any]:
-    deadline = time.monotonic() + timeout_seconds
-    last_issue = github_linear_bridge.fetch_linear_issue(issue_identifier)
-    while last_issue.get("state", {}).get("name") != target_state:
-        if time.monotonic() >= deadline:
-            return last_issue
-        time.sleep(poll_seconds)
-        last_issue = github_linear_bridge.fetch_linear_issue(issue_identifier)
-    return last_issue
+    manifest = review_result.manifest or {}
+    payload: dict[str, Any] = {
+        "issue": issue,
+        "branch": branch,
+        "status": review_result.status,
+        "message_path": manifest.get("message_path"),
+        "jsonl_path": manifest.get("jsonl_path"),
+        "stderr_path": manifest.get("stderr_path"),
+    }
+    if pr is not None:
+        payload["pr"] = {"number": pr.number, "url": pr.url, "is_draft": pr.is_draft}
+    return payload
 
 
 def main() -> int:
     args = parse_args()
     workspace = pathlib.Path(args.workspace).resolve()
     issue_identifier = workspace_issue_identifier(workspace)
-    issue = wait_for_issue_state(issue_identifier, IN_REVIEW_STATE)
-    issue_state = issue.get("state", {}).get("name")
+    issue = github_linear_bridge.fetch_linear_issue(issue_identifier)
     issue_title = issue.get("title") or issue_identifier
-
-    if issue_state != IN_REVIEW_STATE:
-        return 0
 
     branch = current_branch(workspace)
     if branch in {"", "main"}:
-        return 0
+        raise HandoffError("refusing PR handoff from the default branch")
     if not worktree_is_clean(workspace):
-        emit_handoff_telemetry(
-            event_type="host_local_review_skipped",
-            message="Skipped host-side local review because the workspace is dirty",
-            issue=issue_identifier,
-            details={"branch": branch},
-            workspace=workspace,
-        )
-        return 0
+        raise HandoffError("workspace is dirty; commit or stash before PR handoff")
     if not branch_exists_on_origin(workspace, branch):
-        emit_handoff_telemetry(
-            event_type="host_local_review_skipped",
-            message="Skipped host-side local review because the branch is not pushed",
-            issue=issue_identifier,
-            details={"branch": branch},
-            workspace=workspace,
-        )
-        return 0
+        raise HandoffError("branch is not pushed to origin; push before PR handoff")
 
     review_result = run_host_review(workspace, issue_identifier)
     emit_handoff_telemetry(
@@ -368,13 +354,15 @@ def main() -> int:
     )
 
     if review_result.status == "findings":
-        github_linear_bridge.update_linear_issue_state(issue_identifier, REWORK_STATE)
-        emit_handoff_telemetry(
-            event_type="host_local_review_rework",
-            message="Moved issue to Rework after host-side local Codex review findings",
-            issue=issue_identifier,
-            details={"branch": branch},
-            workspace=workspace,
+        print(
+            json.dumps(
+                result_payload(
+                    issue=issue_identifier,
+                    branch=branch,
+                    review_result=review_result,
+                ),
+                sort_keys=True,
+            )
         )
         return 0
 
@@ -386,16 +374,48 @@ def main() -> int:
             details={"branch": branch},
             workspace=workspace,
         )
-        return 1
+        raise HandoffError("host-side local Codex review did not produce a usable result")
 
     pr = ensure_pr(workspace, issue_identifier, issue_title, branch)
     emit_handoff_telemetry(
         event_type="pr_opened",
-        message="Opened or updated PR after clean host-side local Codex review",
+        message="Opened or updated PR after a clean local Codex review loop",
         issue=issue_identifier,
         pr=pr.number,
+        state=IN_REVIEW_STATE,
         details={"branch": branch, "url": pr.url},
         workspace=workspace,
+    )
+    github_linear_bridge.update_linear_issue_state(issue_identifier, IN_REVIEW_STATE)
+    emit_handoff_telemetry(
+        event_type="review_requested",
+        message=f"Local Codex review is clean and PR #{pr.number} is ready for external review",
+        issue=issue_identifier,
+        pr=pr.number,
+        state=IN_REVIEW_STATE,
+        details={
+            "branch": branch,
+            "url": pr.url,
+            "review_artifact": review_result.manifest.get("jsonl_path")
+            if review_result.manifest
+            else None,
+        },
+        workspace=workspace,
+    )
+    print(
+        json.dumps(
+            result_payload(
+                issue=issue_identifier,
+                branch=branch,
+                review_result=ReviewResult(
+                    status="in_review",
+                    message=review_result.message,
+                    manifest=review_result.manifest,
+                ),
+                pr=pr,
+            ),
+            sort_keys=True,
+        )
     )
     return 0
 
