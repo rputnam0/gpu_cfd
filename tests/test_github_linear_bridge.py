@@ -35,6 +35,18 @@ class ExtractIssueIdentifiersTests(unittest.TestCase):
             github_linear_bridge.select_issue_identifier(snapshot), "PRO-93"
         )
 
+
+class ParseIssueIdentifierTests(unittest.TestCase):
+    def test_parses_team_key_and_number(self) -> None:
+        parsed = github_linear_bridge.parse_issue_identifier("PRO-5")
+
+        self.assertEqual(parsed.team_key, "PRO")
+        self.assertEqual(parsed.number, 5)
+
+    def test_rejects_unsupported_identifier_shapes(self) -> None:
+        with self.assertRaises(ValueError):
+            github_linear_bridge.parse_issue_identifier("pro-5")
+
     def test_ignores_non_project_identifiers_when_selecting_issue(self) -> None:
         snapshot = github_linear_bridge.PullRequestSnapshot(
             number=2,
@@ -209,7 +221,7 @@ class FetchLinearIssueTests(unittest.TestCase):
         self.assertEqual(issue["identifier"], "PRO-5")
         linear_graphql.assert_called_once_with(
             github_linear_bridge.LINEAR_ISSUE_BY_IDENTIFIER_QUERY,
-            {"identifier": "PRO-5"},
+            {"teamKey": "PRO", "number": 5},
         )
 
 

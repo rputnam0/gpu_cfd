@@ -46,8 +46,8 @@ PR_FIELDS = ",".join(
     ]
 )
 LINEAR_ISSUE_BY_IDENTIFIER_QUERY = """
-query($identifier: String!) {
-  issues(filter: { identifier: { eq: $identifier } }) {
+query($teamKey: String!, $number: Float!) {
+  issues(filter: { team: { key: { eq: $teamKey } }, number: { eq: $number } }) {
     nodes {
       id
       identifier
@@ -119,6 +119,12 @@ class BridgeDecision:
     review_state: str
 
 
+@dataclass(frozen=True)
+class ParsedIssueIdentifier:
+    team_key: str
+    number: int
+
+
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--repo", help="GitHub repo in OWNER/REPO form.")
@@ -148,6 +154,13 @@ def extract_issue_identifiers(*texts: str) -> list[str]:
             if match not in identifiers:
                 identifiers.append(match)
     return identifiers
+
+
+def parse_issue_identifier(issue_identifier: str) -> ParsedIssueIdentifier:
+    match = re.fullmatch(r"([A-Z]+)-(\d+)", issue_identifier.strip())
+    if match is None:
+        raise ValueError(f"unsupported Linear issue identifier: {issue_identifier}")
+    return ParsedIssueIdentifier(team_key=match.group(1), number=int(match.group(2)))
 
 
 def select_issue_identifier(
@@ -282,8 +295,10 @@ def linear_graphql(query: str, variables: dict[str, Any]) -> dict[str, Any]:
 
 
 def fetch_linear_issue(issue_identifier: str) -> dict[str, Any]:
+    parsed = parse_issue_identifier(issue_identifier)
     data = linear_graphql(
-        LINEAR_ISSUE_BY_IDENTIFIER_QUERY, {"identifier": issue_identifier}
+        LINEAR_ISSUE_BY_IDENTIFIER_QUERY,
+        {"teamKey": parsed.team_key, "number": parsed.number},
     )
     nodes = data.get("issues", {}).get("nodes", [])
     issue = nodes[0] if nodes else None
