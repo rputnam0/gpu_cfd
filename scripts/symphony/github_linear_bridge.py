@@ -24,8 +24,6 @@ except ModuleNotFoundError:  # pragma: no cover - script execution fallback
 DEFAULT_REVIEWERS = ("devin-ai-integration[bot]",)
 DEFAULT_REWORK_STATE = "Rework"
 DEFAULT_READY_TO_MERGE_STATE = "Ready to Merge"
-DEFAULT_BACKLOG_STATE = "Backlog"
-DEFAULT_TODO_STATE = "Todo"
 READY_MERGEABLE_STATUSES = {"CLEAN", "HAS_HOOKS"}
 REQUIRED_READY_CHECKS = {"review-loop-harness"}
 PASSING_CHECK_CONCLUSIONS = {"SUCCESS"}
@@ -65,58 +63,6 @@ query($teamKey: String!, $number: Float!) {
           nodes {
             id
             name
-          }
-        }
-      }
-    }
-  }
-}
-"""
-LINEAR_ISSUE_WITH_BLOCKS_QUERY = """
-query($teamKey: String!, $number: Float!) {
-  issues(filter: { team: { key: { eq: $teamKey } }, number: { eq: $number } }) {
-    nodes {
-      id
-      identifier
-      title
-      state {
-        id
-        name
-      }
-      team {
-        key
-        states {
-          nodes {
-            id
-            name
-          }
-        }
-      }
-      blocks {
-        nodes {
-          id
-          identifier
-          title
-          state {
-            name
-          }
-          team {
-            key
-            states {
-              nodes {
-                id
-                name
-              }
-            }
-          }
-          blockedBy {
-            nodes {
-              id
-              identifier
-              state {
-                name
-              }
-            }
           }
         }
       }
@@ -363,19 +309,6 @@ def fetch_linear_issue(issue_identifier: str) -> dict[str, Any]:
     return issue
 
 
-def fetch_linear_issue_with_blocks(issue_identifier: str) -> dict[str, Any]:
-    parsed = parse_issue_identifier(issue_identifier)
-    data = linear_graphql(
-        LINEAR_ISSUE_WITH_BLOCKS_QUERY,
-        {"teamKey": parsed.team_key, "number": parsed.number},
-    )
-    nodes = data.get("issues", {}).get("nodes", [])
-    issue = nodes[0] if nodes else None
-    if issue is None:
-        raise ValueError(f"Linear issue not found: {issue_identifier}")
-    return issue
-
-
 def resolve_linear_state_id(issue: dict[str, Any], target_state_name: str) -> str:
     states = issue.get("team", {}).get("states", {}).get("nodes", [])
     for state in states:
@@ -410,34 +343,6 @@ def update_linear_issue_state(
         "previous_state": current_state,
         "current_state": updated_issue.get("state", {}).get("name"),
     }
-
-
-def release_unblocked_dependents(
-    issue_identifier: str,
-    *,
-    backlog_state_name: str = DEFAULT_BACKLOG_STATE,
-    todo_state_name: str = DEFAULT_TODO_STATE,
-) -> list[dict[str, Any]]:
-    issue = fetch_linear_issue_with_blocks(issue_identifier)
-    released: list[dict[str, Any]] = []
-    for dependent in issue.get("blocks", {}).get("nodes", []):
-        if dependent.get("state", {}).get("name") != backlog_state_name:
-            continue
-        blockers = dependent.get("blockedBy", {}).get("nodes", [])
-        if not blockers:
-            continue
-        if any(blocker.get("state", {}).get("name") != "Done" for blocker in blockers):
-            continue
-        update = update_linear_issue_state(dependent["identifier"], todo_state_name)
-        released.append(
-            {
-                "identifier": dependent["identifier"],
-                "previous_state": update["previous_state"],
-                "current_state": update["current_state"],
-                "changed": bool(update["changed"]),
-            }
-        )
-    return released
 
 
 def collect_resolvable_thread_ids(summary: review_loop.ReviewSummary) -> list[str]:

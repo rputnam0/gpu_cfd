@@ -45,7 +45,7 @@ authority docs, backlog dependencies, and PR-card scope.
 11. Once implementation or rework is ready for review, record validation evidence, emit a `review_requested` telemetry event, move the issue to `In Review`, and stop. Do not stay alive in a local sleep loop.
 12. `In Review` is a dormant queue. Let the host-side handoff and GitHub/Linear integrations move the issue into `Rework` when fixes are needed or `Ready to Merge` when it is clear to land.
 13. On a `Rework` run, start with the latest Devin-authored Linear comments when a PR exists, or the latest host-side local review artifact under `.codex/review_artifacts/` when no PR exists. Fix valid findings, rerun targeted validation, push, emit `review_requested`, and move back to `In Review`.
-14. On a `Ready to Merge` run, confirm the linked PR is clean on the current head, merge it, move the issue to `Done`, and run `python3 "$GPU_CFD_CONTROL_REPO_ROOT/scripts/symphony/release_dependents.py" --issue "<ISSUE-ID>" --workspace "$PWD"` so any newly unblocked direct dependents move from `Backlog` to `Todo`.
+14. On a `Ready to Merge` run, confirm the linked PR is clean on the current head, merge it, move the issue to `Done`, then use Linear MCP to inspect direct blocked issues and move any newly unblocked dependents from `Backlog` to `Todo`.
 
 ## Handoff rules
 
