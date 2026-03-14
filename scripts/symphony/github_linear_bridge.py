@@ -27,6 +27,7 @@ DEFAULT_READY_TO_MERGE_STATE = "Ready to Merge"
 READY_MERGEABLE_STATUSES = {"CLEAN", "HAS_HOOKS"}
 REQUIRED_READY_CHECKS = {"review-loop-harness"}
 PASSING_CHECK_CONCLUSIONS = {"SUCCESS"}
+READY_REVIEW_STATES = {"clean", "pending_rereview"}
 ISSUE_IDENTIFIER_PATTERN = re.compile(r"\b(?P<prefix>PRO)-(?P<number>\d+)\b", re.IGNORECASE)
 LINEAR_GRAPHQL_URL = "https://api.linear.app/graphql"
 REVIEW_BRIDGE_TOKEN_SECRET = "REVIEW_BRIDGE_GH_TOKEN"
@@ -247,7 +248,7 @@ def determine_bridge_decision(
             review_state=summary.review_state,
         )
     if (
-        summary.review_state == "clean"
+        summary.review_state in READY_REVIEW_STATES
         and snapshot.state == "OPEN"
         and not snapshot.is_draft
         and snapshot.mergeable == "MERGEABLE"
@@ -357,10 +358,29 @@ def collect_resolvable_thread_ids(summary: review_loop.ReviewSummary) -> list[st
             continue
         if thread.get("is_resolved") or thread.get("is_outdated"):
             continue
-        if str(thread_id) in actionable_thread_ids:
+        if str(thread_id) in actionable_thread_ids and not is_thread_stale_for_current_head(
+            thread, summary.latest_commit_at
+        ):
             continue
         resolvable.append(str(thread_id))
     return resolvable
+
+
+def is_thread_stale_for_current_head(
+    thread: dict[str, Any], latest_commit_at_raw: str | None
+) -> bool:
+    latest_commit_at = review_loop.parse_timestamp(latest_commit_at_raw)
+    if latest_commit_at is None:
+        return False
+    comment_timestamps = [
+        review_loop.parse_timestamp(comment.get("created_at"))
+        for comment in thread.get("comments", [])
+        if comment.get("created_at")
+    ]
+    comment_timestamps = [timestamp for timestamp in comment_timestamps if timestamp]
+    if not comment_timestamps:
+        return False
+    return max(comment_timestamps) < latest_commit_at
 
 
 def resolve_review_thread(thread_id: str) -> None:
@@ -408,7 +428,7 @@ def main() -> int:
     }
 
     resolved_thread_ids: list[str] = []
-    if not args.dry_run and summary.review_state == "clean":
+    if not args.dry_run:
         resolvable_thread_ids = collect_resolvable_thread_ids(summary)
         for thread_id in resolvable_thread_ids:
             resolve_review_thread(thread_id)

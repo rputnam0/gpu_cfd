@@ -141,6 +141,15 @@ class DetermineBridgeDecisionTests(unittest.TestCase):
 
         self.assertEqual(decision.target_state, "Ready to Merge")
 
+    def test_moves_to_ready_to_merge_when_review_is_pending_rereview(self) -> None:
+        decision = github_linear_bridge.determine_bridge_decision(
+            self.make_snapshot(),
+            self.make_summary(review_state="pending_rereview"),
+            "PRO-93",
+        )
+
+        self.assertEqual(decision.target_state, "Ready to Merge")
+
     def test_does_not_move_to_ready_to_merge_when_merge_state_is_blocked(self) -> None:
         decision = github_linear_bridge.determine_bridge_decision(
             self.make_snapshot(merge_state_status="BLOCKED"),
@@ -305,6 +314,17 @@ class ResolvableThreadTests(unittest.TestCase):
         self.assertEqual(
             github_linear_bridge.collect_resolvable_thread_ids(summary),
             ["thread-analysis"],
+        )
+
+    def test_collects_stale_actionable_threads_after_new_head(self) -> None:
+        summary = self.make_summary()
+        summary.review_state = "action_required"
+        summary.latest_commit_at = "2026-03-14T01:16:30Z"
+        summary.actionable_threads = [summary.observed_threads[1]]
+
+        self.assertEqual(
+            github_linear_bridge.collect_resolvable_thread_ids(summary),
+            ["thread-analysis", "thread-bug"],
         )
 
 
