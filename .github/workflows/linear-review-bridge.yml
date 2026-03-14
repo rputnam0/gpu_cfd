@@ -30,7 +30,6 @@ permissions:
 
 concurrency:
   group: linear-review-bridge-${{ github.event.pull_request.number || inputs.pr || github.run_id }}
-  cancel-in-progress: true
 
 jobs:
   linear-review-bridge:
