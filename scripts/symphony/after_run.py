@@ -10,6 +10,7 @@ import pathlib
 import re
 import subprocess
 import sys
+import time
 from dataclasses import dataclass
 from typing import Any
 
@@ -22,6 +23,8 @@ except ModuleNotFoundError:  # pragma: no cover - script execution fallback
 
 IN_REVIEW_STATE = "In Review"
 REWORK_STATE = "Rework"
+STATE_SETTLE_TIMEOUT_SECONDS = 30
+STATE_SETTLE_POLL_SECONDS = 2
 NO_FINDINGS_MARKERS = (
     "no material findings remain",
     "no material issues remain",
@@ -301,11 +304,28 @@ def emit_handoff_telemetry(
     telemetry.write_event(telemetry.default_telemetry_root(), event)
 
 
+def wait_for_issue_state(
+    issue_identifier: str,
+    target_state: str,
+    *,
+    timeout_seconds: int = STATE_SETTLE_TIMEOUT_SECONDS,
+    poll_seconds: int = STATE_SETTLE_POLL_SECONDS,
+) -> dict[str, Any]:
+    deadline = time.monotonic() + timeout_seconds
+    last_issue = github_linear_bridge.fetch_linear_issue(issue_identifier)
+    while last_issue.get("state", {}).get("name") != target_state:
+        if time.monotonic() >= deadline:
+            return last_issue
+        time.sleep(poll_seconds)
+        last_issue = github_linear_bridge.fetch_linear_issue(issue_identifier)
+    return last_issue
+
+
 def main() -> int:
     args = parse_args()
     workspace = pathlib.Path(args.workspace).resolve()
     issue_identifier = workspace_issue_identifier(workspace)
-    issue = github_linear_bridge.fetch_linear_issue(issue_identifier)
+    issue = wait_for_issue_state(issue_identifier, IN_REVIEW_STATE)
     issue_state = issue.get("state", {}).get("name")
     issue_title = issue.get("title") or issue_identifier
 
