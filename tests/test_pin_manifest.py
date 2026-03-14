@@ -19,6 +19,18 @@ def repo_root() -> pathlib.Path:
     return pathlib.Path(__file__).resolve().parents[1]
 
 
+def sample_host_observations() -> dict[str, str]:
+    return {
+        "gpu_query": "NVIDIA GeForce RTX 5080, 595.50.00, 16384 MiB",
+        "nvcc_version": "Cuda compilation tools, release 12.9, V12.9.1",
+        "gcc_version": "gcc (Ubuntu 14.2.0) 14.2.0",
+        "nsys_version": "NVIDIA Nsight Systems version 2025.2",
+        "ncu_version": "NVIDIA Nsight Compute version 2025.3",
+        "compute_sanitizer_version": "Compute Sanitizer version 2025.1",
+        "compiler_version": "gcc (Ubuntu 14.2.0) 14.2.0",
+    }
+
+
 class PinManifestResolutionTests(unittest.TestCase):
     def test_resolves_frozen_pin_manifest_and_emits_canonical_artifacts(self) -> None:
         bundle = load_authority_bundle(repo_root())
@@ -29,15 +41,7 @@ class PinManifestResolutionTests(unittest.TestCase):
                 bundle,
                 consumer="build",
                 output_dir=output_dir,
-                host_observations={
-                    "gpu_query": "NVIDIA GeForce RTX 5080, 595.50.00, 16384 MiB",
-                    "nvcc_version": "Cuda compilation tools, release 12.9, V12.9.1",
-                    "gcc_version": "gcc (Ubuntu 14.2.0) 14.2.0",
-                    "nsys_version": "NVIDIA Nsight Systems version 2025.2",
-                    "ncu_version": "NVIDIA Nsight Compute version 2025.3",
-                    "compute_sanitizer_version": "Compute Sanitizer version 2025.1",
-                    "compiler_version": "gcc (Ubuntu 14.2.0) 14.2.0",
-                },
+                host_observations=sample_host_observations(),
                 local_mirror_refs={
                     "SPUMA runtime base": "3d1d7bf598ec8a66e099d8688b8597422c361960",
                     "SPUMA support-policy snapshot": "ad2a385e44f2c01b7d1df44c5bc51d7996c95554",
@@ -98,14 +102,27 @@ class PinManifestResolutionTests(unittest.TestCase):
                 bundle,
                 consumer="run",
                 overrides={"primary_toolkit_lane": "CUDA 12.8"},
+                host_observations=sample_host_observations(),
             )
 
     def test_build_run_and_profiling_consumers_share_same_frozen_resolution(self) -> None:
         bundle = load_authority_bundle(repo_root())
 
-        build_resolution = resolve_consumer_pin_manifest(bundle, consumer="build")
-        run_resolution = resolve_consumer_pin_manifest(bundle, consumer="run")
-        profiling_resolution = resolve_consumer_pin_manifest(bundle, consumer="profiling")
+        build_resolution = resolve_consumer_pin_manifest(
+            bundle,
+            consumer="build",
+            host_observations=sample_host_observations(),
+        )
+        run_resolution = resolve_consumer_pin_manifest(
+            bundle,
+            consumer="run",
+            host_observations=sample_host_observations(),
+        )
+        profiling_resolution = resolve_consumer_pin_manifest(
+            bundle,
+            consumer="profiling",
+            host_observations=sample_host_observations(),
+        )
 
         self.assertEqual(
             build_resolution.shared_resolution_key,
@@ -125,7 +142,11 @@ class PinManifestResolutionTests(unittest.TestCase):
     def test_manifest_refs_include_required_revalidation_steps(self) -> None:
         bundle = load_authority_bundle(repo_root())
 
-        resolution = resolve_consumer_pin_manifest(bundle, consumer="build")
+        resolution = resolve_consumer_pin_manifest(
+            bundle,
+            consumer="build",
+            host_observations=sample_host_observations(),
+        )
 
         self.assertEqual(
             resolution.manifest_refs["required_revalidation"],
@@ -153,12 +174,22 @@ class PinManifestResolutionTests(unittest.TestCase):
                 temp_path = pathlib.Path(temp_dir)
                 # Use a non-repo working directory to verify git metadata still resolves from bundle.root.
                 os.chdir(temp_path)
-                resolution = resolve_consumer_pin_manifest(bundle, consumer="run")
+                resolution = resolve_consumer_pin_manifest(
+                    bundle,
+                    consumer="run",
+                    host_observations=sample_host_observations(),
+                )
             finally:
                 os.chdir(original_cwd)
 
         self.assertEqual(resolution.host_env["repo"]["git_commit"], expected_commit)
         self.assertEqual(resolution.manifest_refs["repo"]["git_commit"], expected_commit)
+
+    def test_requires_host_observations_to_emit_host_env_manifest(self) -> None:
+        bundle = load_authority_bundle(repo_root())
+
+        with self.assertRaisesRegex(ValueError, "host_observations"):
+            resolve_consumer_pin_manifest(bundle, consumer="build")
 
     def test_shared_resolution_key_changes_with_selected_lane(self) -> None:
         bundle = load_authority_bundle(repo_root())
@@ -167,11 +198,13 @@ class PinManifestResolutionTests(unittest.TestCase):
             bundle,
             consumer="profiling",
             lane="primary",
+            host_observations=sample_host_observations(),
         )
         experimental_resolution = resolve_consumer_pin_manifest(
             bundle,
             consumer="profiling",
             lane="experimental",
+            host_observations=sample_host_observations(),
         )
 
         self.assertNotEqual(

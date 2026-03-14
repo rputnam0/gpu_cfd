@@ -82,7 +82,8 @@ def resolve_consumer_pin_manifest(
 
     pin_details = load_pin_details(bundle)
     overrides = overrides or {}
-    host_observations = host_observations or {}
+    if not host_observations:
+        raise ValueError("host_observations are required to emit host_env.json")
     local_mirror_refs = local_mirror_refs or {}
 
     _validate_overrides(pin_details, overrides)
