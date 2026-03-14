@@ -100,6 +100,56 @@ class AuthorityBundleTests(unittest.TestCase):
             ):
                 load_authority_bundle(temp_root)
 
+    def test_duplicate_authority_ids_fail_fast(self) -> None:
+        duplicate_cases = {
+            "path": pathlib.Path("docs/authority/reference_case_contract.json"),
+            "array_key": "frozen_cases",
+            "duplicate_index": 0,
+            "label": "duplicate case_id",
+        }
+        duplicate_tuples = {
+            "path": pathlib.Path("docs/authority/acceptance_manifest.json"),
+            "array_key": "accepted_tuples",
+            "duplicate_index": 0,
+            "label": "duplicate tuple_id",
+        }
+        duplicate_stages = {
+            "path": pathlib.Path("docs/authority/graph_capture_support_matrix.json"),
+            "array_key": "stages",
+            "duplicate_index": 0,
+            "label": "duplicate stage_id",
+        }
+
+        for scenario in (duplicate_cases, duplicate_tuples, duplicate_stages):
+            with self.subTest(label=scenario["label"]):
+                with tempfile.TemporaryDirectory() as temp_dir:
+                    temp_root = pathlib.Path(temp_dir)
+                    self._copy_tree(repo_root(), temp_root)
+                    json_path = temp_root / scenario["path"]
+                    payload = json.loads(json_path.read_text(encoding="utf-8"))
+                    payload[scenario["array_key"]].append(
+                        dict(payload[scenario["array_key"]][scenario["duplicate_index"]])
+                    )
+                    json_path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+
+                    with self.assertRaisesRegex(AuthorityConflictError, scenario["label"]):
+                        load_authority_bundle(temp_root)
+
+    def test_acceptance_manifest_companion_reference_drift_fails_fast(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_root = pathlib.Path(temp_dir)
+            self._copy_tree(repo_root(), temp_root)
+            json_path = temp_root / "docs" / "authority" / "acceptance_manifest.json"
+            payload = json.loads(json_path.read_text(encoding="utf-8"))
+            payload["reference_case_contract"] = "support_matrix.json"
+            json_path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+
+            with self.assertRaisesRegex(
+                AuthoritySchemaError,
+                "acceptance_manifest.json.*reference_case_contract.json",
+            ):
+                load_authority_bundle(temp_root)
+
     def test_downstream_callers_resolve_every_authority_category_from_one_api(self) -> None:
         bundle = load_authority_bundle(repo_root())
 
@@ -109,7 +159,12 @@ class AuthorityBundleTests(unittest.TestCase):
             bundle.acceptance.tuples_by_id["P5_R1CORE_AMGX_ASYNC_BASELINE"].required_stage_ids[-2:],
             ("pressure_solve_amgx", "pressure_post"),
         )
+        self.assertEqual(bundle.semantic_source_map.owner_for("Alpha transport"), "alphaPredictor.C")
         self.assertEqual(bundle.semantic_source_map.owner_for("Pressure bridge"), "PressureMatrixCache")
+        self.assertEqual(
+            bundle.semantic_source_map.owner_for("Pressure corrector"),
+            "pressureCorrector.C",
+        )
 
     def test_cli_validation_path_reports_success(self) -> None:
         stdout = StringIO()

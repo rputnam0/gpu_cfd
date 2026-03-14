@@ -123,8 +123,15 @@ class SemanticSourceMap:
     entries_by_surface: dict[str, SemanticSourceEntry]
 
     def owner_for(self, contract_surface: str) -> str:
-        owner = self.entries_by_surface[contract_surface].local_target_family.split(",")[0]
-        return owner.strip().strip("`")
+        owner = self.entries_by_surface[contract_surface].local_target_family
+        backticked_targets = re.findall(r"`([^`]+)`", owner)
+        if backticked_targets:
+            return backticked_targets[0].strip()
+        normalized_owner = owner.strip()
+        normalized_owner = re.sub(r"^local\s+", "", normalized_owner)
+        normalized_owner = re.split(r",|\s+plus\s+|\s+/\s+", normalized_owner, maxsplit=1)[0]
+        normalized_owner = re.sub(r"\s+path$", "", normalized_owner)
+        return normalized_owner.strip().strip("`")
 
 
 @dataclass(frozen=True)
@@ -196,6 +203,14 @@ EXPECTED_JSON_AUTHORITY_MARKDOWN = {
     "support_matrix.json": "support_matrix.md",
     "acceptance_manifest.json": "acceptance_manifest.md",
     "graph_capture_support_matrix.json": "graph_capture_support_matrix.md",
+}
+
+EXPECTED_JSON_COMPANION_REFERENCES = {
+    "acceptance_manifest.json": {
+        "reference_case_contract": "reference_case_contract.json",
+        "support_matrix": "support_matrix.json",
+        "graph_capture_support_matrix": "graph_capture_support_matrix.json",
+    }
 }
 
 
@@ -295,6 +310,13 @@ def load_json_artifact(path: pathlib.Path) -> dict[str, Any]:
             f"{path.name} must reference authority_markdown {expected_markdown!r}; "
             f"found {payload['authority_markdown']!r}"
         )
+    expected_companions = EXPECTED_JSON_COMPANION_REFERENCES.get(path.name, {})
+    for field_name, expected_filename in expected_companions.items():
+        if payload.get(field_name) != expected_filename:
+            raise AuthoritySchemaError(
+                f"{path.name} must reference {field_name} {expected_filename!r}; "
+                f"found {payload.get(field_name)!r}"
+            )
     return payload
 
 
@@ -333,15 +355,17 @@ def parse_pin_manifest(text: str) -> PinManifest:
 
 
 def parse_case_contract(payload: dict[str, Any]) -> CaseContract:
-    cases = {
-        item["case_id"]: ReferenceCase(
+    cases = build_unique_index(
+        payload["frozen_cases"],
+        id_field="case_id",
+        artifact_name="reference_case_contract.json",
+        item_builder=lambda item: ReferenceCase(
             case_id=str(item["case_id"]),
             frozen_id=str(item["frozen_id"]),
             purpose=str(item["purpose"]),
             frozen_default_contract=dict(item["frozen_default_contract"]),
-        )
-        for item in payload["frozen_cases"]
-    }
+        ),
+    )
     return CaseContract(
         by_case_id=cases,
         phase_gate_mapping=dict(payload["phase_gate_mapping"]),
@@ -370,29 +394,33 @@ def parse_support_matrix(payload: dict[str, Any]) -> SupportMatrix:
 
 
 def parse_acceptance_manifest(payload: dict[str, Any]) -> AcceptanceManifest:
-    tuples_by_id = {
-        item["tuple_id"]: AcceptedTuple(
+    tuples_by_id = build_unique_index(
+        payload["accepted_tuples"],
+        id_field="tuple_id",
+        artifact_name="acceptance_manifest.json",
+        item_builder=lambda item: AcceptedTuple(
             tuple_id=str(item["tuple_id"]),
             case_id=str(item["case_id"]),
             backend=str(item["backend"]),
             execution_mode=str(item["execution_mode"]),
             required_stage_ids=tuple(str(stage_id) for stage_id in item["required_stage_ids"]),
             raw=dict(item),
-        )
-        for item in payload["accepted_tuples"]
-    }
+        ),
+    )
     return AcceptanceManifest(tuples_by_id=tuples_by_id, raw=payload)
 
 
 def parse_graph_capture_matrix(payload: dict[str, Any]) -> GraphCaptureMatrix:
-    stages = {
-        item["stage_id"]: GraphStage(
+    stages = build_unique_index(
+        payload["stages"],
+        id_field="stage_id",
+        artifact_name="graph_capture_support_matrix.json",
+        item_builder=lambda item: GraphStage(
             stage_id=str(item["stage_id"]),
             fallback_mode=str(item["fallback_mode"]),
             raw=dict(item),
-        )
-        for item in payload["stages"]
-    }
+        ),
+    )
     run_modes = tuple(str(item["run_mode"]) for item in payload["run_modes"])
     return GraphCaptureMatrix(
         run_modes=run_modes,
@@ -560,6 +588,24 @@ def markdown_table_rows(text: str, heading: str) -> list[dict[str, str]]:
             raise AuthorityConflictError(f"malformed markdown table row in section: {heading}")
         rows.append(dict(zip(headers, cells, strict=True)))
     return rows
+
+
+def build_unique_index(
+    items: list[dict[str, Any]],
+    *,
+    id_field: str,
+    artifact_name: str,
+    item_builder: Any,
+) -> dict[str, Any]:
+    indexed: dict[str, Any] = {}
+    for item in items:
+        item_id = str(item[id_field])
+        if item_id in indexed:
+            raise AuthorityConflictError(
+                f"duplicate {id_field} {item_id!r} in {artifact_name}"
+            )
+        indexed[item_id] = item_builder(item)
+    return indexed
 
 
 def build_arg_parser() -> argparse.ArgumentParser:
