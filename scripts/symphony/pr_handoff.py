@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Worker-owned Symphony PR handoff for local Codex review and PR opening."""
+"""Worker-owned Symphony PR handoff for local Codex review and PR automation."""
 
 from __future__ import annotations
 
@@ -14,10 +14,10 @@ from dataclasses import dataclass
 from typing import Any
 
 try:
-    from scripts.symphony import github_linear_bridge, review_loop, telemetry
+    from scripts.symphony import linear_api, review_loop
 except ModuleNotFoundError:  # pragma: no cover - script execution fallback
     sys.path.append(str(pathlib.Path(__file__).resolve().parents[2]))
-    from scripts.symphony import github_linear_bridge, review_loop, telemetry
+    from scripts.symphony import linear_api, review_loop
 
 
 IN_REVIEW_STATE = "In Review"
@@ -66,16 +66,10 @@ def workspace_issue_identifier(workspace: pathlib.Path) -> str:
     return workspace.name
 
 
-def run_checked(
-    command: list[str],
-    *,
-    cwd: pathlib.Path,
-    env: dict[str, str] | None = None,
-) -> subprocess.CompletedProcess[str]:
+def run_checked(command: list[str], *, cwd: pathlib.Path) -> subprocess.CompletedProcess[str]:
     completed = subprocess.run(
         command,
         cwd=cwd,
-        env=env,
         text=True,
         capture_output=True,
         check=False,
@@ -88,17 +82,11 @@ def run_checked(
 
 
 def current_branch(workspace: pathlib.Path) -> str:
-    return run_checked(
-        ["git", "branch", "--show-current"],
-        cwd=workspace,
-    ).stdout.strip()
+    return run_checked(["git", "branch", "--show-current"], cwd=workspace).stdout.strip()
 
 
 def worktree_is_clean(workspace: pathlib.Path) -> bool:
-    return not run_checked(
-        ["git", "status", "--short"],
-        cwd=workspace,
-    ).stdout.strip()
+    return not run_checked(["git", "status", "--short"], cwd=workspace).stdout.strip()
 
 
 def branch_exists_on_origin(workspace: pathlib.Path, branch: str) -> bool:
@@ -110,6 +98,13 @@ def branch_exists_on_origin(workspace: pathlib.Path, branch: str) -> bool:
         check=False,
     )
     return completed.returncode == 0
+
+
+def ensure_branch_pushed(workspace: pathlib.Path, branch: str) -> None:
+    if branch_exists_on_origin(workspace, branch):
+        run_checked(["git", "push", "origin", branch], cwd=workspace)
+    else:
+        run_checked(["git", "push", "-u", "origin", branch], cwd=workspace)
 
 
 def find_existing_pr(workspace: pathlib.Path, branch: str) -> PullRequestRef | None:
@@ -251,178 +246,99 @@ def ensure_pr(
             cwd=workspace,
         )
         if existing.is_draft:
-            run_checked(
-                ["gh", "pr", "ready", str(existing.number)],
-                cwd=workspace,
-            )
+            run_checked(["gh", "pr", "ready", str(existing.number)], cwd=workspace)
         return PullRequestRef(existing.number, existing.url, False)
+
     completed = run_checked(
         [
             "gh",
             "pr",
             "create",
-            "--base",
-            "main",
-            "--head",
-            branch,
             "--title",
             title,
             "--body",
             body,
+            "--base",
+            "main",
+            "--head",
+            branch,
         ],
         cwd=workspace,
     )
-    url = completed.stdout.strip().splitlines()[-1]
-    if not url:
-        raise HandoffError("gh pr create did not return a PR URL")
-    pr = find_existing_pr(workspace, branch)
-    if pr is None:
-        raise HandoffError("failed to resolve PR after creation")
-    return PullRequestRef(pr.number, url, False)
-
-
-def emit_handoff_telemetry(
-    *,
-    event_type: str,
-    message: str,
-    issue: str,
-    details: dict[str, Any],
-    workspace: pathlib.Path,
-    pr: int | None = None,
-    state: str | None = None,
-) -> None:
-    event = telemetry.build_event(
-        event_type=event_type,
-        message=message,
-        issue=issue,
-        pr=pr,
-        state=state,
-        details=details,
+    pr_url = completed.stdout.strip().splitlines()[-1].strip()
+    view_completed = run_checked(
+        ["gh", "pr", "view", pr_url, "--json", "number,url,isDraft"],
         cwd=workspace,
-        repo_root=workspace,
     )
-    telemetry.write_event(telemetry.default_telemetry_root(), event)
+    payload = json.loads(view_completed.stdout)
+    return PullRequestRef(
+        number=int(payload["number"]),
+        url=str(payload["url"]),
+        is_draft=bool(payload["isDraft"]),
+    )
 
 
-def result_payload(
-    *,
-    issue: str,
-    branch: str,
-    review_result: ReviewResult,
-    pr: PullRequestRef | None = None,
-) -> dict[str, Any]:
-    manifest = review_result.manifest or {}
-    payload: dict[str, Any] = {
-        "issue": issue,
-        "branch": branch,
-        "status": review_result.status,
-        "message_path": manifest.get("message_path"),
-        "jsonl_path": manifest.get("jsonl_path"),
-        "stderr_path": manifest.get("stderr_path"),
-    }
-    if pr is not None:
-        payload["pr"] = {"number": pr.number, "url": pr.url, "is_draft": pr.is_draft}
-    return payload
+def enable_auto_merge(workspace: pathlib.Path, pr_number: int) -> None:
+    run_checked(
+        ["gh", "pr", "merge", str(pr_number), "--auto", "--merge"],
+        cwd=workspace,
+    )
 
 
 def main() -> int:
     args = parse_args()
     workspace = pathlib.Path(args.workspace).resolve()
     issue_identifier = workspace_issue_identifier(workspace)
-    issue = github_linear_bridge.fetch_linear_issue(issue_identifier)
+
+    if not worktree_is_clean(workspace):
+        raise HandoffError(
+            "workspace must be clean before PR handoff; commit your changes first"
+        )
+
+    issue = linear_api.fetch_issue(issue_identifier)
     issue_title = issue.get("title") or issue_identifier
 
-    branch = current_branch(workspace)
-    if branch in {"", "main"}:
-        raise HandoffError("refusing PR handoff from the default branch")
-    if not worktree_is_clean(workspace):
-        raise HandoffError("workspace is dirty; commit or stash before PR handoff")
-    if not branch_exists_on_origin(workspace, branch):
-        raise HandoffError("branch is not pushed to origin; push before PR handoff")
-
     review_result = run_host_review(workspace, issue_identifier)
-    emit_handoff_telemetry(
-        event_type="host_local_review_completed",
-        message=f"Host-side local Codex review completed with status={review_result.status}",
-        issue=issue_identifier,
-        details={
-            "branch": branch,
+    result: dict[str, Any] = {
+        "issue_identifier": issue_identifier,
+        "issue_title": issue_title,
+        "review": {
             "status": review_result.status,
-            "manifest": json.dumps(review_result.manifest or {}, sort_keys=True),
+            "message": review_result.message,
+            "manifest": review_result.manifest,
         },
-        workspace=workspace,
-    )
+    }
 
     if review_result.status == "findings":
-        print(
-            json.dumps(
-                result_payload(
-                    issue=issue_identifier,
-                    branch=branch,
-                    review_result=review_result,
-                ),
-                sort_keys=True,
-            )
-        )
-        return 0
-
+        print(json.dumps(result, indent=2))
+        return 2
     if review_result.status != "clean":
-        emit_handoff_telemetry(
-            event_type="host_local_review_blocked",
-            message="Host-side local Codex review did not produce a usable result",
-            issue=issue_identifier,
-            details={"branch": branch},
-            workspace=workspace,
-        )
-        raise HandoffError("host-side local Codex review did not produce a usable result")
+        raise HandoffError("local Codex review did not produce a clean result")
 
-    pr = ensure_pr(workspace, issue_identifier, issue_title, branch)
-    emit_handoff_telemetry(
-        event_type="pr_opened",
-        message="Opened or updated PR after a clean local Codex review loop",
-        issue=issue_identifier,
-        pr=pr.number,
-        state=IN_REVIEW_STATE,
-        details={"branch": branch, "url": pr.url},
-        workspace=workspace,
-    )
-    github_linear_bridge.update_linear_issue_state(issue_identifier, IN_REVIEW_STATE)
-    emit_handoff_telemetry(
-        event_type="review_requested",
-        message=f"Local Codex review is clean and PR #{pr.number} is ready for external review",
-        issue=issue_identifier,
-        pr=pr.number,
-        state=IN_REVIEW_STATE,
-        details={
-            "branch": branch,
-            "url": pr.url,
-            "review_artifact": review_result.manifest.get("jsonl_path")
-            if review_result.manifest
-            else None,
-        },
-        workspace=workspace,
-    )
-    print(
-        json.dumps(
-            result_payload(
-                issue=issue_identifier,
-                branch=branch,
-                review_result=ReviewResult(
-                    status="in_review",
-                    message=review_result.message,
-                    manifest=review_result.manifest,
-                ),
-                pr=pr,
-            ),
-            sort_keys=True,
-        )
-    )
+    branch = current_branch(workspace)
+    ensure_branch_pushed(workspace, branch)
+    pr_ref = ensure_pr(workspace, issue_identifier, issue_title, branch)
+    enable_auto_merge(workspace, pr_ref.number)
+    linear_update = linear_api.update_issue_state(issue_identifier, IN_REVIEW_STATE)
+
+    result["branch"] = branch
+    result["pull_request"] = {
+        "number": pr_ref.number,
+        "url": pr_ref.url,
+        "auto_merge_enabled": True,
+    }
+    result["linear_update"] = {
+        "previous_state": linear_update["previous_state"],
+        "current_state": linear_update["current_state"],
+        "changed": linear_update["changed"],
+    }
+    print(json.dumps(result, indent=2))
     return 0
 
 
 if __name__ == "__main__":
     try:
         sys.exit(main())
-    except (HandoffError, github_linear_bridge.review_loop.CommandError, FileNotFoundError, ValueError) as exc:
+    except (HandoffError, review_loop.CommandError, FileNotFoundError, ValueError) as exc:
         print(str(exc), file=sys.stderr)
         sys.exit(1)

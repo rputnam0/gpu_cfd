@@ -26,26 +26,17 @@ class PrHandoffTests(unittest.TestCase):
         self.assertFalse(pr_handoff.review_message_is_clean(message))
         self.assertTrue(pr_handoff.review_message_has_findings(message))
 
-    def test_result_payload_includes_pr_details_when_present(self) -> None:
-        payload = pr_handoff.result_payload(
-            issue="PRO-6",
-            branch="rputnam0/pro-6-example",
-            review_result=pr_handoff.ReviewResult(
-                status="in_review",
-                message="No findings.",
-                manifest={"jsonl_path": "artifact.jsonl", "message_path": "artifact.md"},
-            ),
-            pr=pr_handoff.PullRequestRef(
-                number=7,
-                url="https://github.com/rputnam0/gpu_cfd/pull/7",
-                is_draft=False,
-            ),
+    def test_build_pr_title_prefixes_issue_identifier(self) -> None:
+        self.assertEqual(
+            pr_handoff.build_pr_title("PRO-6", "Example change"),
+            "[codex] PRO-6 Example change",
         )
 
-        self.assertEqual(payload["status"], "in_review")
-        self.assertEqual(payload["issue"], "PRO-6")
-        self.assertEqual(payload["pr"]["number"], 7)
-        self.assertEqual(payload["pr"]["url"], "https://github.com/rputnam0/gpu_cfd/pull/7")
+    def test_build_pr_body_mentions_closing_issue(self) -> None:
+        body = pr_handoff.build_pr_body("PRO-6", "Example change")
+
+        self.assertIn("Implement PRO-6: Example change", body)
+        self.assertIn("Closes PRO-6", body)
 
 
 if __name__ == "__main__":

@@ -1,0 +1,15 @@
+[Unit]
+Description=Symphony GPU CFD orchestrator
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=%h/projects/symphony/elixir
+EnvironmentFile=%h/projects/symphony/.env
+ExecStart=/usr/bin/env bash -lc 'mise exec -- ./bin/symphony --i-understand-that-this-will-be-running-without-the-usual-guardrails --logs-root "$HOME/projects/symphony-logs/gpu_cfd" --port "${SYMPHONY_DASHBOARD_PORT:-4040}" "$HOME/projects/gpu_cfd/WORKFLOW.md"'
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=default.target

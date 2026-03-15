@@ -15,10 +15,10 @@ from dataclasses import asdict, dataclass
 from typing import Any
 
 try:
-    from scripts.symphony import runtime_config, telemetry
+    from scripts.symphony import runtime_config
 except ModuleNotFoundError:  # pragma: no cover - script execution fallback
     sys.path.append(str(pathlib.Path(__file__).resolve().parents[2]))
-    from scripts.symphony import runtime_config, telemetry
+    from scripts.symphony import runtime_config
 
 
 DEFAULT_BASE_BRANCH = "origin/main"
@@ -124,7 +124,7 @@ def parse_args() -> argparse.Namespace:
     )
     codex_review_parser.add_argument("--base", default=DEFAULT_BASE_BRANCH)
     codex_review_parser.add_argument(
-        "--issue", help="Linear issue identifier for telemetry."
+        "--issue", help="Linear issue identifier for review artifact naming."
     )
     codex_review_parser.add_argument(
         "--artifact-dir",
@@ -151,7 +151,9 @@ def parse_args() -> argparse.Namespace:
     review_parser.add_argument(
         "--pr", type=int, help="Pull request number. Defaults to current branch PR."
     )
-    review_parser.add_argument("--issue", help="Linear issue identifier for telemetry.")
+    review_parser.add_argument(
+        "--issue", help="Linear issue identifier for review-state reporting."
+    )
     review_parser.add_argument(
         "--reviewer",
         action="append",
@@ -488,24 +490,6 @@ def extract_last_agent_message(jsonl_text: str) -> str:
     return last_message
 
 
-def emit_review_telemetry(
-    *,
-    event_type: str,
-    message: str,
-    issue: str | None = None,
-    pr: int | None = None,
-    details: dict[str, Any] | None = None,
-) -> None:
-    event = telemetry.build_event(
-        event_type=event_type,
-        message=message,
-        issue=issue,
-        pr=pr,
-        details=details or {},
-    )
-    telemetry.write_event(telemetry.default_telemetry_root(), event)
-
-
 def run_codex_review(
     base_branch: str,
     artifact_dir: str,
@@ -584,20 +568,6 @@ def run_codex_review(
         "stderr_path": stderr_path.relative_to(root).as_posix(),
     }
     manifest_path.write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
-    emit_review_telemetry(
-        event_type="local_codex_review_completed",
-        message="Local Codex review gate completed",
-        issue=issue,
-        details={
-            "base_branch": base_branch,
-            "branch": branch,
-            "commit": commit_sha,
-            "returncode": str(completed.returncode),
-            "timeout_seconds": str(timeout_seconds),
-            "message_path": manifest["message_path"],
-            "jsonl_path": manifest["jsonl_path"],
-        },
-    )
     print(json.dumps(manifest, indent=2))
     return completed.returncode
 
@@ -605,17 +575,6 @@ def run_codex_review(
 def status_command(args: argparse.Namespace) -> int:
     reviewers = args.reviewers or list(DEFAULT_REVIEWERS)
     summary = fetch_pr_summary(args.repo, args.pr, reviewers)
-    emit_review_telemetry(
-        event_type=f"github_review_{summary.review_state}",
-        message=f"GitHub review status: {summary.review_state}",
-        issue=args.issue,
-        pr=summary.pr_number,
-        details={
-            "review_decision": summary.review_decision or "",
-            "head_oid": summary.head_oid or "",
-            "reviewers": ",".join(summary.reviewers),
-        },
-    )
     print(json.dumps(asdict(summary), indent=2))
     return 0 if summary.review_state in {"clean", "merged"} else 1
 

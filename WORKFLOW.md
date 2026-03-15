@@ -6,7 +6,6 @@ tracker:
     - Todo
     - In Progress
     - Rework
-    - Ready to Merge
   terminal_states:
     - Done
     - Canceled
@@ -20,15 +19,7 @@ hooks:
   after_create: |
     : "${GPU_CFD_SOURCE_REPO_URL:=https://github.com/rputnam0/gpu_cfd.git}"
     git clone "$GPU_CFD_SOURCE_REPO_URL" .
-    if [ -n "${GPU_CFD_BOOTSTRAP_REF:-}" ]; then
-      git fetch origin "$GPU_CFD_BOOTSTRAP_REF"
-      git checkout "$GPU_CFD_BOOTSTRAP_REF"
-    fi
     git fetch origin --prune
-  before_run: |
-    git status --short --branch >/dev/null
-    python3 "$GPU_CFD_CONTROL_REPO_ROOT/scripts/symphony/workspace_sync.py" --workspace "$PWD"
-    python3 "$GPU_CFD_CONTROL_REPO_ROOT/scripts/symphony/resume_context.py" --workspace "$PWD"
 agent:
   max_concurrent_agents: 1
   max_turns: 40
@@ -36,9 +27,8 @@ agent:
     todo: 1
     in progress: 1
     rework: 1
-    ready to merge: 1
 codex:
-  command: "python3 \"$GPU_CFD_CONTROL_REPO_ROOT/scripts/symphony/codex_runner.py\" implementation app-server"
+  command: codex --config shell_environment_policy.inherit=all --config model_reasoning_effort=medium --model gpt-5.4 app-server
   approval_policy: never
   thread_sandbox: workspace-write
   turn_sandbox_policy:
@@ -53,8 +43,7 @@ This repository is doc-driven. Before changing code, open these files in order:
 1. `docs/README_FIRST.md`
 2. `docs/tasks/pr_inventory.md`
 3. The owning `docs/tasks/NN_*.md` file for the PR ID in this issue
-4. `$GPU_CFD_CONTROL_REPO_ROOT/.codex/skills/gpu-cfd-symphony/SKILL.md` from the control repo, not the workspace copy
-5. `.codex/symphony/resume_context.md` when it exists, especially on `Rework` and `Ready to Merge` runs
+4. `.codex/skills/gpu-cfd-symphony/SKILL.md`
 
 Issue context:
 
@@ -64,7 +53,6 @@ Issue context:
 - Labels: `{{ issue.labels }}`
 - URL: `{{ issue.url }}`
 - Attempt: `{% if attempt %}{{ attempt }}{% else %}first run{% endif %}`
-- Blockers: inspect the Linear issue relations directly before starting any blocked work.
 
 Description:
 {% if issue.description %}
@@ -78,24 +66,24 @@ Execution contract:
 - Linear is the execution surface. The repository docs remain the technical source of truth.
 - Treat the assigned PR ID as a hard scope boundary. Do not absorb neighboring backlog items.
 - Respect dependency edges from `docs/backlog/gpu_cfd_pr_backlog.json` and `docs/tasks/pr_inventory.md`.
-- Use the Linear MCP tools on the worker host for issue comments, state changes, and review follow-up. If Linear MCP is unavailable or not authenticated, leave a concise blocker note and stop.
-- Keep one persistent Linear workpad comment or concise progress-note trail up to date during implementation and review follow-up.
-- Record structured telemetry for important transitions with `uv run python scripts/symphony/telemetry.py event ...`; at minimum log issue start, blockers, PR open/update, `review_requested`, and merge.
-- Treat `.codex/symphony/resume_context.md` as the continuity brief for this issue workspace. Refresh it by rerunning the helper if you materially change the branch state during the run.
+- Worker-side Linear access is required for workpad comments, state changes, and issue lookups.
+- Prefer Symphony's built-in `linear_graphql` tool when Symphony injects it into the app-server session.
+- The WSL Codex worker runtime also has the official Linear MCP configured and authenticated for individual workers. If neither `linear_graphql` nor Linear MCP is available, record a blocker and stop.
+- Keep one persistent Linear workpad comment or concise progress-note trail up to date during implementation and rework.
 - If the issue state is `Todo`, move it to `In Progress` before implementation work.
-- If the issue state is `Rework`, start with a Linear comment sweep plus a GitHub PR review sweep before new edits.
-- If the issue state is `Ready to Merge`, start by confirming the linked PR head is current and that required checks are green.
+- If the issue state is `Rework`, start with a GitHub PR feedback sweep for the current head before new edits.
 - If the issue already has a PR attached, start with a review-feedback sweep before new edits.
 - If the branch is already clean and pushed but no PR exists, treat the run as ready for the sanctioned pre-PR handoff instead of reopening implementation planning.
 - Never move an issue back to `Backlog` after implementation has started. `Backlog` is only for untouched dependency-gated work.
 - Use the issue branch name when available; otherwise create a `codex/` branch derived from the issue identifier.
 - Run the smallest relevant validation first, then broader checks when the scope requires it.
-- When the task is implementation-complete, commit and push the branch, record validation evidence in the workpad, then run `python3 "$GPU_CFD_CONTROL_REPO_ROOT/scripts/symphony/pr_handoff.py" --workspace "$PWD"`.
+- When the task is implementation-complete, commit and push the branch, record validation evidence in the workpad, then run `python3 scripts/symphony/pr_handoff.py --workspace "$PWD"`.
 - If the handoff helper reports findings, inspect the latest artifact under `.codex/review_artifacts/`, fix the valid findings in the same run, rerun the smallest relevant validation, and rerun the handoff helper once.
-- When the handoff helper succeeds, it opens or updates the GitHub PR, emits `review_requested`, moves the issue to `In Review`, and the run should stop after you update the workpad with the PR URL.
-- `In Review` is a dormant state for Symphony workers. The GitHub event bridge at `.github/workflows/linear-review-bridge.yml` moves the linked issue into `Rework` when Devin leaves actionable feedback and into `Ready to Merge` when the current PR head is clean and mergeable.
-- On a resumed `Rework` run, use the latest Devin-authored Linear comments when a PR exists, or the latest local review artifact under `.codex/review_artifacts/` when no PR exists, as the primary review signal. Fix valid findings, rerun the smallest relevant validation, push, and rerun the handoff helper before returning to `In Review`.
-- On a resumed `Ready to Merge` run, verify the linked PR is clean on the current head and branch protection is satisfied, merge with GitHub CLI, confirm the default branch contains the change, move the Linear issue to `Done`, and then use Linear MCP to inspect direct blocked issues and promote any newly unblocked dependents from `Backlog` to `Todo`.
+- When the handoff helper succeeds, it opens or updates the GitHub PR, enables auto-merge, moves the issue to `In Review`, and the run should stop after you update the workpad with the PR URL.
+- `In Review` is a dormant automated-review state. Do not wait, poll, or sleep for Devin.
+- GitHub automation owns the `In Review -> Rework` transition when Devin leaves actionable feedback on the current head.
+- GitHub auto-merge owns the final merge once `review-loop-harness` and `devin-review-gate` are green.
+- GitHub post-merge automation owns `In Review -> Done` and dependent release from `Backlog -> Todo`.
 - `Backlog` means parked or blocked work and is out of scope for this run.
 - If required auth, secrets, or external tools are missing, record a concise blocker note and stop instead of widening scope.
 
@@ -104,5 +92,5 @@ Completion bar:
 - The exact task card's objective, validation, and done criteria are satisfied.
 - Repo changes are limited to the assigned PR card.
 - Validation evidence is recorded in the Linear workpad.
-- The PR has passed one local Codex review loop and any valid Devin review findings surfaced through Linear on the current head are addressed.
-- The PR is merged, not just opened.
+- The PR has passed one local Codex review loop.
+- The PR has completed a fresh Devin review cycle on the current head and merged through GitHub auto-merge.
