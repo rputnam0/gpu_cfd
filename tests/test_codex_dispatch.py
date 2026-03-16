@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import argparse
+import io
 import json
 import os
 import pathlib
@@ -8,6 +10,7 @@ import unittest
 from unittest import mock
 
 from scripts.symphony import codex_dispatch
+from scripts.symphony.runtime_config import CodexProfile
 
 
 class CodexDispatchTests(unittest.TestCase):
@@ -90,6 +93,81 @@ class CodexDispatchTests(unittest.TestCase):
 
         self.assertEqual(snapshot["title"], "FND-04 override")
         self.assertEqual(snapshot["description"], "override payload")
+
+    def test_main_preserves_worker_exit_code_when_trace_finalization_fetch_fails(
+        self,
+    ) -> None:
+        initial_issue = {
+            "identifier": "PRO-17",
+            "title": "P4-08 Observability trace viewer",
+            "url": "https://linear.app/example/PRO-17",
+            "state": {"name": "Todo"},
+            "labels": {"nodes": [{"name": "observability"}]},
+        }
+        runtime_profile = CodexProfile(model="gpt-5.4", reasoning_effort="medium")
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_path = pathlib.Path(temp_dir)
+            workspace = temp_path / "PRO-17"
+            workspace.mkdir()
+            stderr_buffer = io.StringIO()
+
+            with (
+                mock.patch.object(
+                    codex_dispatch,
+                    "parse_args",
+                    return_value=argparse.Namespace(codex_args=["app-server"]),
+                ),
+                mock.patch.object(codex_dispatch, "repo_root", return_value=self.repo_root()),
+                mock.patch.object(codex_dispatch, "workspace_root", return_value=workspace),
+                mock.patch.object(
+                    codex_dispatch,
+                    "fetch_issue_snapshot",
+                    side_effect=[
+                        initial_issue,
+                        codex_dispatch.DispatchError("final issue fetch failed"),
+                    ],
+                ),
+                mock.patch.object(codex_dispatch, "current_branch", return_value="codex/test"),
+                mock.patch.object(
+                    codex_dispatch.runtime_config,
+                    "build_codex_command",
+                    return_value=["codex", "app-server"],
+                ),
+                mock.patch.object(
+                    codex_dispatch.runtime_config,
+                    "load_codex_profile",
+                    return_value=runtime_profile,
+                ),
+                mock.patch.object(codex_dispatch.trace, "is_enabled", return_value=True),
+                mock.patch.object(codex_dispatch.trace, "latest_run_summary", return_value=None),
+                mock.patch.object(
+                    codex_dispatch.trace,
+                    "create_run",
+                    return_value={"issue_id": "PRO-17", "run_id": "run-1"},
+                ),
+                mock.patch.object(codex_dispatch, "capture_dispatch_bundle"),
+                mock.patch.object(codex_dispatch.trace, "resolve_trace_root", return_value=temp_path),
+                mock.patch.object(codex_dispatch.trace, "run_dir", return_value=temp_path / "run"),
+                mock.patch.object(
+                    codex_dispatch,
+                    "launch_codex_proxy",
+                    return_value=(0, {}),
+                ),
+                mock.patch.object(codex_dispatch, "current_commit", side_effect=["before", "after"]),
+                mock.patch.object(codex_dispatch.trace, "capture_event") as mock_capture_event,
+                mock.patch.object(codex_dispatch.trace, "finalize_run") as mock_finalize_run,
+                mock.patch("sys.stderr", stderr_buffer),
+            ):
+                exit_code = codex_dispatch.main()
+
+        self.assertEqual(exit_code, 0)
+        self.assertIn("trace finalization: could not fetch final issue state", stderr_buffer.getvalue())
+        self.assertEqual(
+            mock_capture_event.call_args.kwargs["metadata"]["final_state"],
+            "Todo",
+        )
+        self.assertEqual(mock_finalize_run.call_args.kwargs["state_end"], "Todo")
 
 
 if __name__ == "__main__":

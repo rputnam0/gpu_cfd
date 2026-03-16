@@ -691,35 +691,45 @@ def main() -> int:
             )
             transcript_artifacts.append(recorded["artifact_id"])
 
-        final_issue = fetch_issue_snapshot(issue_identifier)
-        final_state = issue_state_name(final_issue) or state_start
+        try:
+            final_issue = fetch_issue_snapshot(issue_identifier)
+            final_state = issue_state_name(final_issue) or state_start
+        except Exception as exc:
+            print(
+                f"trace finalization: could not fetch final issue state: {exc}",
+                file=sys.stderr,
+            )
+            final_state = state_start
         commit_after = current_commit(workspace)
-        trace.capture_event(
-            issue_id=issue_identifier,
-            run_id=run_manifest["run_id"],
-            actor="Codex worker",
-            stage="worker_exit",
-            summary="Codex app-server process exited",
-            decision=f"returncode={return_code}",
-            decision_rationale="Worker process finished and final state was captured",
-            artifact_refs=transcript_artifacts,
-            metadata={
-                "returncode": return_code,
-                "commit_before": commit_before,
-                "commit_after": commit_after,
-                "final_state": final_state,
-            },
-        )
-        trace.finalize_run(
-            issue_id=issue_identifier,
-            run_id=run_manifest["run_id"],
-            state_end=final_state,
-            metadata={
-                "returncode": return_code,
-                "commit_before": commit_before,
-                "commit_after": commit_after,
-            },
-        )
+        try:
+            trace.capture_event(
+                issue_id=issue_identifier,
+                run_id=run_manifest["run_id"],
+                actor="Codex worker",
+                stage="worker_exit",
+                summary="Codex app-server process exited",
+                decision=f"returncode={return_code}",
+                decision_rationale="Worker process finished and final state was captured",
+                artifact_refs=transcript_artifacts,
+                metadata={
+                    "returncode": return_code,
+                    "commit_before": commit_before,
+                    "commit_after": commit_after,
+                    "final_state": final_state,
+                },
+            )
+            trace.finalize_run(
+                issue_id=issue_identifier,
+                run_id=run_manifest["run_id"],
+                state_end=final_state,
+                metadata={
+                    "returncode": return_code,
+                    "commit_before": commit_before,
+                    "commit_after": commit_after,
+                },
+            )
+        except Exception as exc:
+            print(f"trace finalization: could not record trace data: {exc}", file=sys.stderr)
     return return_code
 
 
