@@ -35,6 +35,7 @@ codex:
   command: uv run python scripts/symphony/codex_dispatch.py app-server
   approval_policy: never
   thread_sandbox: workspace-write
+  read_timeout_ms: 30000
   turn_sandbox_policy:
     type: workspaceWrite
     networkAccess: true
