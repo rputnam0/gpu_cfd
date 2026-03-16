@@ -145,7 +145,9 @@ def validate_case_meta(bundle: AuthorityBundle, payload: dict[str, Any]) -> dict
             f"must resolve to case_id {resolved_case.frozen_id!r}"
         )
 
-    ladder_position = int(payload["ladder_position"])
+    ladder_position = payload["ladder_position"]
+    if not isinstance(ladder_position, int) or isinstance(ladder_position, bool):
+        raise AuthoritySelectionError(f"{CANONICAL_CASE_META_NAME} ladder_position must be an integer")
     if ladder_position != resolved_case.ladder_position:
         raise AuthoritySelectionError(
             f"{CANONICAL_CASE_META_NAME} ladder_position {ladder_position} "
@@ -153,7 +155,16 @@ def validate_case_meta(bundle: AuthorityBundle, payload: dict[str, Any]) -> dict
             f"for case role {resolved_case.case_role!r}"
         )
 
-    phase_gates = tuple(str(phase_gate) for phase_gate in payload["phase_gates"])
+    phase_gates_value = payload["phase_gates"]
+    if not isinstance(phase_gates_value, list):
+        raise AuthoritySelectionError(
+            f"{CANONICAL_CASE_META_NAME} phase_gates must be a list of phase-gate names"
+        )
+    if any(not isinstance(phase_gate, str) for phase_gate in phase_gates_value):
+        raise AuthoritySelectionError(
+            f"{CANONICAL_CASE_META_NAME} phase_gates must contain only strings"
+        )
+    phase_gates = tuple(phase_gates_value)
     expected_phase_gates = resolved_case.phase_gates
     if phase_gates != expected_phase_gates:
         raise AuthoritySelectionError(
@@ -260,14 +271,32 @@ def validate_stage_plan(bundle: AuthorityBundle, payload: dict[str, Any]) -> dic
         )
     resolve_phase_gate_case(bundle, phase_gate=phase_gate, case_role=selected_case_role)
 
-    available_case_roles = tuple(str(case_role) for case_role in phase_gate_selection["available_case_roles"])
+    available_case_roles_value = phase_gate_selection["available_case_roles"]
+    if not isinstance(available_case_roles_value, list):
+        raise AuthoritySelectionError(
+            f"{CANONICAL_STAGE_PLAN_NAME} available_case_roles must be a list of case roles"
+        )
+    if any(not isinstance(case_role, str) for case_role in available_case_roles_value):
+        raise AuthoritySelectionError(
+            f"{CANONICAL_STAGE_PLAN_NAME} available_case_roles must contain only strings"
+        )
+    available_case_roles = tuple(available_case_roles_value)
     if available_case_roles != allowed_case_roles:
         raise AuthoritySelectionError(
             f"{CANONICAL_STAGE_PLAN_NAME} available_case_roles for phase gate {phase_gate!r} "
             f"must remain {list(allowed_case_roles)!r}"
         )
 
-    ordered_ladder = tuple(str(case_role) for case_role in phase_gate_selection["ordered_ladder"])
+    ordered_ladder_value = phase_gate_selection["ordered_ladder"]
+    if not isinstance(ordered_ladder_value, list):
+        raise AuthoritySelectionError(
+            f"{CANONICAL_STAGE_PLAN_NAME} ordered_ladder must be a list of case roles"
+        )
+    if any(not isinstance(case_role, str) for case_role in ordered_ladder_value):
+        raise AuthoritySelectionError(
+            f"{CANONICAL_STAGE_PLAN_NAME} ordered_ladder must contain only strings"
+        )
+    ordered_ladder = tuple(ordered_ladder_value)
     try:
         validate_frozen_ladder(bundle, ordered_ladder)
     except AuthoritySelectionError as exc:
@@ -280,11 +309,15 @@ def validate_stage_plan(bundle: AuthorityBundle, payload: dict[str, Any]) -> dic
     if not isinstance(stages, list) or not stages:
         raise AuthoritySelectionError(f"{CANONICAL_STAGE_PLAN_NAME} stages must be a non-empty list")
     for stage in stages:
-        if not isinstance(stage, dict) or not str(stage.get("name", "")).strip() or not str(
-            stage.get("cmd", "")
-        ).strip():
+        if (
+            not isinstance(stage, dict)
+            or not isinstance(stage.get("name"), str)
+            or not stage["name"].strip()
+            or not isinstance(stage.get("cmd"), str)
+            or not stage["cmd"].strip()
+        ):
             raise AuthoritySelectionError(
-                f"{CANONICAL_STAGE_PLAN_NAME} each stage must define non-empty name and cmd"
+                f"{CANONICAL_STAGE_PLAN_NAME} each stage must define string name and cmd values"
             )
 
     return payload

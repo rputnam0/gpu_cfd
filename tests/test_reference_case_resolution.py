@@ -136,6 +136,39 @@ class ReferenceCaseResolutionTests(unittest.TestCase):
                 },
             )
 
+    def test_case_meta_validation_rejects_non_canonical_types(self) -> None:
+        bundle = load_authority_bundle(repo_root())
+
+        with self.assertRaisesRegex(
+            AuthoritySelectionError,
+            "case_meta.json ladder_position must be an integer",
+        ):
+            validate_case_meta(
+                bundle,
+                {
+                    "schema_version": "1.0.0",
+                    "case_id": "phase0_r1_core_57_28_1000_internal_generic_v1",
+                    "case_role": "R1-core",
+                    "ladder_position": "2",
+                    "phase_gates": ["Phase 0", "Phase 2", "Phase 5", "Phase 8"],
+                },
+            )
+
+        with self.assertRaisesRegex(
+            AuthoritySelectionError,
+            "case_meta.json phase_gates must be a list of phase-gate names",
+        ):
+            validate_case_meta(
+                bundle,
+                {
+                    "schema_version": "1.0.0",
+                    "case_id": "phase0_r1_core_57_28_1000_internal_generic_v1",
+                    "case_role": "R1-core",
+                    "ladder_position": 2,
+                    "phase_gates": {"Phase 0": True},
+                },
+            )
+
     def test_stage_plan_schema_and_validation_enforce_phase_gate_selection(self) -> None:
         bundle = load_authority_bundle(repo_root())
         schema = stage_plan_schema(bundle)
@@ -187,6 +220,69 @@ class ReferenceCaseResolutionTests(unittest.TestCase):
                         "ordered_ladder": ["R2", "R1", "R1-core", "R0"],
                     },
                     "stages": [{"name": "transient_run", "cmd": "foamRun"}],
+                },
+            )
+
+    def test_stage_plan_validation_rejects_non_canonical_types(self) -> None:
+        bundle = load_authority_bundle(repo_root())
+
+        with self.assertRaisesRegex(
+            AuthoritySelectionError,
+            "stage_plan.json available_case_roles must be a list of case roles",
+        ):
+            validate_stage_plan(
+                bundle,
+                {
+                    "schema_version": "1.0.0",
+                    "case_id": "phase0_r1_core_57_28_1000_internal_generic_v1",
+                    "case_role": "R1-core",
+                    "phase_gate": "Phase 5",
+                    "phase_gate_selection": {
+                        "selected_case_role": "R1-core",
+                        "available_case_roles": {"R2": True, "R1-core": True},
+                        "ordered_ladder": ["R2", "R1-core", "R1", "R0"],
+                    },
+                    "stages": [{"name": "transient_run", "cmd": "foamRun"}],
+                },
+            )
+
+        with self.assertRaisesRegex(
+            AuthoritySelectionError,
+            "stage_plan.json ordered_ladder must be a list of case roles",
+        ):
+            validate_stage_plan(
+                bundle,
+                {
+                    "schema_version": "1.0.0",
+                    "case_id": "phase0_r1_core_57_28_1000_internal_generic_v1",
+                    "case_role": "R1-core",
+                    "phase_gate": "Phase 5",
+                    "phase_gate_selection": {
+                        "selected_case_role": "R1-core",
+                        "available_case_roles": ["R2", "R1-core"],
+                        "ordered_ladder": {"R2": True, "R1-core": True},
+                    },
+                    "stages": [{"name": "transient_run", "cmd": "foamRun"}],
+                },
+            )
+
+        with self.assertRaisesRegex(
+            AuthoritySelectionError,
+            "stage_plan.json each stage must define string name and cmd values",
+        ):
+            validate_stage_plan(
+                bundle,
+                {
+                    "schema_version": "1.0.0",
+                    "case_id": "phase0_r1_core_57_28_1000_internal_generic_v1",
+                    "case_role": "R1-core",
+                    "phase_gate": "Phase 5",
+                    "phase_gate_selection": {
+                        "selected_case_role": "R1-core",
+                        "available_case_roles": ["R2", "R1-core"],
+                        "ordered_ladder": ["R2", "R1-core", "R1", "R0"],
+                    },
+                    "stages": [{"name": 1, "cmd": 2}],
                 },
             )
 
