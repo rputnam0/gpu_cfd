@@ -12,7 +12,7 @@ Phase 4 owns `P4-01..P4-09` and delivers the pressure solver bridge: dependency 
     - `docs/authority/master_pin_manifest.md` -> `## Consumption Rules`
     - `docs/authority/continuity_ledger.md` -> `# 1. Frozen global decisions` (canonical pressure path and toolchain pin ownership)
     - `docs/tasks/03_phase1_blackwell_bringup.md` -> `## P1-07 PTX-JIT proof and Phase 1 acceptance bundle`
-  - Phase spec or `README_FIRST` authority-order note for `FND-*`:
+  - Phase spec or `docs/authority/README.md` authority-order note for `FND-*`:
     - `docs/specs/phase4_linear_algebra_spec.md` -> `### Entry criteria`
     - `docs/specs/phase4_linear_algebra_spec.md` -> `#### Step 1 — Freeze dependency versions and add a standalone AmgX smoke target`
     - `docs/specs/phase4_linear_algebra_spec.md` -> `## Milestone M4.1 — Dependency freeze and AMgX smoke`
@@ -56,7 +56,7 @@ Phase 4 owns `P4-01..P4-09` and delivers the pressure solver bridge: dependency 
     - `docs/authority/continuity_ledger.md` -> `# 1. Frozen global decisions` (native pressure baseline and staged bring-up)
     - `docs/tasks/02_phase0_reference_problem_freeze.md` -> `## P0-08 Baseline B nozzle freeze and sign-off package`
     - `docs/tasks/boundary_matrix.md` -> `### Phase 4 -> Phase 5`
-  - Phase spec or `README_FIRST` authority-order note for `FND-*`:
+  - Phase spec or `docs/authority/README.md` authority-order note for `FND-*`:
     - `docs/specs/phase4_linear_algebra_spec.md` -> `### Entry criteria`
     - `docs/specs/phase4_linear_algebra_spec.md` -> `#### Step 2 — Add a pressure-system snapshot dump utility`
     - `docs/specs/phase4_linear_algebra_spec.md` -> `## Milestone M4.2 — Pressure snapshot dump`
@@ -98,7 +98,7 @@ Phase 4 owns `P4-01..P4-09` and delivers the pressure solver bridge: dependency 
   - Authority:
     - `docs/authority/continuity_ledger.md` -> `# 1. Frozen global decisions` (no post-warmup allocation churn, deterministic contracts)
     - `docs/tasks/boundary_matrix.md` -> `### Phase 4 -> Phase 5`
-  - Phase spec or `README_FIRST` authority-order note for `FND-*`:
+  - Phase spec or `docs/authority/README.md` authority-order note for `FND-*`:
     - `docs/specs/phase4_linear_algebra_spec.md` -> `#### Decision 4.2 — Cache topology in the object registry`
     - `docs/specs/phase4_linear_algebra_spec.md` -> `#### Decision 4.3 — Build a full CSR with diagonal embedded`
     - `docs/specs/phase4_linear_algebra_spec.md` -> `#### Decision 4.4 — Preserve asymmetric storage semantics`
@@ -140,7 +140,7 @@ Phase 4 owns `P4-01..P4-09` and delivers the pressure solver bridge: dependency 
   - Authority:
     - `docs/authority/continuity_ledger.md` -> `# 1. Frozen global decisions` (correctness-first bring-up and explicit boundary behavior)
     - `docs/authority/acceptance_manifest.md` -> `## Exact Threshold Classes`
-  - Phase spec or `README_FIRST` authority-order note for `FND-*`:
+  - Phase spec or `docs/authority/README.md` authority-order note for `FND-*`:
     - `docs/specs/phase4_linear_algebra_spec.md` -> `### \`CsrValuePacker\``
     - `docs/specs/phase4_linear_algebra_spec.md` -> `## Value-pack algorithm`
     - `docs/specs/phase4_linear_algebra_spec.md` -> `#### U2 — A*x equivalence test`
@@ -182,7 +182,7 @@ Phase 4 owns `P4-01..P4-09` and delivers the pressure solver bridge: dependency 
     - `docs/authority/master_pin_manifest.md` -> `## Frozen Defaults`
     - `docs/authority/continuity_ledger.md` -> `# 1. Frozen global decisions` (secondary AmgX backend posture)
     - `docs/authority/support_matrix.md` -> `## Backend and Operational Policy`
-  - Phase spec or `README_FIRST` authority-order note for `FND-*`:
+  - Phase spec or `docs/authority/README.md` authority-order note for `FND-*`:
     - `docs/specs/phase4_linear_algebra_spec.md` -> `### \`AmgXContext\``
     - `docs/specs/phase4_linear_algebra_spec.md` -> `#### Step 6 — Implement \`AmgXContext\` RAII wrapper`
     - `docs/specs/phase4_linear_algebra_spec.md` -> `#### Step 7 — Implement first-call upload path`
@@ -226,7 +226,7 @@ Phase 4 owns `P4-01..P4-09` and delivers the pressure solver bridge: dependency 
     - `docs/authority/continuity_ledger.md` -> `# 1. Frozen global decisions` (post-warmup allocation and host-transfer constraints)
     - `docs/tasks/04_phase2_gpu_memory_model.md` -> `## P2-04 Pinned stage allocator`
     - `docs/authority/support_matrix.md` -> `## Backend and Operational Policy` (`PinnedHost` correctness-only posture)
-  - Phase spec or `README_FIRST` authority-order note for `FND-*`:
+  - Phase spec or `docs/authority/README.md` authority-order note for `FND-*`:
     - `docs/specs/phase4_linear_algebra_spec.md` -> `### \`PressureMatrixCache\``
     - `docs/specs/phase4_linear_algebra_spec.md` -> `#### Step 5 — Implement \`PressureMatrixCache\` with persistent host staging buffers`
     - `docs/specs/phase4_linear_algebra_spec.md` -> `## Ownership and lifetime model`
@@ -273,7 +273,7 @@ Phase 4 owns `P4-01..P4-09` and delivers the pressure solver bridge: dependency 
     - `docs/authority/support_matrix.md` -> `## Backend and Operational Policy`
     - `docs/authority/graph_capture_support_matrix.md` -> `## Canonical Stage IDs`
     - `docs/authority/graph_capture_support_matrix.md` -> `## Global Capture Rules`
-  - Phase spec or `README_FIRST` authority-order note for `FND-*`:
+  - Phase spec or `docs/authority/README.md` authority-order note for `FND-*`:
     - `docs/specs/phase4_linear_algebra_spec.md` -> `#### Decision 4.5 — Support only uncoupled scalar systems in Phase 4`
     - `docs/specs/phase4_linear_algebra_spec.md` -> `#### Decision 4.12 — Native solver fallback is mandatory, not optional`
     - `docs/specs/phase4_linear_algebra_spec.md` -> `#### Step 9 — Implement runtime-selected \`AmgXSolver\` with fallback`
@@ -319,7 +319,7 @@ Phase 4 owns `P4-01..P4-09` and delivers the pressure solver bridge: dependency 
     - `docs/authority/graph_capture_support_matrix.md` -> `## Canonical Stage IDs`
     - `docs/tasks/05_phase3_execution_model.md` -> `## P3-05 Canonical stage scaffolding and parent NVTX ranges`
     - `docs/tasks/10_phase8_profiling_performance_acceptance.md` -> `## P8-03 Solver-stage instrumentation coverage`
-  - Phase spec or `README_FIRST` authority-order note for `FND-*`:
+  - Phase spec or `docs/authority/README.md` authority-order note for `FND-*`:
     - `docs/specs/phase4_linear_algebra_spec.md` -> `#### Step 11 — Add NVTX3 ranges and telemetry counters`
     - `docs/specs/phase4_linear_algebra_spec.md` -> `#### Step 12 — Integrate with reduced live case and benchmark against native`
     - `docs/specs/phase4_linear_algebra_spec.md` -> `## NVTX3 ranges to add`
@@ -369,7 +369,7 @@ Phase 4 owns `P4-01..P4-09` and delivers the pressure solver bridge: dependency 
     - `docs/authority/acceptance_manifest.json` -> `coverage_rules.amgx_without_required_bridge_classification`
     - `docs/authority/acceptance_manifest.json` -> `coverage_rules.pinned_host_policy`
     - `docs/tasks/boundary_matrix.md` -> `### Phase 4 -> Phase 5`
-  - Phase spec or `README_FIRST` authority-order note for `FND-*`:
+  - Phase spec or `docs/authority/README.md` authority-order note for `FND-*`:
     - `docs/specs/phase4_linear_algebra_spec.md` -> `#### Decision 4.8 — Separate bring-up and production paths in the API now`
     - `docs/specs/phase4_linear_algebra_spec.md` -> `### Production path / mandatory bridge (defined now; completed before any later AmgX production claim of no field-scale host transfer)`
     - `docs/specs/phase4_linear_algebra_spec.md` -> `#### Step 13 — Complete the \`DeviceDirect\` pressure bridge`

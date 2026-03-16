@@ -16,7 +16,7 @@ Phase 6 owns `P6-01..P6-10` for nozzle-specific boundary conditions and startup 
     - `docs/authority/reference_case_contract.md` -> `## Phase-Gate Mapping` (Phase 6 accepted case = `R1`)
     - `docs/tasks/boundary_matrix.md` -> `### Phase 5 -> Phase 6`
     - `docs/tasks/07_phase5_generic_vof_core.md` -> `## P5-11 Write-time commit, validation artifacts, and Phase 5 baseline freeze`
-  - Phase spec or `README_FIRST` authority-order note for `FND-*`:
+  - Phase spec or `docs/authority/README.md` authority-order note for `FND-*`:
     - `docs/specs/phase6_pressure_swirl_nozzle_bc_spec.md` -> `### Design decisions` (`D3`, `D4`, `D9`)
     - `docs/specs/phase6_pressure_swirl_nozzle_bc_spec.md` -> `#### Supported boundary-condition matrix`
     - `docs/specs/phase6_pressure_swirl_nozzle_bc_spec.md` -> `#### 1. Module boundaries`
@@ -67,7 +67,7 @@ Phase 6 owns `P6-01..P6-10` for nozzle-specific boundary conditions and startup 
     - `docs/authority/graph_capture_support_matrix.md` -> `## Global Capture Rules`
     - `docs/tasks/boundary_matrix.md` -> `### Phase 5 -> Phase 6`
     - `docs/tasks/04_phase2_gpu_memory_model.md` -> `## P2-08 Mesh mirror and startup registration`
-  - Phase spec or `README_FIRST` authority-order note for `FND-*`:
+  - Phase spec or `docs/authority/README.md` authority-order note for `FND-*`:
     - `docs/specs/phase6_pressure_swirl_nozzle_bc_spec.md` -> `### Design decisions` (`D4`, `D5`, `D11`, `D12`)
     - `docs/specs/phase6_pressure_swirl_nozzle_bc_spec.md` -> `#### 2. Required immutable device arrays`
     - `docs/specs/phase6_pressure_swirl_nozzle_bc_spec.md` -> `#### 4. Data-layout decisions`
@@ -116,7 +116,7 @@ Phase 6 owns `P6-01..P6-10` for nozzle-specific boundary conditions and startup 
     - `docs/authority/support_matrix.md` -> `## Global Policy` (phase-local support widening forbidden)
     - `docs/authority/continuity_ledger.md` -> `# 1. Frozen global decisions` (phase docs consume centralized support scope)
     - `docs/authority/reference_case_contract.md` -> `## Frozen Cases` (`R1`/`R0` nozzle family ownership)
-  - Phase spec or `README_FIRST` authority-order note for `FND-*`:
+  - Phase spec or `docs/authority/README.md` authority-order note for `FND-*`:
     - `docs/specs/phase6_pressure_swirl_nozzle_bc_spec.md` -> `### Design decisions` (`D7`)
     - `docs/specs/phase6_pressure_swirl_nozzle_bc_spec.md` -> `#### 5. How profiles are represented`
     - `docs/specs/phase6_pressure_swirl_nozzle_bc_spec.md` -> `##### 5.1 \`constant\``
@@ -164,7 +164,7 @@ Phase 6 owns `P6-01..P6-10` for nozzle-specific boundary conditions and startup 
     - `docs/authority/support_matrix.json` -> `accepted_nozzle_case_family_boundary_tuple.swirl_inlet`
     - `docs/authority/reference_case_contract.md` -> `## Frozen Cases` (`R1` and `R0` nozzle-specific boundary behavior)
     - `docs/tasks/07_phase5_generic_vof_core.md` -> `## P5-01 Runtime schema, support scanner integration, and field-state contract`
-  - Phase spec or `README_FIRST` authority-order note for `FND-*`:
+  - Phase spec or `docs/authority/README.md` authority-order note for `FND-*`:
     - `docs/specs/phase6_pressure_swirl_nozzle_bc_spec.md` -> `### Design decisions` (`D1`, `D6`)
     - `docs/specs/phase6_pressure_swirl_nozzle_bc_spec.md` -> `##### 7.1 Required boundary dictionary for nozzle inlet \`U\``
     - `docs/specs/phase6_pressure_swirl_nozzle_bc_spec.md` -> `#### 3. Detailed algorithm for \`gpuPressureSwirlInletVelocity\``
@@ -213,7 +213,7 @@ Phase 6 owns `P6-01..P6-10` for nozzle-specific boundary conditions and startup 
     - `docs/authority/support_matrix.md` -> `## Global Policy` (contact-angle out of milestone-1 scope unless authority changes)
     - `docs/authority/continuity_ledger.md` -> `# 1. Frozen global decisions` (contact-angle scope and support-matrix ownership)
     - `docs/tasks/boundary_matrix.md` -> `### Phase 5 -> Phase 6`
-  - Phase spec or `README_FIRST` authority-order note for `FND-*`:
+  - Phase spec or `docs/authority/README.md` authority-order note for `FND-*`:
     - `docs/specs/phase6_pressure_swirl_nozzle_bc_spec.md` -> `##### 7.3 Alpha patch policies`
     - `docs/specs/phase6_pressure_swirl_nozzle_bc_spec.md` -> `#### 5. Detailed algorithm for alpha BCs`
     - `docs/specs/phase6_pressure_swirl_nozzle_bc_spec.md` -> `##### 5.1 \`fixedValue\``
@@ -261,7 +261,7 @@ Phase 6 owns `P6-01..P6-10` for nozzle-specific boundary conditions and startup 
     - `docs/authority/support_matrix.json` -> `accepted_nozzle_case_family_boundary_tuple.ambient_open`
     - `docs/authority/reference_case_contract.md` -> `## Phase-Gate Mapping` (Phase 6 uses `R1` and `R0`)
     - `docs/tasks/boundary_matrix.md` -> `### Phase 5 -> Phase 6`
-  - Phase spec or `README_FIRST` authority-order note for `FND-*`:
+  - Phase spec or `docs/authority/README.md` authority-order note for `FND-*`:
     - `docs/specs/phase6_pressure_swirl_nozzle_bc_spec.md` -> `##### 7.2A Accepted ambient/open velocity configuration`
     - `docs/specs/phase6_pressure_swirl_nozzle_bc_spec.md` -> `#### 4. Detailed algorithm for ambient/open-boundary velocity BCs`
     - `docs/specs/phase6_pressure_swirl_nozzle_bc_spec.md` -> `##### 4.2 \`pressureInletOutletVelocity\``
@@ -306,7 +306,7 @@ Phase 6 owns `P6-01..P6-10` for nozzle-specific boundary conditions and startup 
     - `docs/authority/support_matrix.json` -> `accepted_nozzle_case_family_boundary_tuple.swirl_inlet`
     - `docs/authority/acceptance_manifest.md` -> `## Exact Threshold Classes` (`TC_R1_NOZZLE` flux/pressure/QoI guidance consumed by later acceptance)
     - `docs/tasks/boundary_matrix.md` -> `### Phase 5 -> Phase 6`
-  - Phase spec or `README_FIRST` authority-order note for `FND-*`:
+  - Phase spec or `docs/authority/README.md` authority-order note for `FND-*`:
     - `docs/specs/phase6_pressure_swirl_nozzle_bc_spec.md` -> `### Design decisions` (`D6`, `D10`)
     - `docs/specs/phase6_pressure_swirl_nozzle_bc_spec.md` -> `#### 3. Detailed algorithm for \`gpuPressureSwirlInletVelocity\``
     - `docs/specs/phase6_pressure_swirl_nozzle_bc_spec.md` -> `#### Step 8 — Implement the custom swirl inlet kernel`
@@ -358,7 +358,7 @@ Phase 6 owns `P6-01..P6-10` for nozzle-specific boundary conditions and startup 
     - `docs/tasks/boundary_matrix.md` -> `### Phase 5 -> Phase 6`
     - `docs/tasks/07_phase5_generic_vof_core.md` -> `## P5-09 Generic momentum and pressure stage integration`
     - `docs/tasks/07_phase5_generic_vof_core.md` -> `## exports_to_next` (pressure boundary-state handoff)
-  - Phase spec or `README_FIRST` authority-order note for `FND-*`:
+  - Phase spec or `docs/authority/README.md` authority-order note for `FND-*`:
     - `docs/specs/phase6_pressure_swirl_nozzle_bc_spec.md` -> `#### 3. Phase 6 dependencies on previous phases`
     - `docs/specs/phase6_pressure_swirl_nozzle_bc_spec.md` -> `#### 4. Hidden coupling points that must be called out explicitly`
     - `docs/specs/phase6_pressure_swirl_nozzle_bc_spec.md` -> `#### 6. Detailed algorithm for \`prghPressure\``
@@ -414,7 +414,7 @@ Phase 6 owns `P6-01..P6-10` for nozzle-specific boundary conditions and startup 
     - `docs/authority/reference_case_contract.md` -> `## Frozen Cases` (`R1`/`R0` startup conditioning context)
     - `docs/tasks/boundary_matrix.md` -> `### Phase 5 -> Phase 6`
     - `docs/tasks/07_phase5_generic_vof_core.md` -> `## P5-11 Write-time commit, validation artifacts, and Phase 5 baseline freeze`
-  - Phase spec or `README_FIRST` authority-order note for `FND-*`:
+  - Phase spec or `docs/authority/README.md` authority-order note for `FND-*`:
     - `docs/specs/phase6_pressure_swirl_nozzle_bc_spec.md` -> `### Design decisions` (`D8`)
     - `docs/specs/phase6_pressure_swirl_nozzle_bc_spec.md` -> `#### 6. Dictionary sources and ownership`
     - `docs/specs/phase6_pressure_swirl_nozzle_bc_spec.md` -> `##### 7.5 \`gpuStartupSeedDict\``
@@ -479,7 +479,7 @@ Phase 6 owns `P6-01..P6-10` for nozzle-specific boundary conditions and startup 
     - `docs/tasks/boundary_matrix.md` -> `### Phase 6 -> Phase 7`
     - `docs/tasks/10_phase8_profiling_performance_acceptance.md` -> `## P8-03 Solver-stage instrumentation coverage`
     - `docs/tasks/10_phase8_profiling_performance_acceptance.md` -> `## P8-05 Nsight Systems capture scripts and artifact layout`
-  - Phase spec or `README_FIRST` authority-order note for `FND-*`:
+  - Phase spec or `docs/authority/README.md` authority-order note for `FND-*`:
     - `docs/specs/phase6_pressure_swirl_nozzle_bc_spec.md` -> `#### 1. High-level orchestration`
     - `docs/specs/phase6_pressure_swirl_nozzle_bc_spec.md` -> `#### 2. Stage ordering relative to PIMPLE and alpha subcycling`
     - `docs/specs/phase6_pressure_swirl_nozzle_bc_spec.md` -> `#### 10. Graph-capture-safe control flow`

@@ -13,7 +13,7 @@ Phase 3 owns `P3-01..P3-08` and defines the execution substrate used by later so
     - `docs/authority/graph_capture_support_matrix.json` -> `global_capture_rules`
     - `docs/authority/continuity_ledger.md` -> `# 1. Frozen global decisions` (forbidden hot-stage host fallback and post-warmup allocation churn in production acceptance)
     - `docs/tasks/04_phase2_gpu_memory_model.md` -> `## P2-10 Compute-epoch enforcement`
-  - Phase spec or `README_FIRST` authority-order note for `FND-*`:
+  - Phase spec or `docs/authority/README.md` authority-order note for `FND-*`:
     - `docs/specs/phase3_execution_model_spec.md` -> `#### D3.3 — Make stream ownership explicit and minimal`
     - `docs/specs/phase3_execution_model_spec.md` -> `#### D3.4 — Remove unconditional \`cudaDeviceSynchronize()\` from normal-mode hot paths`
     - `docs/specs/phase3_execution_model_spec.md` -> `#### Step 1 — Inventory and gate all existing hot-path synchronization`
@@ -63,7 +63,7 @@ Phase 3 owns `P3-01..P3-08` and defines the execution substrate used by later so
     - `docs/authority/continuity_ledger.md` -> `# 1. Frozen global decisions` (runtime normalization under `gpuRuntime`)
     - `docs/tasks/01_foundation_authority_consumption.md` -> `## FND-06 Graph stage registry and graph-support-matrix loader`
     - `docs/tasks/boundary_matrix.md` -> `### Phase 2 -> Phase 3` (fallback must downgrade explicitly to `async_no_graph`)
-  - Phase spec or `README_FIRST` authority-order note for `FND-*`:
+  - Phase spec or `docs/authority/README.md` authority-order note for `FND-*`:
     - `docs/specs/phase3_execution_model_spec.md` -> `#### D3.1 — Introduce an explicit execution-mode ladder`
     - `docs/specs/phase3_execution_model_spec.md` -> `#### \`GpuExecutionConfig\``
     - `docs/specs/phase3_execution_model_spec.md` -> `#### Bring-up path versus production path`
@@ -112,7 +112,7 @@ Phase 3 owns `P3-01..P3-08` and defines the execution substrate used by later so
     - `docs/authority/graph_capture_support_matrix.md` -> `## Canonical Stage IDs`
     - `docs/authority/graph_capture_support_matrix.json` -> `stages`
     - `docs/tasks/04_phase2_gpu_memory_model.md` -> `## exports_to_next` (Phase 2 seam packet artifacts)
-  - Phase spec or `README_FIRST` authority-order note for `FND-*`:
+  - Phase spec or `docs/authority/README.md` authority-order note for `FND-*`:
     - `docs/specs/phase3_execution_model_spec.md` -> `#### D3.2 — Centralize execution state in a long-lived \`GpuExecutionContext\``
     - `docs/specs/phase3_execution_model_spec.md` -> `#### \`ExecutionStreams\``
     - `docs/specs/phase3_execution_model_spec.md` -> `#### \`DeviceResidencyRegistry\``
@@ -161,7 +161,7 @@ Phase 3 owns `P3-01..P3-08` and defines the execution substrate used by later so
     - `docs/authority/graph_capture_support_matrix.json` -> `global_capture_rules`
     - `docs/authority/acceptance_manifest.md` -> `## Hard Gates` (`cudaDeviceSynchronize_calls == 0` inside steady-state inner ranges)
     - `docs/tasks/boundary_matrix.md` -> `### Phase 2 -> Phase 3`
-  - Phase spec or `README_FIRST` authority-order note for `FND-*`:
+  - Phase spec or `docs/authority/README.md` authority-order note for `FND-*`:
     - `docs/specs/phase3_execution_model_spec.md` -> `#### D3.3 — Make stream ownership explicit and minimal`
     - `docs/specs/phase3_execution_model_spec.md` -> `#### D3.4 — Remove unconditional \`cudaDeviceSynchronize()\` from normal-mode hot paths`
     - `docs/specs/phase3_execution_model_spec.md` -> `#### D3.5 — Use stream-capture-built graphs first, with whole-graph update`
@@ -212,7 +212,7 @@ Phase 3 owns `P3-01..P3-08` and defines the execution substrate used by later so
     - `docs/authority/graph_capture_support_matrix.json` -> `stage_level_range_rule`
     - `docs/authority/acceptance_manifest.md` -> `## Tuple-Specific NVTX Contract`
     - `docs/tasks/01_foundation_authority_consumption.md` -> `## FND-06 Graph stage registry and graph-support-matrix loader`
-  - Phase spec or `README_FIRST` authority-order note for `FND-*`:
+  - Phase spec or `docs/authority/README.md` authority-order note for `FND-*`:
     - `docs/specs/phase3_execution_model_spec.md` -> `#### Canonical stage taxonomy and graph-support ownership`
     - `docs/specs/phase3_execution_model_spec.md` -> `#### Graph-safe stage composition rules`
     - `docs/specs/phase3_execution_model_spec.md` -> `#### NVTX3 ranges`
@@ -260,7 +260,7 @@ Phase 3 owns `P3-01..P3-08` and defines the execution substrate used by later so
     - `docs/authority/graph_capture_support_matrix.json` -> `stages` (capture-safe-now rows)
     - `docs/authority/graph_capture_support_matrix.json` -> `global_capture_rules`
     - `docs/tasks/boundary_matrix.md` -> `### Phase 2 -> Phase 3`
-  - Phase spec or `README_FIRST` authority-order note for `FND-*`:
+  - Phase spec or `docs/authority/README.md` authority-order note for `FND-*`:
     - `docs/specs/phase3_execution_model_spec.md` -> `#### D3.5 — Use stream-capture-built graphs first, with whole-graph update`
     - `docs/specs/phase3_execution_model_spec.md` -> `#### D3.6 — Use stable device-resident launch-parameter blocks`
     - `docs/specs/phase3_execution_model_spec.md` -> `#### D3.9 — Use graph upload in warm-up and keep upload/launch stream consistent`
@@ -313,7 +313,7 @@ Phase 3 owns `P3-01..P3-08` and defines the execution substrate used by later so
     - `docs/authority/graph_capture_support_matrix.json` -> `stages`
     - `docs/tasks/boundary_matrix.md` -> `### Phase 2 -> Phase 3`
     - `docs/authority/acceptance_manifest.md` -> `## Hard Gates` (`post_warmup_alloc_calls == 0`)
-  - Phase spec or `README_FIRST` authority-order note for `FND-*`:
+  - Phase spec or `docs/authority/README.md` authority-order note for `FND-*`:
     - `docs/specs/phase3_execution_model_spec.md` -> `#### D3.10 — Add a graph build fingerprint and deterministic rebuild policy`
     - `docs/specs/phase3_execution_model_spec.md` -> `#### D3.6 — Use stable device-resident launch-parameter blocks`
     - `docs/specs/phase3_execution_model_spec.md` -> `#### \`GraphBuildFingerprint\``
@@ -371,7 +371,7 @@ Phase 3 owns `P3-01..P3-08` and defines the execution substrate used by later so
     - `docs/authority/continuity_ledger.md` -> `# 1. Frozen global decisions` (allowed write-time staging and forbidden silent host fallback)
     - `docs/tasks/boundary_matrix.md` -> `### Phase 2 -> Phase 3`
     - `docs/tasks/04_phase2_gpu_memory_model.md` -> `## P2-09 Explicit visibility APIs and output stager`
-  - Phase spec or `README_FIRST` authority-order note for `FND-*`:
+  - Phase spec or `docs/authority/README.md` authority-order note for `FND-*`:
     - `docs/specs/phase3_execution_model_spec.md` -> `#### D3.11 — Keep write/output staging outside the hot compute graph`
     - `docs/specs/phase3_execution_model_spec.md` -> `#### D3.12 — Fail fast on accidental host access in production mode`
     - `docs/specs/phase3_execution_model_spec.md` -> `#### Step 11 — Add write-boundary staging path`

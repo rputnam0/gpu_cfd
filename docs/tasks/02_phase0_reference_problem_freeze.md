@@ -11,7 +11,7 @@ Phase 0 owns `P0-01..P0-08` and freezes CPU reference truth for `R2`, `R1-core`,
     - `docs/authority/master_pin_manifest.md` -> `## Consumption Rules`
     - `docs/authority/master_pin_manifest.md` -> `## Frozen Defaults`
     - `docs/tasks/01_foundation_authority_consumption.md` -> `## FND-02 Pin-manifest consumption and environment manifest emission`
-  - Phase spec or `README_FIRST` authority-order note for `FND-*`:
+  - Phase spec or `docs/authority/README.md` authority-order note for `FND-*`:
     - `docs/specs/phase0_reference_problem_spec.md` -> `### Decision I — remove hard-coded OpenFOAM-12 environment assumptions from generated scripts and runners`
     - `docs/specs/phase0_reference_problem_spec.md` -> `#### D0.8 — remove hard-coded environment sourcing from generated scripts`
     - `docs/specs/phase0_reference_problem_spec.md` -> `#### 1. scripts/cfd/openfoam_env_probe.py`
@@ -51,7 +51,7 @@ Phase 0 owns `P0-01..P0-08` and freezes CPU reference truth for `R2`, `R1-core`,
   - Authority:
     - `docs/authority/master_pin_manifest.md` -> `## Consumption Rules`
     - `docs/tasks/01_foundation_authority_consumption.md` -> `## FND-02 Pin-manifest consumption and environment manifest emission`
-  - Phase spec or `README_FIRST` authority-order note for `FND-*`:
+  - Phase spec or `docs/authority/README.md` authority-order note for `FND-*`:
     - `docs/specs/phase0_reference_problem_spec.md` -> `#### D0.8 — remove hard-coded environment sourcing from generated scripts`
     - `docs/specs/phase0_reference_problem_spec.md` -> `#### Pseudocode 2 — environment-neutral stage runner`
     - `docs/specs/phase0_reference_problem_spec.md` -> `#### 3. scripts/cfd/run_manifest.py`
@@ -94,7 +94,7 @@ Phase 0 owns `P0-01..P0-08` and freezes CPU reference truth for `R2`, `R1-core`,
     - `docs/authority/reference_case_contract.json` -> `frozen_cases`, `phase_gate_mapping`, `locked_defaults`
     - `docs/authority/validation_ladder.md` -> `## Frozen Ladder`
     - `docs/tasks/01_foundation_authority_consumption.md` -> `## FND-03 Reference-case and validation-ladder utilities`
-  - Phase spec or `README_FIRST` authority-order note for `FND-*`:
+  - Phase spec or `docs/authority/README.md` authority-order note for `FND-*`:
     - `docs/specs/phase0_reference_problem_spec.md` -> `#### D0.1 — Freeze case intent separately from execution resolution`
     - `docs/specs/phase0_reference_problem_spec.md` -> `#### D0.5 — use JSON-row manifests for Phase 0, not only shared DOE CSVs`
     - `docs/specs/phase0_reference_problem_spec.md` -> `#### D0.6 — extend existing case_meta.json; do not invent a parallel metadata format`
@@ -135,7 +135,7 @@ Phase 0 owns `P0-01..P0-08` and freezes CPU reference truth for `R2`, `R1-core`,
 - Exact citations:
   - Authority:
     - `docs/tasks/01_foundation_authority_consumption.md` -> `## FND-03 Reference-case and validation-ladder utilities`
-  - Phase spec or `README_FIRST` authority-order note for `FND-*`:
+  - Phase spec or `docs/authority/README.md` authority-order note for `FND-*`:
     - `docs/specs/phase0_reference_problem_spec.md` -> `#### D0.7 — add a non-physics I/O normalization overlay for Phase 0`
     - `docs/specs/phase0_reference_problem_spec.md` -> `#### 3. scripts/cfd/run_manifest.py`
     - `docs/specs/phase0_reference_problem_spec.md` -> `### Validation strategy -> C. Run determinism validation`
@@ -175,7 +175,7 @@ Phase 0 owns `P0-01..P0-08` and freezes CPU reference truth for `R2`, `R1-core`,
     - `docs/authority/reference_case_contract.md` -> `## Frozen Cases`
     - `docs/authority/validation_ladder.md` -> `## Frozen Ladder`
     - `docs/tasks/01_foundation_authority_consumption.md` -> `## FND-03 Reference-case and validation-ladder utilities`
-  - Phase spec or `README_FIRST` authority-order note for `FND-*`:
+  - Phase spec or `docs/authority/README.md` authority-order note for `FND-*`:
     - `docs/specs/phase0_reference_problem_spec.md` -> `#### Field-signature logic`
     - `docs/specs/phase0_reference_problem_spec.md` -> `#### Mesh/patch fingerprint logic`
     - `docs/specs/phase0_reference_problem_spec.md` -> `#### 4. scripts/cfd/extract_openfoam_case_features.py`
@@ -220,7 +220,7 @@ Phase 0 owns `P0-01..P0-08` and freezes CPU reference truth for `R2`, `R1-core`,
     - `docs/authority/reference_case_contract.json` -> `frozen_cases`, `phase_gate_mapping`, `locked_defaults`
     - `docs/authority/validation_ladder.md` -> `## Frozen Ladder`
     - `docs/authority/validation_ladder.md` -> `## Usage Rule`
-  - Phase spec or `README_FIRST` authority-order note for `FND-*`:
+  - Phase spec or `docs/authority/README.md` authority-order note for `FND-*`:
     - `docs/specs/phase0_reference_problem_spec.md` -> `### Decision A — use dual baselines, not a single migration target`
     - `docs/specs/phase0_reference_problem_spec.md` -> `### Decision C — Phase 0 is single-rank CPU only`
     - `docs/specs/phase0_reference_problem_spec.md` -> `#### D0.2 — R0 hard-gate default is a fully specified 57-28 @ 1000 psi algebraic reference`
@@ -270,7 +270,7 @@ Phase 0 owns `P0-01..P0-08` and freezes CPU reference truth for `R2`, `R1-core`,
     - `docs/authority/master_pin_manifest.md` -> `## Consumption Rules`
     - `docs/authority/reference_case_contract.md` -> `## Frozen Cases`
     - `docs/authority/reference_case_contract.md` -> `## Phase-Gate Mapping`
-  - Phase spec or `README_FIRST` authority-order note for `FND-*`:
+  - Phase spec or `docs/authority/README.md` authority-order note for `FND-*`:
     - `docs/specs/phase0_reference_problem_spec.md` -> `### Decision A — use dual baselines, not a single migration target`
     - `docs/specs/phase0_reference_problem_spec.md` -> `### Decision I — remove hard-coded OpenFOAM-12 environment assumptions from generated scripts and runners`
     - `docs/specs/phase0_reference_problem_spec.md` -> `### Risk 2 — hard-coded /opt/openfoam12 path breaks Baseline B silently`
@@ -315,7 +315,7 @@ Phase 0 owns `P0-01..P0-08` and freezes CPU reference truth for `R2`, `R1-core`,
     - `docs/authority/reference_case_contract.json` -> `frozen_cases`, `phase_gate_mapping`, `locked_defaults`
     - `docs/authority/validation_ladder.md` -> `## Frozen Ladder`
     - `docs/authority/validation_ladder.md` -> `## Usage Rule`
-  - Phase spec or `README_FIRST` authority-order note for `FND-*`:
+  - Phase spec or `docs/authority/README.md` authority-order note for `FND-*`:
     - `docs/specs/phase0_reference_problem_spec.md` -> `### Decision F — Phase 0 acceptance is numerical and provenance-based, not performance-based`
     - `docs/specs/phase0_reference_problem_spec.md` -> `### Validation strategy -> E. R1 validation`
     - `docs/specs/phase0_reference_problem_spec.md` -> `### Validation strategy -> F. R0 validation`

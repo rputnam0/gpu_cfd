@@ -12,7 +12,7 @@ Phase 8 pass A owns `P8-01..P8-08` and delivers the instrumentation and profilin
     - `docs/authority/master_pin_manifest.md` -> `## Consumption Rules`
     - `docs/authority/continuity_ledger.md` -> `# 1. Frozen global decisions` (NVTX3 baseline and centralized runtime governance)
     - `docs/tasks/03_phase1_blackwell_bringup.md` -> `## P1-02 Blackwell build-system enablement`
-  - Phase spec or `README_FIRST` authority-order note for `FND-*`:
+  - Phase spec or `docs/authority/README.md` authority-order note for `FND-*`:
     - `docs/specs/phase8_profiling_performance_acceptance_spec.md` -> `#### DD-8.4 — Make NVTX v3 mandatory and design the range hierarchy before adding kernels`
     - `docs/specs/phase8_profiling_performance_acceptance_spec.md` -> `#### Step 1 — Add NVTX v3 dependency and build flags`
     - `docs/specs/phase8_profiling_performance_acceptance_spec.md` -> `#### 8. Add build-system changes`
@@ -58,7 +58,7 @@ Phase 8 pass A owns `P8-01..P8-08` and delivers the instrumentation and profilin
     - `docs/authority/graph_capture_support_matrix.md` -> `## Canonical Stage IDs`
     - `docs/tasks/01_foundation_authority_consumption.md` -> `## FND-05 Acceptance-manifest evaluator scaffold`
     - `docs/tasks/01_foundation_authority_consumption.md` -> `## FND-06 Graph stage registry and graph-support-matrix loader`
-  - Phase spec or `README_FIRST` authority-order note for `FND-*`:
+  - Phase spec or `docs/authority/README.md` authority-order note for `FND-*`:
     - `docs/specs/phase8_profiling_performance_acceptance_spec.md` -> `#### DD-8.1 — Introduce six explicit profiling modes`
     - `docs/specs/phase8_profiling_performance_acceptance_spec.md` -> `#### DD-8.2 — Use NVTX v3 domains and categories with a fixed naming grammar`
     - `docs/specs/phase8_profiling_performance_acceptance_spec.md` -> `#### Step 3 — Add canonical gpuRuntime.profiling / gpuRuntime.acceptance parsing`
@@ -106,7 +106,7 @@ Phase 8 pass A owns `P8-01..P8-08` and delivers the instrumentation and profilin
     - `docs/authority/acceptance_manifest.json` -> `accepted_tuples[*].required_stage_ids`
     - `docs/tasks/01_foundation_authority_consumption.md` -> `## FND-06 Graph stage registry and graph-support-matrix loader`
     - `docs/tasks/pr_inventory.md` -> `## Cross-Section Dependency Edges (Canonical)` (`P5-11 <- P8-03`)
-  - Phase spec or `README_FIRST` authority-order note for `FND-*`:
+  - Phase spec or `docs/authority/README.md` authority-order note for `FND-*`:
     - `docs/specs/phase8_profiling_performance_acceptance_spec.md` -> `#### DD-8.2 — Use NVTX v3 domains and categories with a fixed naming grammar`
     - `docs/specs/phase8_profiling_performance_acceptance_spec.md` -> `#### Step 4 — Instrument top-level timestep and PIMPLE scopes`
     - `docs/specs/phase8_profiling_performance_acceptance_spec.md` -> `#### Step 5 — Instrument alpha path scopes`
@@ -154,7 +154,7 @@ Phase 8 pass A owns `P8-01..P8-08` and delivers the instrumentation and profilin
     - `docs/authority/graph_capture_support_matrix.md` -> `## Canonical Stage IDs`
     - `docs/authority/graph_capture_support_matrix.md` -> `## Global Capture Rules`
     - `docs/tasks/01_foundation_authority_consumption.md` -> `## FND-06 Graph stage registry and graph-support-matrix loader`
-  - Phase spec or `README_FIRST` authority-order note for `FND-*`:
+  - Phase spec or `docs/authority/README.md` authority-order note for `FND-*`:
     - `docs/specs/phase8_profiling_performance_acceptance_spec.md` -> `#### DD-8.6 — Use graph-level tracing by default; use node-level tracing only for graph debugging`
     - `docs/specs/phase8_profiling_performance_acceptance_spec.md` -> `#### Step 8 — Add graph lifecycle markers`
     - `docs/specs/phase8_profiling_performance_acceptance_spec.md` -> `#### 5. Graph instrumentation`
@@ -198,7 +198,7 @@ Phase 8 pass A owns `P8-01..P8-08` and delivers the instrumentation and profilin
     - `docs/authority/acceptance_manifest.md` -> `## Production Defaults`
     - `docs/tasks/03_phase1_blackwell_bringup.md` -> `## exports_to_next`
     - `docs/tasks/pr_inventory.md` -> `## Cross-Section Dependency Edges (Canonical)` (`P7-01 <- P8-05`)
-  - Phase spec or `README_FIRST` authority-order note for `FND-*`:
+  - Phase spec or `docs/authority/README.md` authority-order note for `FND-*`:
     - `docs/specs/phase8_profiling_performance_acceptance_spec.md` -> `#### DD-8.5 — Baseline Nsight Systems command uses --trace=cuda,nvtx,osrt and graph-level graph tracing`
     - `docs/specs/phase8_profiling_performance_acceptance_spec.md` -> `#### DD-8.6 — --cuda-event-trace=false by default in baseline mode`
     - `docs/specs/phase8_profiling_performance_acceptance_spec.md` -> `#### DD-8.12 — Record full environment metadata in every acceptance artifact`
@@ -250,7 +250,7 @@ Phase 8 pass A owns `P8-01..P8-08` and delivers the instrumentation and profilin
     - `docs/authority/acceptance_manifest.md` -> `## Exact Threshold Classes`
     - `docs/authority/acceptance_manifest.json` -> `hard_gates`, `soft_gates`, `threshold_classes`, `disposition_rules`
     - `docs/tasks/01_foundation_authority_consumption.md` -> `## FND-05 Acceptance-manifest evaluator scaffold`
-  - Phase spec or `README_FIRST` authority-order note for `FND-*`:
+  - Phase spec or `docs/authority/README.md` authority-order note for `FND-*`:
     - `docs/specs/phase8_profiling_performance_acceptance_spec.md` -> `#### DD-8.9 — Use nsys stats built-in reports as the primary parser surface`
     - `docs/specs/phase8_profiling_performance_acceptance_spec.md` -> `#### DD-8.10 — Define pass/fail gates in tiers`
     - `docs/specs/phase8_profiling_performance_acceptance_spec.md` -> `#### Step 10 — Add nsys export + report-generation script`
@@ -294,7 +294,7 @@ Phase 8 pass A owns `P8-01..P8-08` and delivers the instrumentation and profilin
     - `docs/authority/graph_capture_support_matrix.md` -> `## Run Modes`
     - `docs/authority/acceptance_manifest.md` -> `## Coverage Rules`
     - `docs/tasks/boundary_matrix.md` -> `### Phase 7 -> Phase 8`
-  - Phase spec or `README_FIRST` authority-order note for `FND-*`:
+  - Phase spec or `docs/authority/README.md` authority-order note for `FND-*`:
     - `docs/specs/phase8_profiling_performance_acceptance_spec.md` -> `#### DD-8.1 — Introduce six explicit profiling modes`
     - `docs/specs/phase8_profiling_performance_acceptance_spec.md` -> `#### DD-8.7 — UVM page-fault tracing enabled only in uvmAudit mode`
     - `docs/specs/phase8_profiling_performance_acceptance_spec.md` -> `#### DD-8.11 — Use CPU sampling/backtraces only in syncAudit`
@@ -337,7 +337,7 @@ Phase 8 pass A owns `P8-01..P8-08` and delivers the instrumentation and profilin
     - `docs/authority/master_pin_manifest.md` -> `## Frozen Defaults`
     - `docs/authority/acceptance_manifest.md` -> `## Coverage Rules`
     - `docs/tasks/03_phase1_blackwell_bringup.md` -> `## P1-05 Compute Sanitizer memcheck lane`
-  - Phase spec or `README_FIRST` authority-order note for `FND-*`:
+  - Phase spec or `docs/authority/README.md` authority-order note for `FND-*`:
     - `docs/specs/phase8_profiling_performance_acceptance_spec.md` -> `#### DD-8.3 — Restrict Nsight Compute to the top five kernels per steady-state run`
     - `docs/specs/phase8_profiling_performance_acceptance_spec.md` -> `#### DD-8.11 — Use Compute Sanitizer in a staged order and only on reduced cases`
     - `docs/specs/phase8_profiling_performance_acceptance_spec.md` -> `#### Step 14 — Add top-five-kernel selector and NCU wrapper`
@@ -406,7 +406,7 @@ Phase 8 pass A owns `P8-01..P8-08` and delivers the instrumentation and profilin
     - `docs/authority/master_pin_manifest.md` -> `## Consumption Rules`
     - `docs/tasks/boundary_matrix.md` -> `### Phase 7 -> Phase 8`
     - `docs/tasks/09_phase7_custom_cuda_kernels.md` -> `## P7-08 Graph-safety cleanup, capture validation, and final regression package`
-  - Phase spec or `README_FIRST` authority-order note for `FND-*`:
+  - Phase spec or `docs/authority/README.md` authority-order note for `FND-*`:
     - `docs/specs/phase8_profiling_performance_acceptance_spec.md` -> `#### Step 16 — Define default thresholds and baseline files`
     - `docs/specs/phase8_profiling_performance_acceptance_spec.md` -> `#### Step 17 — Run R1 baseline and lock first baseline`
     - `docs/specs/phase8_profiling_performance_acceptance_spec.md` -> `#### Step 18 — Run R0 acceptance and compare against R1`

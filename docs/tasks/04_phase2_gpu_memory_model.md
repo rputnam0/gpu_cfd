@@ -11,7 +11,7 @@ Phase 2 owns `P2-01..P2-11` and establishes the production memory and residency 
     - `docs/authority/continuity_ledger.md` -> `# 1. Frozen global decisions` (runtime configuration normalization under `gpuRuntime`)
     - `docs/authority/continuity_ledger.md` -> `# 5. Package Consumption Rule`
     - `docs/tasks/01_foundation_authority_consumption.md` -> `## FND-01 Authority ingestion scaffold`
-  - Phase spec or `README_FIRST` authority-order note for `FND-*`:
+  - Phase spec or `docs/authority/README.md` authority-order note for `FND-*`:
     - `docs/specs/phase2_gpu_memory_spec.md` -> `#### Decision 1 — Define five memory tiers`
     - `docs/specs/phase2_gpu_memory_spec.md` -> `#### Decision 10 — Separate bring-up path from production path`
     - `docs/specs/phase2_gpu_memory_spec.md` -> `#### Configuration interface`
@@ -56,7 +56,7 @@ Phase 2 owns `P2-01..P2-11` and establishes the production memory and residency 
     - `docs/authority/continuity_ledger.md` -> `# 1. Frozen global decisions` (forbidden recurring UVM for registered hot objects)
     - `docs/authority/continuity_ledger.md` -> `# 2. Cross-phase contract matrix` (Phase 2 residency and allocator substrate exit contract)
     - `docs/tasks/01_foundation_authority_consumption.md` -> `## FND-01 Authority ingestion scaffold`
-  - Phase spec or `README_FIRST` authority-order note for `FND-*`:
+  - Phase spec or `docs/authority/README.md` authority-order note for `FND-*`:
     - `docs/specs/phase2_gpu_memory_spec.md` -> `#### Decision 2 — Make DevicePersistent the canonical production location for hot objects`
     - `docs/specs/phase2_gpu_memory_spec.md` -> `#### Decision 5 — Use CUDA async device pools for persistent and scratch tiers`
     - `docs/specs/phase2_gpu_memory_spec.md` -> `#### Step 3 — Implement DevicePersistentPool`
@@ -96,7 +96,7 @@ Phase 2 owns `P2-01..P2-11` and establishes the production memory and residency 
   - Authority:
     - `docs/authority/continuity_ledger.md` -> `# 1. Frozen global decisions` (forbidden post-warmup dynamic allocation churn in production)
     - `docs/authority/graph_capture_support_matrix.md` -> `## Global Capture Rules` (no post-warmup dynamic allocation)
-  - Phase spec or `README_FIRST` authority-order note for `FND-*`:
+  - Phase spec or `docs/authority/README.md` authority-order note for `FND-*`:
     - `docs/specs/phase2_gpu_memory_spec.md` -> `#### Decision 5 — Use CUDA async device pools for persistent and scratch tiers`
     - `docs/specs/phase2_gpu_memory_spec.md` -> `#### Decision 6 — Use deterministic reuse defaults`
     - `docs/specs/phase2_gpu_memory_spec.md` -> `#### Step 4 — Implement DeviceScratchPool`
@@ -135,7 +135,7 @@ Phase 2 owns `P2-01..P2-11` and establishes the production memory and residency 
   - Authority:
     - `docs/authority/continuity_ledger.md` -> `# 1. Frozen global decisions` (field-scale host interaction must be explicit staging, not hot-path reads)
     - `docs/authority/support_matrix.md` -> `## Global Policy` (production and bring-up separation and explicit fail-fast posture)
-  - Phase spec or `README_FIRST` authority-order note for `FND-*`:
+  - Phase spec or `docs/authority/README.md` authority-order note for `FND-*`:
     - `docs/specs/phase2_gpu_memory_spec.md` -> `#### Decision 7 — Make pinned staging bounded and explicit`
     - `docs/specs/phase2_gpu_memory_spec.md` -> `#### Step 5 — Implement PinnedStageAllocator`
     - `docs/specs/phase2_gpu_memory_spec.md` -> `#### 7A. Restart / checkpoint policy`
@@ -173,7 +173,7 @@ Phase 2 owns `P2-01..P2-11` and establishes the production memory and residency 
   - Authority:
     - `docs/authority/continuity_ledger.md` -> `# 1. Frozen global decisions` (production forbids recurring UVM for registered hot objects)
     - `docs/authority/support_matrix.md` -> `## Global Policy` (failFast production policy and debug-only fallback separation)
-  - Phase spec or `README_FIRST` authority-order note for `FND-*`:
+  - Phase spec or `docs/authority/README.md` authority-order note for `FND-*`:
     - `docs/specs/phase2_gpu_memory_spec.md` -> `#### Decision 8 — Keep a managed-fallback tier for incomplete ports`
     - `docs/specs/phase2_gpu_memory_spec.md` -> `#### Decision 10 — Separate bring-up path from production path`
     - `docs/specs/phase2_gpu_memory_spec.md` -> `#### Step 6 — Wrap the managed fallback path`
@@ -215,7 +215,7 @@ Phase 2 owns `P2-01..P2-11` and establishes the production memory and residency 
     - `docs/authority/continuity_ledger.md` -> `# 1. Frozen global decisions` (no recurring UVM for registered hot objects)
     - `docs/authority/continuity_ledger.md` -> `# 2. Cross-phase contract matrix` (Phase 2 exit requires explicit residency reports)
     - `docs/tasks/boundary_matrix.md` -> `### Phase 2 -> Phase 3`
-  - Phase spec or `README_FIRST` authority-order note for `FND-*`:
+  - Phase spec or `docs/authority/README.md` authority-order note for `FND-*`:
     - `docs/specs/phase2_gpu_memory_spec.md` -> `#### Decision 9 — Introduce a residency registry rather than implicit mirroring`
     - `docs/specs/phase2_gpu_memory_spec.md` -> `#### 3. Residency record`
     - `docs/specs/phase2_gpu_memory_spec.md` -> `#### 5. Coherency-state transitions`
@@ -259,7 +259,7 @@ Phase 2 owns `P2-01..P2-11` and establishes the production memory and residency 
   - Authority:
     - `docs/authority/continuity_ledger.md` -> `# 1. Frozen global decisions` (device-resident hot path with explicit host visibility only)
     - `docs/tasks/01_foundation_authority_consumption.md` -> `## FND-01 Authority ingestion scaffold`
-  - Phase spec or `README_FIRST` authority-order note for `FND-*`:
+  - Phase spec or `docs/authority/README.md` authority-order note for `FND-*`:
     - `docs/specs/phase2_gpu_memory_spec.md` -> `#### Finding C — Field and List cannot be treated the same way`
     - `docs/specs/phase2_gpu_memory_spec.md` -> `#### 2. Object classes and required tier placement`
     - `docs/specs/phase2_gpu_memory_spec.md` -> `#### 4. Binary layout policy`
@@ -299,7 +299,7 @@ Phase 2 owns `P2-01..P2-11` and establishes the production memory and residency 
   - Authority:
     - `docs/authority/continuity_ledger.md` -> `# 2. Cross-phase contract matrix` (Phase 2 startup upload of hot mesh and field set)
     - `docs/tasks/02_phase0_reference_problem_freeze.md` -> `## exports_to_next` (canonical case metadata and stage plan for case identity)
-  - Phase spec or `README_FIRST` authority-order note for `FND-*`:
+  - Phase spec or `docs/authority/README.md` authority-order note for `FND-*`:
     - `docs/specs/phase2_gpu_memory_spec.md` -> `#### 2A. Upstream-supplied hot-object inventory and default registration template`
     - `docs/specs/phase2_gpu_memory_spec.md` -> `#### 1. Initialization sequence`
     - `docs/specs/phase2_gpu_memory_spec.md` -> `#### Step 10 — Register immutable mesh and addressing objects at startup`
@@ -342,7 +342,7 @@ Phase 2 owns `P2-01..P2-11` and establishes the production memory and residency 
     - `docs/tasks/boundary_matrix.md` -> `### Phase 2 -> Phase 3`
     - `docs/authority/graph_capture_support_matrix.md` -> `## Canonical Stage IDs` (`write_stage` graph-external boundary)
     - `docs/authority/graph_capture_support_matrix.md` -> `## Global Capture Rules`
-  - Phase spec or `README_FIRST` authority-order note for `FND-*`:
+  - Phase spec or `docs/authority/README.md` authority-order note for `FND-*`:
     - `docs/specs/phase2_gpu_memory_spec.md` -> `#### 5. Host-visibility algorithm`
     - `docs/specs/phase2_gpu_memory_spec.md` -> `#### 7. Output staging algorithm`
     - `docs/specs/phase2_gpu_memory_spec.md` -> `#### 7A. Restart / checkpoint policy`
@@ -384,7 +384,7 @@ Phase 2 owns `P2-01..P2-11` and establishes the production memory and residency 
   - Authority:
     - `docs/authority/continuity_ledger.md` -> `# 1. Frozen global decisions` (forbidden hot-stage host reads and silent CPU fallback)
     - `docs/tasks/boundary_matrix.md` -> `### Phase 2 -> Phase 3` (no hidden CPU touches)
-  - Phase spec or `README_FIRST` authority-order note for `FND-*`:
+  - Phase spec or `docs/authority/README.md` authority-order note for `FND-*`:
     - `docs/specs/phase2_gpu_memory_spec.md` -> `#### 9. Host touch policy`
     - `docs/specs/phase2_gpu_memory_spec.md` -> `#### 6. Compute epoch algorithm`
     - `docs/specs/phase2_gpu_memory_spec.md` -> `#### Step 13 — Add compute-epoch guards and CPU-touch logging`
@@ -424,7 +424,7 @@ Phase 2 owns `P2-01..P2-11` and establishes the production memory and residency 
     - `docs/authority/graph_capture_support_matrix.md` -> `## Global Capture Rules` (no post-warmup dynamic allocation)
     - `docs/authority/acceptance_manifest.md` -> `## Hard Gates` (`unexpected_htod_bytes`, `unexpected_dtoh_bytes`, `cpu_um_faults`, `gpu_um_faults`, `post_warmup_alloc_calls`)
     - `docs/tasks/boundary_matrix.md` -> `### Phase 2 -> Phase 3`
-  - Phase spec or `README_FIRST` authority-order note for `FND-*`:
+  - Phase spec or `docs/authority/README.md` authority-order note for `FND-*`:
     - `docs/specs/phase2_gpu_memory_spec.md` -> `#### 7. Scratch policy`
     - `docs/specs/phase2_gpu_memory_spec.md` -> `#### 9. Warm-up and steady-state transition`
     - `docs/specs/phase2_gpu_memory_spec.md` -> `#### Step 15 — Add ScratchCatalog`

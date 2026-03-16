@@ -15,9 +15,9 @@ Foundation owns `FND-01..FND-07` and provides the frozen contract layer consumed
     - `docs/authority/support_matrix.json` (machine-readable support-scope source)
     - `docs/authority/acceptance_manifest.json` (machine-readable acceptance source)
     - `docs/authority/graph_capture_support_matrix.json` (machine-readable stage-policy source)
-  - Phase spec or `README_FIRST` authority-order note for `FND-*`:
-    - `docs/README_FIRST.md` -> `## Authoritative docs`
-    - `docs/README_FIRST.md` -> `## Consumption rules`
+  - Phase spec or `docs/authority/README.md` authority-order note for `FND-*`:
+    - `docs/authority/README.md` -> `## Authority Order`
+    - `docs/authority/README.md` -> `## Consumption Rules`
   - Backlog scope:
     - "Add a shared loader/validator for the package authority docs and JSON companions so later phases consume typed program-wide decisions instead of hard-coded constants."
   - Backlog done_when:
@@ -36,8 +36,8 @@ Foundation owns `FND-01..FND-07` and provides the frozen contract layer consumed
     - `AuthorityBundle` API contract
     - authority-load report schema for pass/fail diagnostics
   - Consumed:
-    - all authority docs listed in `README_FIRST`
-    - JSON companions named in `README_FIRST` consumption rules
+    - all authority docs listed in `docs/authority/README.md`
+    - JSON companions named in `docs/authority/README.md` consumption rules
 - Validation:
   - Positive test: complete authority bundle loads with no missing required documents.
   - Negative tests: missing file, unknown schema version, and conflicting authority value each fail fast with explicit diagnostics.
@@ -59,9 +59,9 @@ Foundation owns `FND-01..FND-07` and provides the frozen contract layer consumed
     - `docs/authority/master_pin_manifest.md` -> `## Consumption Rules`
     - `docs/authority/master_pin_manifest.md` -> `## Required Revalidation If This Manifest Changes`
     - `docs/authority/continuity_ledger.md` -> `# 1. Frozen global decisions` (source/version/toolchain pin ownership)
-  - Phase spec or `README_FIRST` authority-order note for `FND-*`:
-    - `docs/README_FIRST.md` -> `## Authoritative docs`
-    - `docs/README_FIRST.md` -> `## Consumption rules`
+  - Phase spec or `docs/authority/README.md` authority-order note for `FND-*`:
+    - `docs/authority/README.md` -> `## Authority Order`
+    - `docs/authority/README.md` -> `## Consumption Rules`
   - Backlog scope:
     - "Implement ingestion of the master pin manifest and emit machine-readable environment manifests for builds, runs, and profiling artifacts."
   - Backlog done_when:
@@ -107,9 +107,9 @@ Foundation owns `FND-01..FND-07` and provides the frozen contract layer consumed
     - `docs/authority/reference_case_contract.json` -> `frozen_cases`, `phase_gate_mapping`, `locked_defaults`
     - `docs/authority/validation_ladder.md` -> `## Frozen Ladder`
     - `docs/authority/validation_ladder.md` -> `## Usage Rule`
-  - Phase spec or `README_FIRST` authority-order note for `FND-*`:
-    - `docs/README_FIRST.md` -> `## Authoritative docs`
-    - `docs/README_FIRST.md` -> `## Consumption rules`
+  - Phase spec or `docs/authority/README.md` authority-order note for `FND-*`:
+    - `docs/authority/README.md` -> `## Authority Order`
+    - `docs/authority/README.md` -> `## Consumption Rules`
   - Backlog scope:
     - "Create helpers that resolve canonical case IDs, ladder roles (`R2`, `R1-core`, `R1`, `R0`), and phase-gate selection."
   - Backlog done_when:
@@ -157,9 +157,9 @@ Foundation owns `FND-01..FND-07` and provides the frozen contract layer consumed
     - `docs/authority/support_matrix.md` -> `## Backend and Operational Policy`
     - `docs/authority/support_matrix.json` -> `global_policy`, `exact_audited_scheme_tuple`, `function_object_policy`, `phase6_nozzle_specific_envelope`, `startup_seed_dsl`, `backend_operational_policy`
     - `docs/authority/continuity_ledger.md` -> `# 1. Frozen global decisions` (support-matrix ownership and GPU-only operational contract)
-  - Phase spec or `README_FIRST` authority-order note for `FND-*`:
-    - `docs/README_FIRST.md` -> `## Authoritative docs`
-    - `docs/README_FIRST.md` -> `## Consumption rules`
+  - Phase spec or `docs/authority/README.md` authority-order note for `FND-*`:
+    - `docs/authority/README.md` -> `## Authority Order`
+    - `docs/authority/README.md` -> `## Consumption Rules`
   - Backlog scope:
     - "Implement centralized support scanning for BCs, schemes, turbulence scope, function objects, backend eligibility, and fallback policy."
   - Backlog done_when:
@@ -206,9 +206,9 @@ Foundation owns `FND-01..FND-07` and provides the frozen contract layer consumed
     - `docs/authority/acceptance_manifest.md` -> `## Exact Threshold Classes`
     - `docs/authority/acceptance_manifest.md` -> `## Production Defaults`
     - `docs/authority/acceptance_manifest.json` -> `accepted_tuples`, `coverage_rules`, `nvtx_contract_defaults`, `hard_gates`, `soft_gates`, `threshold_classes`, `disposition_rules`, `production_defaults`
-  - Phase spec or `README_FIRST` authority-order note for `FND-*`:
-    - `docs/README_FIRST.md` -> `## Authoritative docs`
-    - `docs/README_FIRST.md` -> `## Consumption rules`
+  - Phase spec or `docs/authority/README.md` authority-order note for `FND-*`:
+    - `docs/authority/README.md` -> `## Authority Order`
+    - `docs/authority/README.md` -> `## Consumption Rules`
   - Backlog scope:
     - "Build a reusable acceptance evaluator that understands tuple IDs, tolerance classes, parity classes, hard/soft gates, and waiver hooks."
   - Backlog done_when:
@@ -253,9 +253,9 @@ Foundation owns `FND-01..FND-07` and provides the frozen contract layer consumed
     - `docs/authority/acceptance_manifest.md` -> `## Tuple-Specific NVTX Contract`
     - `docs/authority/acceptance_manifest.json` -> `accepted_tuples[*].required_stage_ids`, `nvtx_contract_defaults.required_orchestration_ranges`
     - `docs/authority/continuity_ledger.md` -> `# 1. Frozen global decisions` (`gpuRuntime` normalization and centralized graph policy ownership)
-  - Phase spec or `README_FIRST` authority-order note for `FND-*`:
-    - `docs/README_FIRST.md` -> `## Authoritative docs`
-    - `docs/README_FIRST.md` -> `## Consumption rules`
+  - Phase spec or `docs/authority/README.md` authority-order note for `FND-*`:
+    - `docs/authority/README.md` -> `## Authority Order`
+    - `docs/authority/README.md` -> `## Consumption Rules`
   - Backlog scope:
     - "Create the canonical stage-ID registry and graph-policy loader used by execution, instrumentation, and acceptance code."
   - Backlog done_when:
@@ -299,9 +299,9 @@ Foundation owns `FND-01..FND-07` and provides the frozen contract layer consumed
     - `docs/authority/semantic_source_map.md` -> `## Frozen Mapping`
     - `docs/authority/semantic_source_map.md` -> `## Implementation Rule`
     - `docs/authority/continuity_ledger.md` -> `# 5. Package Consumption Rule` (semantic patch targets cannot be redefined locally)
-  - Phase spec or `README_FIRST` authority-order note for `FND-*`:
-    - `docs/README_FIRST.md` -> `## Authoritative docs`
-    - `docs/README_FIRST.md` -> `## Consumption rules`
+  - Phase spec or `docs/authority/README.md` authority-order note for `FND-*`:
+    - `docs/authority/README.md` -> `## Authority Order`
+    - `docs/authority/README.md` -> `## Consumption Rules`
   - Backlog scope:
     - "Add tooling and templates that map semantic source references to the exact local SPUMA/v2412 patch targets before any solver modifications."
   - Backlog done_when:
@@ -354,7 +354,7 @@ Foundation owns `FND-01..FND-07` and provides the frozen contract layer consumed
 
 ## shared_terms
 
-- `authority layer`: the ordered set in `README_FIRST` that overrides conflicting phase-local wording.
+- `authority layer`: the ordered set in `docs/authority/README.md` that overrides conflicting phase-local wording.
 - `JSON companion`: machine-readable authority source consumed by automation and validators.
 - `case role`: one of `R2`, `R1-core`, `R1`, `R0` resolved from `reference_case_contract`.
 - `failFast`: default unsupported-config behavior; reject before first timestep.
@@ -369,7 +369,7 @@ Foundation owns `FND-01..FND-07` and provides the frozen contract layer consumed
 ## validation_checks
 
 - All seven `FND-*` cards preserve backlog dependency edges: `FND-01` root, then `FND-02..FND-07` depend on `FND-01`.
-- Every card cites authority sources plus `README_FIRST` authority-order and consumption anchors.
+- Every card cites authority sources plus `docs/authority/README.md` authority-order and consumption anchors.
 - No Foundation card absorbs Phase 0 baseline-freeze implementation behavior.
 - No Foundation card absorbs Phase 1 Blackwell bring-up execution behavior.
 - Exported artifacts satisfy the Foundation -> Phase 0 / Phase 1 seam gate contract in `boundary_matrix.md`.

@@ -6,10 +6,10 @@ This folder holds the agent-facing task briefs that expand the high-level PR bac
 
 - Treat [gpu_cfd_pr_backlog.json](/Users/rexputnam/Documents/projects/gpu_cfd/docs/backlog/gpu_cfd_pr_backlog.json) as the canonical worklist and dependency source.
 - Use [gpu_cfd_pr_backlog.md](/Users/rexputnam/Documents/projects/gpu_cfd/docs/backlog/gpu_cfd_pr_backlog.md) as narrative context only.
-- Use [README_FIRST.md](/Users/rexputnam/Documents/projects/gpu_cfd/docs/README_FIRST.md) to enter through the authority bundle before working a task.
+- Start from `AGENTS.md`, then resolve the exact PR card, then read only the authority/spec docs cited by that card.
 - Every PR card must anchor to the same chain:
   1. authority doc(s) and JSON companions
-  2. exact phase-spec subsection(s), or for `FND-*` cards the relevant [README_FIRST.md](/Users/rexputnam/Documents/projects/gpu_cfd/docs/README_FIRST.md) authority-order subsection
+  2. exact phase-spec subsection(s), or for `FND-*` cards the relevant [authority/README.md](/Users/rexputnam/Documents/projects/gpu_cfd/docs/authority/README.md) authority-order subsection
   3. backlog `scope`
   4. backlog `done_when`
 - Section docs own only their assigned PR IDs and must not absorb neighboring work.

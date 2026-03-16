@@ -8,7 +8,7 @@ Use this structure for every PR card in the section docs.
 - Objective:
 - Exact citations:
   - Authority:
-  - Phase spec or `README_FIRST` authority-order note for `FND-*`:
+  - Phase spec or `docs/authority/README.md` authority-order note for `FND-*`:
   - Backlog scope:
   - Backlog done_when:
 - Depends on (backlog IDs):
@@ -52,7 +52,7 @@ Every section doc must end with these blocks, using these exact names:
 ## Required Practices
 
 - Cite exact subsection anchors from the phase spec, not only the document name.
-- `FND-*` cards may use the relevant [README_FIRST.md](/Users/rexputnam/Documents/projects/gpu_cfd/docs/README_FIRST.md) authority-order subsection in place of a phase-spec citation.
+- `FND-*` cards may use the relevant [authority/README.md](/Users/rexputnam/Documents/projects/gpu_cfd/docs/authority/README.md) authority-order subsection in place of a phase-spec citation.
 - Preserve every `depends_on` edge from the backlog.
 - Break work into implementation-ready task slices, not vague themes.
 - Prefer exported artifact names already frozen in the authority docs when they exist.

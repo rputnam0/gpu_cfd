@@ -7,7 +7,7 @@ Use this checklist for every section review and wave signoff.
 - Every backlog PR ID for the section appears exactly once.
 - Every PR card cites:
   - at least one authority doc or JSON companion
-  - at least one exact phase-spec subsection, or for `FND-*` cards the relevant [README_FIRST.md](/Users/rexputnam/Documents/projects/gpu_cfd/docs/README_FIRST.md) authority-order subsection
+  - at least one exact phase-spec subsection, or for `FND-*` cards the relevant [authority/README.md](/Users/rexputnam/Documents/projects/gpu_cfd/docs/authority/README.md) authority-order subsection
   - the backlog `scope`
   - the backlog `done_when`
 - Every PR card preserves the backlog dependency edges.

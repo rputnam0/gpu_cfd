@@ -1,7 +1,53 @@
 # Repository Guidelines
 
-## Project Structure & Module Organization
-Describe where core modules live (e.g., `src/`, repo root) and the purpose of each major module. Identify where tests and test data live (e.g., `tests/`, `tests/data/`). Note build metadata location (e.g., `pyproject.toml`) and the lockfile (`uv.lock`).
+## Repository Map
+This repo is the doc-driven control plane for the `gpu_cfd` Symphony workflow. Keep context narrow:
+start from the issue, the exact PR card, and the cited docs before opening broader material.
+
+```text
+.
+├── AGENTS.md
+├── WORKFLOW.md
+├── docs/
+│   ├── README.md
+│   ├── authority/
+│   ├── backlog/
+│   ├── ops/
+│   ├── specs/
+│   └── tasks/
+├── scripts/
+│   ├── authority/
+│   └── symphony/
+├── tests/
+└── dev/
+```
+
+### What each area is for
+- `WORKFLOW.md`: implementation-worker contract injected by Symphony.
+- `docs/README.md`: top-level knowledge-base index.
+- `docs/authority/`: authority order, frozen bundle, and consumption rules.
+- `docs/specs/`: phase specs; read only the cited sections you need.
+- `docs/tasks/`: PR inventory, task files, templates, and review rules.
+- `docs/backlog/gpu_cfd_pr_backlog.json`: canonical PR scope and dependency graph.
+- `docs/ops/`: operator/runtime docs; open by default only for orchestration tasks.
+- `scripts/authority/`: authority parsing and loader helpers.
+- `scripts/symphony/`: dispatch, Linear, handoff, review, bridge, and trace helpers.
+- `tests/`: Python `unittest` regression suite.
+- `dev/`: orientation only, not source of truth.
+
+### Default reading path
+- Implementation or rework: `AGENTS.md` -> Linear issue/PR context -> exact task file and PR card -> cited docs only.
+- Orchestration/runtime work: `AGENTS.md` -> `docs/ops/README.md` -> `docs/ops/symphony_runbook.md` -> exact code touched.
+- Do not read the full docs corpus by default.
+- If the PR ID, task file, or card location is unclear, use `docs/tasks/pr_inventory.md` as the fallback map.
+- Update the canonical Linear workpad before edits and use it as working memory.
+
+## Source of Truth Order
+1. Exact PR card and the sources it cites
+2. `docs/authority/`
+3. Exact cited sections under `docs/specs/`
+4. `docs/backlog/gpu_cfd_pr_backlog.json`
+5. `docs/ops/` for orchestration/runtime rules only
 
 ## Build, Test, and Development Commands
 - Use `uv run` for all commands. Do not use `pip`.
@@ -31,42 +77,20 @@ PR quality bar.
 Title: Summarize the change clearly (e.g., "Fix: User authentication bug" rather than "Fixes").
 Description: Explain the why (the problem being solved) and the what (the changes made), not just the how. Include screenshots, relevant ticket numbers, and testing instructions if applicable.
 
-## Planning Documents and PRDs
-This project has a written plan found `docs/`. The plan may be converted into PRs or an explicit checklist of to-dos.
-Best practices.
-- Keep the checklist in the repo and update it as work progresses.
-- For each to-do, create a branch, implement the change, add/update tests, and commit in logical blocks.
-- Mark items complete only when tests pass and the change is in a PR.
-- Reference the checklist items in commit messages or PR descriptions to keep traceability.
-- Leave clear notes for the next agent about what is done, what is in review, and what remains.
-
 ## PR Review Comments (GitHub CLI)
 - To pull full inline review comments (including `diff_hunk`, `line`, `start_line`, `path`, and `body`), use:
   - `gh api -H "Accept: application/vnd.github+json" -H "X-GitHub-Api-Version: 2022-11-28" /repos/:owner/:repo/pulls/<PR_NUMBER>/comments`
 - To filter for a specific bot or reviewer (example: Devin bot), pipe through `jq`:
   - `gh api -H "Accept: application/vnd.github+json" -H "X-GitHub-Api-Version: 2022-11-28" /repos/:owner/:repo/pulls/<PR_NUMBER>/comments | jq '[ .[] | select(.user.login == "devin-ai-integration[bot]") | { diff_hunk, line, start_line, body, path } ]'`
 
-## Environment & Tooling
-Use `uv` for environments and dependency management. Keep `pyproject.toml` and `uv.lock` in sync and committed. Do not commit local dev tooling or environments, including `.venv`, IDE state, caches, or tool binaries. Install dev tools locally via `uv` only.
 
-## Remote GPU Workflow
-Primary development may happen on a local Mac, but GPU-heavy work should run on the workstation reachable via `ssh wsl`.
-- Prefer running long experiments, training jobs, large batch scripts, and other GPU-bound workflows on the workstation instead of the local laptop.
-- Use SSH for one-off remote commands, for example: `ssh wsl 'cd /path/to/repo && uv run python <entrypoint>.py'`.
-- Start a `tmux` session on the workstation before launching long-running jobs so work survives disconnects. Typical flow: `ssh wsl`, `tmux new -s gpu`, run commands, detach with `Ctrl-b` then `d`, and later reattach with `tmux attach -t gpu`.
-- For Symphony orchestration on WSL, use the tracked user-systemd unit in [docs/ops/symphony-gpu-cfd.service](/Users/rexputnam/Documents/projects/gpu_cfd/docs/ops/symphony-gpu-cfd.service). Do not rely on ad hoc launcher scripts or manual long-lived shell sessions as the production control plane.
-- For Symphony review handoffs, use Linear workflow states as the only control plane. `In Review` is dormant, and work resumes only when Linear moves the issue into an active state such as `Rework`. Do not add repo-side watcher daemons or local sleep/poll loops.
-- Individual WSL Codex workers must retain worker-local Linear access. Symphony's injected `linear_graphql` tool is preferred when present, and the host Linear MCP server must also stay configured and logged in. Treat missing worker-side Linear access as a blocker rather than introducing repo-local polling fallbacks.
-- Use `task-spooler` (`ts`) on the workstation to queue experiments instead of manually juggling multiple concurrent jobs. Typical flow: `ts uv run python <entrypoint>.py ...` and `ts` to inspect queue status.
-- Keep large artifacts, caches, datasets, and intermediate outputs on the workstation when possible; only sync back the files needed for review or commit.
-- If a dashboard or notebook is needed, prefer SSH port forwarding rather than exposing services directly on the network.
-- When an agent starts a long remote run, it should leave behind a clear command history, log location, and any job or queue identifiers needed to resume or inspect the work later.
-
-## Versioning and Release Notes
-Define when to bump versions (e.g., bugfix, feature, breaking change) and where to update release notes or changelogs. Call out any required tagging or release workflow steps.
-
-## Security and Secrets
-Never commit secrets. Define how local environment variables are managed (e.g., `.env` with a `.env.example` template) and where secure storage is expected.
+## Symphony Guardrails
+- `In Review` is dormant. Resume work only from active states such as `Todo`, `In Progress`, or `Rework`.
+- Do not add repo-side watcher daemons, poll loops, or sleep-based control flow.
+- Worker-local Linear access is mandatory. If missing, record a blocker and stop.
+- Use the tracked WSL systemd unit for production orchestration, not ad hoc long-lived shells.
+- Prefer WSL for GPU-heavy work; use `tmux` and `ts` for long remote runs.
+- Leave behind enough notes, logs, and identifiers for another agent to resume the work safely.
 
 ## Documentation Standards
 Set minimum doc updates required with code changes (e.g., README updates, API docs, usage examples).
