@@ -48,9 +48,13 @@ repository's authority docs, backlog dependencies, and PR-card scope.
 9. When the handoff helper succeeds, it opens or updates the PR, enables GitHub auto-merge, moves
    the issue to `In Review`, and you should stop after you update the workpad with the PR URL.
 10. `In Review` is a dormant automated-review queue. Do not wait or poll from the worker.
-11. On a `Rework` run, start with the latest Devin feedback on the current PR head, fix valid
-    findings, rerun targeted validation, push, and rerun the handoff helper before returning to
-    `In Review`.
+11. On a `Rework` run, start by using the GitHub CLI API to pull the latest review comments and
+    review state for the current PR head. Do not rely on memory alone.
+12. Treat valid actionable Devin feedback on the current head as mandatory fix work. Fix those
+    findings first, rerun targeted validation, push, and rerun the handoff helper before returning
+    to `In Review`.
+13. Use the `gh api` PR comment/review endpoints described in `AGENTS.md` when you need the full
+    inline Devin feedback payload, including file path, line, diff hunk, and body.
 
 ## Handoff rules
 

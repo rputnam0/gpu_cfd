@@ -796,3 +796,124 @@ index 2e33239..db96409 100644
    end
  
    test "stale retry timer messages do not consume newer retry entries" do
+diff --git a/elixir/lib/symphony_elixir/continuation_store.ex b/elixir/lib/symphony_elixir/continuation_store.ex
+new file mode 100644
+index 0000000..99683b1
+--- /dev/null
++++ b/elixir/lib/symphony_elixir/continuation_store.ex
+@@ -0,0 +1,115 @@
++defmodule SymphonyElixir.ContinuationStore do
++  @moduledoc """
++  Persists per-issue Codex continuation metadata outside repo workspaces.
++  """
++
++  require Logger
++  alias SymphonyElixir.LogFile
++
++  @default_relative_path "continuations.json"
++
++  @spec load() :: map()
++  def load do
++    path = store_path()
++
++    case File.read(path) do
++      {:ok, contents} ->
++        case Jason.decode(contents) do
++          {:ok, payload} when is_map(payload) ->
++            normalize_payload(payload)
++
++          {:ok, _payload} ->
++            Logger.warning("Ignoring invalid continuation store payload at #{path}")
++            %{}
++
++          {:error, reason} ->
++            Logger.warning("Ignoring unreadable continuation store at #{path}: #{inspect(reason)}")
++            %{}
++        end
++
++      {:error, :enoent} ->
++        %{}
++
++      {:error, reason} ->
++        Logger.warning("Unable to read continuation store at #{path}: #{inspect(reason)}")
++        %{}
++    end
++  end
++
++  @spec persist(map()) :: :ok | {:error, term()}
++  def persist(continuations) when is_map(continuations) do
++    path = store_path()
++    tmp_path = path <> ".tmp"
++    serializable = encode_payload(continuations)
++
++    with :ok <- File.mkdir_p(Path.dirname(path)),
++         :ok <- File.write(tmp_path, Jason.encode_to_iodata!(serializable, pretty: true)),
++         :ok <- File.rename(tmp_path, path) do
++      :ok
++    else
++      {:error, reason} = error ->
++        Logger.warning("Failed persisting continuation store at #{path}: #{inspect(reason)}")
++        _ = File.rm(tmp_path)
++        error
++    end
++  end
++
++  @spec store_path() :: String.t()
++  def store_path do
++    log_file = Application.get_env(:symphony_elixir, :log_file, LogFile.default_log_file())
++    Path.join(Path.dirname(Path.expand(log_file)), @default_relative_path)
++  end
++
++  defp normalize_payload(payload) do
++    Enum.reduce(payload, %{}, fn
++      {issue_id, continuation}, acc when is_binary(issue_id) and is_map(continuation) ->
++        Map.put(acc, issue_id, normalize_continuation(continuation))
++
++      _, acc ->
++        acc
++    end)
++  end
++
++  defp normalize_continuation(continuation) do
++    %{
++      identifier: normalize_string_key(continuation, "identifier"),
++      worker_host: normalize_string_key(continuation, "worker_host"),
++      workspace_path: normalize_string_key(continuation, "workspace_path"),
++      thread_id: normalize_string_key(continuation, "thread_id"),
++      updated_at: normalize_string_key(continuation, "updated_at")
++    }
++    |> Enum.reject(fn {_key, value} -> is_nil(value) end)
++    |> Map.new()
++  end
++
++  defp normalize_string_key(map, key) when is_map(map) and is_binary(key) do
++    atom_key =
++      case key do
++        "identifier" -> :identifier
++        "worker_host" -> :worker_host
++        "workspace_path" -> :workspace_path
++        "thread_id" -> :thread_id
++        "updated_at" -> :updated_at
++      end
++
++    value = Map.get(map, key) || Map.get(map, atom_key)
++
++    case value do
++      binary when is_binary(binary) ->
++        trimmed = String.trim(binary)
++        if trimmed == "", do: nil, else: trimmed
++
++      _ ->
++        nil
++    end
++  end
++
++  defp encode_payload(continuations) when is_map(continuations) do
++    Enum.into(continuations, %{}, fn {issue_id, continuation} ->
++      {issue_id,
++       continuation
++       |> Enum.reject(fn {_key, value} -> is_nil(value) end)
++       |> Enum.into(%{}, fn {key, value} -> {Atom.to_string(key), value} end)}
++    end)
++  end
++end

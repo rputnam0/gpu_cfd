@@ -198,8 +198,10 @@ def run_host_review(workspace: pathlib.Path, issue_identifier: str) -> ReviewRes
     )
     branch = current_branch(workspace)
     manifest, message = load_manifest_message(workspace, branch)
-    if completed.returncode != 0 and not message:
-        return ReviewResult(status="unavailable", message="", manifest=manifest)
+    if completed.returncode != 0:
+        if review_message_has_findings(message):
+            return ReviewResult(status="findings", message=message, manifest=manifest)
+        return ReviewResult(status="unavailable", message=message, manifest=manifest)
     if review_message_has_findings(message):
         return ReviewResult(status="findings", message=message, manifest=manifest)
     if review_message_is_clean(message):

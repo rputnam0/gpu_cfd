@@ -28,6 +28,10 @@ agent:
     in progress: 1
     rework: 1
 codex:
+  # This is the default Symphony implementation worker profile.
+  # The separate local review pass is launched by scripts/symphony/pr_handoff.py
+  # via scripts/symphony/review_loop.py and uses scripts/symphony/runtime_config.toml:
+  # review = gpt-5.4 / xhigh
   command: codex --config shell_environment_policy.inherit=all --config model_reasoning_effort=medium --model gpt-5.4 app-server
   approval_policy: never
   thread_sandbox: workspace-write
@@ -71,13 +75,16 @@ Execution contract:
 - The WSL Codex worker runtime also has the official Linear MCP configured and authenticated for individual workers. If neither `linear_graphql` nor Linear MCP is available, record a blocker and stop.
 - Keep one persistent Linear workpad comment or concise progress-note trail up to date during implementation and rework.
 - If the issue state is `Todo`, move it to `In Progress` before implementation work.
-- If the issue state is `Rework`, start with a GitHub PR feedback sweep for the current head before new edits.
-- If the issue already has a PR attached, start with a review-feedback sweep before new edits.
+- If the issue state is `Rework`, start by using the GitHub CLI API to pull the latest review comments and review state for the current PR head before making new edits.
+- If the issue already has a PR attached, start with the same GitHub API review-feedback sweep before new edits.
+- Use `gh api` to inspect PR review comments and threads. Treat actionable Devin feedback on the current head as mandatory fix work, not as optional advice.
+- Do not rely on memory alone for `Rework`. Re-read the current PR feedback from GitHub, fix every valid actionable Devin finding, and record what changed in the Linear workpad.
 - If the branch is already clean and pushed but no PR exists, treat the run as ready for the sanctioned pre-PR handoff instead of reopening implementation planning.
 - Never move an issue back to `Backlog` after implementation has started. `Backlog` is only for untouched dependency-gated work.
 - Use the issue branch name when available; otherwise create a `codex/` branch derived from the issue identifier.
 - Run the smallest relevant validation first, then broader checks when the scope requires it.
 - When the task is implementation-complete, commit and push the branch, record validation evidence in the workpad, then run `python3 scripts/symphony/pr_handoff.py --workspace "$PWD"`.
+- The Symphony `codex` block above configures the implementation worker only. The local pre-PR review pass uses the repo-owned review profile in `scripts/symphony/runtime_config.toml` (`gpt-5.4` with `xhigh`).
 - If the handoff helper reports findings, inspect the latest artifact under `.codex/review_artifacts/`, fix the valid findings in the same run, rerun the smallest relevant validation, and rerun the handoff helper once.
 - When the handoff helper succeeds, it opens or updates the GitHub PR, enables auto-merge, moves the issue to `In Review`, and the run should stop after you update the workpad with the PR URL.
 - `In Review` is a dormant automated-review state. Do not wait, poll, or sleep for Devin.

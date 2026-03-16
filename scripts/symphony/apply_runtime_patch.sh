@@ -1,17 +1,22 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-TARGET_DIR="${1:-$HOME/projects/symphony/elixir}"
+TARGET_DIR_INPUT="${1:-$HOME/projects/symphony}"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PATCH_FILE="$SCRIPT_DIR/patches/symphony-thread-resume-v2.patch"
 
-if [[ ! -d "$TARGET_DIR/.git" ]]; then
-  echo "Target is not a git checkout: $TARGET_DIR" >&2
+if [[ ! -d "$TARGET_DIR_INPUT" ]]; then
+  echo "Target path does not exist: $TARGET_DIR_INPUT" >&2
   exit 1
 fi
 
 if [[ ! -f "$PATCH_FILE" ]]; then
   echo "Patch file not found: $PATCH_FILE" >&2
+  exit 1
+fi
+
+if ! TARGET_DIR="$(git -C "$TARGET_DIR_INPUT" rev-parse --show-toplevel 2>/dev/null)"; then
+  echo "Target is not inside a git checkout: $TARGET_DIR_INPUT" >&2
   exit 1
 fi
 

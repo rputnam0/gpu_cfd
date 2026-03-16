@@ -56,7 +56,7 @@ Apply it to the WSL Symphony checkout before starting the service:
 
 ```bash
 cd ~/projects/gpu_cfd
-bash scripts/symphony/apply_runtime_patch.sh ~/projects/symphony/elixir
+bash scripts/symphony/apply_runtime_patch.sh ~/projects/symphony
 ```
 
 The patch is tracked in this repo at:
@@ -82,6 +82,8 @@ Review loop:
 - The GitHub Actions workflow `.github/workflows/devin-review-gate.yml` sets the required
   `devin-review-gate` status on the current head.
 - Actionable Devin feedback on the current head moves the issue to `Rework`.
+- A `Rework` worker is expected to pull the latest current-head Devin review comments directly from
+  GitHub with `gh api` before editing, then fix every valid actionable finding.
 - A fresh clean Devin pass on the current head turns `devin-review-gate` green.
 - GitHub auto-merge lands the PR only after both `review-loop-harness` and
   `devin-review-gate` are green and conversation resolution is satisfied.
@@ -233,7 +235,7 @@ mise exec -- mix build
 
 ```bash
 cd ~/projects/gpu_cfd
-bash scripts/symphony/apply_runtime_patch.sh ~/projects/symphony/elixir
+bash scripts/symphony/apply_runtime_patch.sh ~/projects/symphony
 ```
 
 5. Install and start the user-systemd unit shown above.

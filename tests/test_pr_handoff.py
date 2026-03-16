@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import pathlib
+from unittest import mock
 import unittest
 
 from scripts.symphony import pr_handoff
@@ -37,6 +39,29 @@ class PrHandoffTests(unittest.TestCase):
 
         self.assertIn("Implement PRO-6: Example change", body)
         self.assertIn("Closes PRO-6", body)
+
+    @mock.patch("scripts.symphony.pr_handoff.load_manifest_message")
+    @mock.patch("scripts.symphony.pr_handoff.current_branch")
+    @mock.patch("scripts.symphony.pr_handoff.subprocess.run")
+    def test_nonzero_review_with_clean_message_is_not_treated_as_clean(
+        self,
+        mock_run: mock.Mock,
+        mock_current_branch: mock.Mock,
+        mock_load_manifest_message: mock.Mock,
+    ) -> None:
+        mock_run.return_value = mock.Mock(returncode=124)
+        mock_current_branch.return_value = "codex/pro-6-example"
+        mock_load_manifest_message.return_value = (
+            {"message_path": ".codex/review_artifacts/latest.md"},
+            "No material findings remain on this branch.",
+        )
+
+        result = pr_handoff.run_host_review(
+            pathlib.Path("/tmp/workspace"),
+            "PRO-6",
+        )
+
+        self.assertEqual(result.status, "unavailable")
 
 
 if __name__ == "__main__":
