@@ -100,7 +100,14 @@ def main() -> int:
     if snapshot.state != "MERGED" or not snapshot.merged_at:
         raise ValueError(f"pull request #{snapshot.number} is not merged")
     if not issue_identifier:
-        raise ValueError("could not infer linked Linear issue from the pull request")
+        result = {
+            "pull_request": asdict(snapshot),
+            "issue_identifier": None,
+            "skipped": True,
+            "reason": "no linked Linear issue could be inferred from the pull request",
+        }
+        print(json.dumps(result, indent=2))
+        return 0
 
     done_update = linear_api.update_issue_state(issue_identifier, DONE_STATE)
     released_dependents = linear_api.release_direct_unblocked_dependents(issue_identifier)

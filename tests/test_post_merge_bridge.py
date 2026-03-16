@@ -65,6 +65,40 @@ class PostMergeBridgeTests(unittest.TestCase):
         mock_update_issue_state.assert_called_once_with("PRO-17", "Done")
         mock_release_direct_unblocked_dependents.assert_called_once_with("PRO-17")
 
+    @mock.patch("scripts.symphony.post_merge_bridge.linear_api.release_direct_unblocked_dependents")
+    @mock.patch("scripts.symphony.post_merge_bridge.linear_api.update_issue_state")
+    @mock.patch("scripts.symphony.post_merge_bridge.select_issue_identifier")
+    @mock.patch("scripts.symphony.post_merge_bridge.fetch_pr_snapshot")
+    def test_main_skips_when_pull_request_has_no_linear_issue(
+        self,
+        mock_fetch_pr_snapshot: mock.Mock,
+        mock_select_issue_identifier: mock.Mock,
+        mock_update_issue_state: mock.Mock,
+        mock_release_direct_unblocked_dependents: mock.Mock,
+    ) -> None:
+        mock_fetch_pr_snapshot.return_value = post_merge_bridge.PullRequestSnapshot(
+            number=18,
+            title="[codex] Maintenance cleanup",
+            body="No Linear issue attached.",
+            head_ref_name="codex/maintenance-cleanup",
+            url="https://github.com/rputnam0/gpu_cfd/pull/18",
+            state="MERGED",
+            merged_at="2026-03-16T16:00:00Z",
+        )
+        mock_select_issue_identifier.return_value = None
+
+        buffer = io.StringIO()
+        with mock.patch(
+            "sys.argv",
+            ["post_merge_bridge.py", "--repo", "rputnam0/gpu_cfd", "--pr", "18"],
+        ), contextlib.redirect_stdout(buffer):
+            exit_code = post_merge_bridge.main()
+
+        self.assertEqual(exit_code, 0)
+        self.assertIn('"skipped": true', buffer.getvalue())
+        mock_update_issue_state.assert_not_called()
+        mock_release_direct_unblocked_dependents.assert_not_called()
+
 
 if __name__ == "__main__":
     unittest.main()

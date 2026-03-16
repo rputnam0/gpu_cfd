@@ -89,7 +89,8 @@ Review loop:
 - GitHub auto-merge lands the PR only after both `review-loop-harness` and
   `devin-review-gate` are green and conversation resolution is satisfied.
 - `.github/workflows/linear-post-merge.yml` moves the linked issue to `Done` and promotes newly
-  unblocked direct dependents from `Backlog` to `Todo`.
+  unblocked direct dependents from `Backlog` to `Todo`. If a merged PR has no linked Linear issue,
+  the workflow now skips cleanly instead of failing.
 
 ## Remaining external prerequisites
 
@@ -248,12 +249,12 @@ The expected end-to-end flow is:
 1. Linear issue moves `Todo -> In Progress`
 2. Worker implements and passes local Codex review
 3. `pr_handoff.py` opens or updates the PR, enables auto-merge, and moves the issue to `In Review`
-4. `devin-review-gate` is `pending` until a fresh Devin pass lands on the current head
+4. `devin-review-gate` is `pending` until the first Devin review lands
 5. Actionable Devin feedback moves the issue to `Rework`
 6. Resumed worker fixes the issue and returns it to `In Review`
-7. Fresh clean Devin pass turns `devin-review-gate` green
+7. Once that Devin review round has no remaining actionable feedback, `devin-review-gate` turns green
 8. GitHub auto-merges the PR
-9. `linear-post-merge` moves the issue to `Done` and releases newly unblocked dependents
+9. `linear-post-merge` moves the linked issue to `Done` and releases newly unblocked dependents, or skips cleanly for repo-maintenance PRs with no Linear issue
 
 ## Validation status
 
