@@ -199,19 +199,11 @@ def determine_gate_decision(
             review_state=summary.review_state,
             target_state=DEFAULT_REWORK_STATE,
         )
-    if summary.review_state == "clean":
+    if summary.review_state == "review_complete":
         return GateDecision(
             issue_identifier=issue_identifier,
             status_state="success",
-            description="Fresh Devin review is clean on the current head",
-            review_state=summary.review_state,
-            target_state=None,
-        )
-    if summary.review_state == "pending_rereview":
-        return GateDecision(
-            issue_identifier=issue_identifier,
-            status_state="success",
-            description="Initial Devin review is resolved; no actionable feedback remains",
+            description="Devin review is complete and no actionable feedback remains",
             review_state=summary.review_state,
             target_state=None,
         )

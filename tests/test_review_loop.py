@@ -136,7 +136,7 @@ class EvaluateReviewStateTests(unittest.TestCase):
             pull_request,
             {"devin-ai-integration[bot]"},
         )
-        self.assertEqual(summary.review_state, "clean")
+        self.assertEqual(summary.review_state, "review_complete")
         self.assertEqual(len(summary.actionable_threads), 0)
 
     def test_action_required_for_fresh_changes_requested_without_body(self) -> None:
@@ -174,7 +174,7 @@ class EvaluateReviewStateTests(unittest.TestCase):
             {"devin-ai-integration[bot]"},
         )
 
-        self.assertEqual(summary.review_state, "clean")
+        self.assertEqual(summary.review_state, "review_complete")
         self.assertEqual(len(summary.actionable_reviews), 0)
 
     def test_clean_for_zero_issue_devin_summary_review(self) -> None:
@@ -194,10 +194,10 @@ class EvaluateReviewStateTests(unittest.TestCase):
             {"devin-ai-integration[bot]"},
         )
 
-        self.assertEqual(summary.review_state, "clean")
+        self.assertEqual(summary.review_state, "review_complete")
         self.assertEqual(len(summary.actionable_reviews), 0)
 
-    def test_pending_rereview_when_only_stale_review_exists(self) -> None:
+    def test_review_complete_when_only_stale_review_exists(self) -> None:
         pull_request = self.make_pull_request()
         pull_request["reviews"]["nodes"].append(
             {
@@ -212,7 +212,7 @@ class EvaluateReviewStateTests(unittest.TestCase):
             pull_request,
             {"devin-ai-integration[bot]"},
         )
-        self.assertEqual(summary.review_state, "pending_rereview")
+        self.assertEqual(summary.review_state, "review_complete")
         self.assertEqual(len(summary.stale_reviews), 1)
 
     def test_clean_when_fresh_approval_has_no_open_threads(self) -> None:
@@ -230,7 +230,7 @@ class EvaluateReviewStateTests(unittest.TestCase):
             pull_request,
             {"devin-ai-integration[bot]"},
         )
-        self.assertEqual(summary.review_state, "clean")
+        self.assertEqual(summary.review_state, "review_complete")
 
     def test_clean_when_latest_fresh_review_supersedes_changes_requested(self) -> None:
         pull_request = self.make_pull_request()
@@ -256,7 +256,7 @@ class EvaluateReviewStateTests(unittest.TestCase):
             pull_request,
             {"devin-ai-integration[bot]"},
         )
-        self.assertEqual(summary.review_state, "clean")
+        self.assertEqual(summary.review_state, "review_complete")
         self.assertEqual(len(summary.actionable_reviews), 0)
 
     def test_clean_when_only_resolved_target_threads_exist(self) -> None:
@@ -284,9 +284,9 @@ class EvaluateReviewStateTests(unittest.TestCase):
             pull_request,
             review_loop.expand_reviewer_aliases(["devin-ai-integration[bot]"]),
         )
-        self.assertEqual(summary.review_state, "clean")
+        self.assertEqual(summary.review_state, "review_complete")
 
-    def test_pending_rereview_when_only_stale_resolved_threads_exist(self) -> None:
+    def test_review_complete_when_only_stale_resolved_threads_exist(self) -> None:
         pull_request = self.make_pull_request()
         pull_request["reviewThreads"]["nodes"].append(
             {
@@ -311,7 +311,7 @@ class EvaluateReviewStateTests(unittest.TestCase):
             pull_request,
             review_loop.expand_reviewer_aliases(["devin-ai-integration[bot]"]),
         )
-        self.assertEqual(summary.review_state, "pending_rereview")
+        self.assertEqual(summary.review_state, "review_complete")
 
     def test_handles_missing_thread_comment_timestamps_without_crashing(self) -> None:
         pull_request = self.make_pull_request()

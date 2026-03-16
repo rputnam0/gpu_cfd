@@ -80,12 +80,12 @@ Review loop:
   moves the issue to `In Review`.
 - `In Review` is dormant. No repo-owned watcher or worker sleep loop stays alive.
 - The GitHub Actions workflow `.github/workflows/devin-review-gate.yml` sets the required
-  `devin-review-gate` status on the current head.
-- Actionable Devin feedback on the current head moves the issue to `Rework`.
-- A `Rework` worker is expected to pull the latest current-head Devin review comments directly from
-  GitHub with `gh api` before editing, then fix every valid actionable finding.
-- A first-round Devin review with no remaining actionable feedback turns `devin-review-gate`
-  green, even if Devin does not automatically post a second pass on the new head.
+  `devin-review-gate` status for the PR review cycle.
+- Actionable Devin feedback moves the issue to `Rework`.
+- A `Rework` worker is expected to pull the latest Devin review comments directly from GitHub with
+  `gh api` before editing, then fix every valid actionable finding.
+- Once that first Devin review round has no remaining actionable feedback, `devin-review-gate`
+  turns green and the PR can merge.
 - GitHub auto-merge lands the PR only after both `review-loop-harness` and
   `devin-review-gate` are green and conversation resolution is satisfied.
 - `.github/workflows/linear-post-merge.yml` moves the linked issue to `Done` and promotes newly
