@@ -307,7 +307,6 @@ def evaluate_review_state(
     actionable_reviews: list[dict[str, Any]] = []
     actionable_threads: list[dict[str, Any]] = []
     stale_reviews: list[dict[str, Any]] = []
-    fresh_threads: list[dict[str, Any]] = []
     latest_fresh_reviews_by_author: dict[str, dict[str, Any]] = {}
 
     for review in pull_request.get("reviews", {}).get("nodes", []):
@@ -365,17 +364,6 @@ def evaluate_review_state(
             "comments": target_comments,
         }
         observed_threads.append(thread_summary)
-        comment_timestamps = [
-            parse_timestamp(comment["created_at"])
-            for comment in target_comments
-            if comment["created_at"]
-        ]
-        latest_thread_comment_at = max(comment_timestamps, default=None)
-        if latest_commit_at is None or (
-            latest_thread_comment_at is not None
-            and latest_thread_comment_at >= latest_commit_at
-        ):
-            fresh_threads.append(thread_summary)
         has_actionable_comment = any(
             is_actionable_thread_comment(comment["body"]) for comment in target_comments
         )
@@ -391,13 +379,8 @@ def evaluate_review_state(
     elif actionable_reviews or actionable_threads:
         review_state = "action_required"
     else:
-        fresh_reviews = [
-            review for review in observed_reviews if review not in stale_reviews
-        ]
-        if fresh_reviews or fresh_threads:
-            review_state = "clean"
-        elif observed_reviews or observed_threads:
-            review_state = "pending_rereview"
+        if observed_reviews or observed_threads:
+            review_state = "review_complete"
         else:
             review_state = "pending_initial_review"
 
@@ -576,7 +559,7 @@ def status_command(args: argparse.Namespace) -> int:
     reviewers = args.reviewers or list(DEFAULT_REVIEWERS)
     summary = fetch_pr_summary(args.repo, args.pr, reviewers)
     print(json.dumps(asdict(summary), indent=2))
-    return 0 if summary.review_state in {"clean", "merged"} else 1
+    return 0 if summary.review_state in {"review_complete", "merged"} else 1
 
 
 def main() -> int:

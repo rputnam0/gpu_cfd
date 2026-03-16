@@ -63,7 +63,7 @@ repository's authority docs, backlog dependencies, and PR-card scope.
 - Treat worker-local Linear access as mandatory. If neither `linear_graphql` nor the configured
   Linear MCP is available, stop and leave a concise blocker note.
 - Move the issue to `In Review` only through `scripts/symphony/pr_handoff.py` after validation is
-  complete and the local Codex review gate is clean enough for external review.
+  complete and the local Codex review gate has completed successfully for external review.
 - Treat `In Review` as a dormant queue controlled by GitHub automation, not as a worker sleep loop.
 - If blocked by missing auth, missing secrets, or missing external tools, leave a concise blocker
   note instead of guessing.
