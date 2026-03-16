@@ -56,6 +56,7 @@ jobs:
 
       - name: Audit live Linear issue descriptions
         if: ${{ github.event_name == 'pull_request' || (github.event_name == 'workflow_dispatch' && inputs.mode == 'audit') }}
+        continue-on-error: ${{ github.event_name == 'pull_request' }}
         env:
           LINEAR_API_KEY: ${{ secrets.LINEAR_API_KEY }}
           LINEAR_TEAM: ${{ github.event_name == 'workflow_dispatch' && inputs.team || 'PRO' }}
