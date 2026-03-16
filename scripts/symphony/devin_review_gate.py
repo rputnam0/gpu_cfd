@@ -207,6 +207,14 @@ def determine_gate_decision(
             review_state=summary.review_state,
             target_state=None,
         )
+    if summary.review_state == "pending_rereview":
+        return GateDecision(
+            issue_identifier=issue_identifier,
+            status_state="success",
+            description="Initial Devin review is resolved; no actionable feedback remains",
+            review_state=summary.review_state,
+            target_state=None,
+        )
     if snapshot.state != "OPEN" or snapshot.is_draft:
         return GateDecision(
             issue_identifier=issue_identifier,
@@ -215,10 +223,7 @@ def determine_gate_decision(
             review_state=summary.review_state,
             target_state=None,
         )
-    if summary.review_state == "pending_rereview":
-        description = "Waiting for fresh Devin re-review on the current head"
-    else:
-        description = "Waiting for initial Devin review on the current head"
+    description = "Waiting for initial Devin review on the current head"
     return GateDecision(
         issue_identifier=issue_identifier,
         status_state="pending",

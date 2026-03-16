@@ -84,7 +84,8 @@ Review loop:
 - Actionable Devin feedback on the current head moves the issue to `Rework`.
 - A `Rework` worker is expected to pull the latest current-head Devin review comments directly from
   GitHub with `gh api` before editing, then fix every valid actionable finding.
-- A fresh clean Devin pass on the current head turns `devin-review-gate` green.
+- A first-round Devin review with no remaining actionable feedback turns `devin-review-gate`
+  green, even if Devin does not automatically post a second pass on the new head.
 - GitHub auto-merge lands the PR only after both `review-loop-harness` and
   `devin-review-gate` are green and conversation resolution is satisfied.
 - `.github/workflows/linear-post-merge.yml` moves the linked issue to `Done` and promotes newly

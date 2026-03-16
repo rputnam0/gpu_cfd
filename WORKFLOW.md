@@ -100,4 +100,4 @@ Completion bar:
 - Repo changes are limited to the assigned PR card.
 - Validation evidence is recorded in the Linear workpad.
 - The PR has passed one local Codex review loop.
-- The PR has completed a fresh Devin review cycle on the current head and merged through GitHub auto-merge.
+- The PR has completed one Devin review cycle, all actionable findings have been fixed or resolved, and it merged through GitHub auto-merge.

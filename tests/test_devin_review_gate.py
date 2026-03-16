@@ -63,15 +63,16 @@ class DevinReviewGateTests(unittest.TestCase):
         self.assertEqual(decision.status_state, "success")
         self.assertIsNone(decision.target_state)
 
-    def test_open_pr_with_stale_feedback_stays_pending(self) -> None:
+    def test_open_pr_with_stale_feedback_after_first_round_marks_success(self) -> None:
         decision = devin_review_gate.determine_gate_decision(
             self.make_snapshot(),
             self.make_summary(review_state="pending_rereview"),
             "PRO-17",
         )
 
-        self.assertEqual(decision.status_state, "pending")
-        self.assertIn("fresh Devin re-review", decision.description)
+        self.assertEqual(decision.status_state, "success")
+        self.assertIsNone(decision.target_state)
+        self.assertIn("Initial Devin review", decision.description)
 
     def test_closed_or_draft_pr_stays_pending_without_rework(self) -> None:
         decision = devin_review_gate.determine_gate_decision(
