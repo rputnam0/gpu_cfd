@@ -76,8 +76,8 @@ Review loop:
   `scripts/symphony/pr_handoff.py` from the issue workspace.
 - That helper runs one local Codex review pass. If findings remain, it returns them to the same run
   so the worker can fix them immediately.
-- If the local review is clean, the helper opens or updates the PR, enables GitHub auto-merge, and
-  moves the issue to `In Review`.
+- If the local review is complete, the helper opens or updates the PR, enables GitHub auto-merge,
+  and moves the issue to `In Review`.
 - `In Review` is dormant. No repo-owned watcher or worker sleep loop stays alive.
 - The GitHub Actions workflow `.github/workflows/devin-review-gate.yml` sets the required
   `devin-review-gate` status for the PR review cycle.

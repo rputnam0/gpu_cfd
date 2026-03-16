@@ -8,7 +8,7 @@ from scripts.symphony import pr_handoff
 
 
 class PrHandoffTests(unittest.TestCase):
-    def test_clean_review_message_detection(self) -> None:
+    def test_local_review_complete_message_detection(self) -> None:
         self.assertTrue(
             pr_handoff.review_message_is_clean(
                 "No material findings remain on this branch."

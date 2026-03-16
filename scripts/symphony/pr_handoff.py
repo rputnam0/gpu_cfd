@@ -205,7 +205,9 @@ def run_host_review(workspace: pathlib.Path, issue_identifier: str) -> ReviewRes
     if review_message_has_findings(message):
         return ReviewResult(status="findings", message=message, manifest=manifest)
     if review_message_is_clean(message):
-        return ReviewResult(status="clean", message=message, manifest=manifest)
+        return ReviewResult(
+            status="local_review_complete", message=message, manifest=manifest
+        )
     return ReviewResult(status="unavailable", message=message, manifest=manifest)
 
 
@@ -314,8 +316,10 @@ def main() -> int:
     if review_result.status == "findings":
         print(json.dumps(result, indent=2))
         return 2
-    if review_result.status != "clean":
-        raise HandoffError("local Codex review did not produce a clean result")
+    if review_result.status != "local_review_complete":
+        raise HandoffError(
+            "local Codex review did not produce a local_review_complete result"
+        )
 
     branch = current_branch(workspace)
     if branch in {"", "main"}:
