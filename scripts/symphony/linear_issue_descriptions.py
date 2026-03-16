@@ -91,7 +91,14 @@ def format_dependencies(depends_on: list[str]) -> str:
 
 
 def normalize_description_text(body: str) -> str:
-    return body.strip()
+    normalized_lines: list[str] = []
+    for raw_line in body.strip().splitlines():
+        line = raw_line.rstrip()
+        bullet_match = re.match(r"^(?P<indent>\s*)\*\s+", line)
+        if bullet_match is not None:
+            line = re.sub(r"^(?P<indent>\s*)\*\s+", r"\g<indent>- ", line, count=1)
+        normalized_lines.append(line)
+    return "\n".join(normalized_lines).strip()
 
 
 def render_issue_description(

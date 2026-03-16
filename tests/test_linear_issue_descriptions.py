@@ -37,6 +37,15 @@ class LinearIssueDescriptionsTests(unittest.TestCase):
         self.assertEqual(metadata.section_label, "Foundation")
         self.assertEqual(metadata.depends_on, ["FND-01"])
 
+    def test_normalize_description_text_treats_bullet_style_as_equivalent(self) -> None:
+        starred = "## Task card\n\n* Objective:\n  * Do the work.\n"
+        dashed = "## Task card\n\n- Objective:\n  - Do the work.\n"
+
+        self.assertEqual(
+            linear_issue_descriptions.normalize_description_text(starred),
+            linear_issue_descriptions.normalize_description_text(dashed),
+        )
+
     @mock.patch("scripts.symphony.linear_issue_descriptions.linear_api.list_team_issues")
     def test_audit_live_issue_descriptions_reports_drift(self, mock_list_team_issues: mock.Mock) -> None:
         mock_list_team_issues.return_value = [
