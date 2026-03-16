@@ -318,6 +318,8 @@ def main() -> int:
         raise HandoffError("local Codex review did not produce a clean result")
 
     branch = current_branch(workspace)
+    if branch in {"", "main"}:
+        raise HandoffError("refusing PR handoff from the default branch")
     ensure_branch_pushed(workspace, branch)
     pr_ref = ensure_pr(workspace, issue_identifier, issue_title, branch)
     enable_auto_merge(workspace, pr_ref.number)

@@ -21,6 +21,14 @@ class LinearApiTests(unittest.TestCase):
 
         self.assertEqual(identifiers, ["PRO-17", "PRO-18"])
 
+    def test_extract_issue_identifiers_ignores_non_pro_patterns(self) -> None:
+        identifiers = linear_api.extract_issue_identifiers(
+            "HTTP-404 should not match",
+            "OPS-01 touches FND-03 but only PRO-19 is a Linear issue here",
+        )
+
+        self.assertEqual(identifiers, ["PRO-19"])
+
     def test_dependent_is_unblocked_only_when_all_blockers_are_done(self) -> None:
         dependent = {
             "inverseRelations": {

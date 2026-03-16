@@ -13,7 +13,7 @@ from typing import Any
 
 LINEAR_GRAPHQL_URL = "https://api.linear.app/graphql"
 ISSUE_IDENTIFIER_PATTERN = re.compile(
-    r"\b(?P<prefix>[A-Z]+)-(?P<number>\d+)\b", re.IGNORECASE
+    r"\b(?P<prefix>PRO)-(?P<number>\d+)\b", re.IGNORECASE
 )
 
 ISSUE_BY_IDENTIFIER_QUERY = """

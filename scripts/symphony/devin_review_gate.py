@@ -6,7 +6,6 @@ from __future__ import annotations
 import argparse
 import json
 import pathlib
-import re
 import sys
 from dataclasses import asdict, dataclass
 from typing import Any
