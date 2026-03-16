@@ -83,6 +83,8 @@ Review loop:
   so the worker can fix them immediately.
 - If the local review is complete, the helper opens or updates the PR, enables GitHub auto-merge,
   and moves the issue to `In Review`.
+- The handoff helper also writes a hidden `gpu-cfd-linear-issue` marker into the PR body so the
+  GitHub bridges can resolve the exact Linear issue without guessing from free-form PR text.
 - `In Review` is dormant. No repo-owned watcher or worker sleep loop stays alive.
 - The GitHub Actions workflow `.github/workflows/devin-review-gate.yml` sets the required
   `devin-review-gate` status for the PR review cycle.
@@ -96,6 +98,8 @@ Review loop:
 - `.github/workflows/linear-post-merge.yml` moves the linked issue to `Done` and promotes newly
   unblocked direct dependents from `Backlog` to `Todo`. If a merged PR has no linked Linear issue,
   the workflow now skips cleanly instead of failing.
+- `.github/workflows/linear-issue-description-sync.yml` audits live Linear issue descriptions on PRs
+  and syncs them from repo truth on `main`, so the worker-visible board contract does not drift.
 
 ## Remaining external prerequisites
 

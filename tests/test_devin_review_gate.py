@@ -85,6 +85,27 @@ class DevinReviewGateTests(unittest.TestCase):
         self.assertIsNone(decision.target_state)
         self.assertIn("open ready PR", decision.description)
 
+    def test_select_issue_identifier_prefers_explicit_marker(self) -> None:
+        snapshot = devin_review_gate.PullRequestSnapshot(
+            number=17,
+            title="PRO-17 Example mentioning PRO-18",
+            body=(
+                "Closes PRO-17\n"
+                "<!-- gpu-cfd-linear-issue: PRO-41 -->\n"
+                "Follow-up note for PRO-18."
+            ),
+            head_ref_name="codex/pro-17-example",
+            head_oid="abc123",
+            url="https://github.com/rputnam0/gpu_cfd/pull/17",
+            state="OPEN",
+            is_draft=False,
+        )
+
+        self.assertEqual(
+            devin_review_gate.select_issue_identifier(snapshot),
+            "PRO-41",
+        )
+
     def test_collect_resolvable_thread_ids_ignores_current_actionable_threads(self) -> None:
         actionable_thread = {
             "id": "thread-current",

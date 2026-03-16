@@ -2,6 +2,9 @@ from __future__ import annotations
 
 import pathlib
 import unittest
+import contextlib
+import io
+from unittest import mock
 
 from scripts.symphony import linear_issue_descriptions
 
@@ -33,6 +36,99 @@ class LinearIssueDescriptionsTests(unittest.TestCase):
         self.assertEqual(metadata.title, "FND-04: Support-matrix scanner and fail-fast policy")
         self.assertEqual(metadata.section_label, "Foundation")
         self.assertEqual(metadata.depends_on, ["FND-01"])
+
+    def test_normalize_description_text_treats_bullet_style_as_equivalent(self) -> None:
+        starred = "## Task card\n\n* Objective:\n  * Do the work.\n"
+        dashed = "## Task card\n\n- Objective:\n  - Do the work.\n"
+
+        self.assertEqual(
+            linear_issue_descriptions.normalize_description_text(starred),
+            linear_issue_descriptions.normalize_description_text(dashed),
+        )
+
+    @mock.patch("scripts.symphony.linear_issue_descriptions.linear_api.list_team_issues")
+    def test_audit_live_issue_descriptions_reports_drift(self, mock_list_team_issues: mock.Mock) -> None:
+        mock_list_team_issues.return_value = [
+            {
+                "identifier": "PRO-8",
+                "title": "FND-04: Support-matrix scanner and fail-fast policy",
+                "description": "stale body",
+            }
+        ]
+
+        results = linear_issue_descriptions.audit_live_issue_descriptions(
+            self.repo_root(),
+            team_key="PRO",
+        )
+
+        self.assertEqual(len(results), 1)
+        self.assertEqual(results[0]["issue_identifier"], "PRO-8")
+        self.assertEqual(results[0]["status"], "drifted")
+        self.assertTrue(results[0]["changed"])
+
+    @mock.patch("scripts.symphony.linear_issue_descriptions.linear_api.update_issue_description")
+    @mock.patch("scripts.symphony.linear_issue_descriptions.linear_api.list_team_issues")
+    def test_sync_live_issue_descriptions_updates_only_drifted_issues(
+        self,
+        mock_list_team_issues: mock.Mock,
+        mock_update_issue_description: mock.Mock,
+    ) -> None:
+        expected = linear_issue_descriptions.render_issue_description(
+            self.repo_root(),
+            "PRO-8",
+            "FND-04: Support-matrix scanner and fail-fast policy",
+        )
+        mock_list_team_issues.return_value = [
+            {
+                "identifier": "PRO-8",
+                "title": "FND-04: Support-matrix scanner and fail-fast policy",
+                "description": "stale body",
+            },
+            {
+                "identifier": "PRO-9",
+                "title": "FND-05: Runtime config and state contract",
+                "description": linear_issue_descriptions.render_issue_description(
+                    self.repo_root(),
+                    "PRO-9",
+                    "FND-05: Runtime config and state contract",
+                ),
+            },
+        ]
+        mock_update_issue_description.return_value = {
+            "changed": True,
+            "previous_description": "stale body",
+            "current_description": expected,
+        }
+
+        results = linear_issue_descriptions.sync_live_issue_descriptions(
+            self.repo_root(),
+            team_key="PRO",
+        )
+
+        self.assertEqual(
+            [result["status"] for result in results],
+            ["updated", "in_sync"],
+        )
+        mock_update_issue_description.assert_called_once_with("PRO-8", expected)
+
+    @mock.patch("scripts.symphony.linear_issue_descriptions.audit_live_issue_descriptions")
+    @mock.patch("scripts.symphony.linear_issue_descriptions.parse_args")
+    def test_main_returns_nonzero_for_audit_drift(
+        self,
+        mock_parse_args: mock.Mock,
+        mock_audit_live_issue_descriptions: mock.Mock,
+    ) -> None:
+        mock_parse_args.return_value = mock.Mock(
+            mode="audit",
+            team="PRO",
+            output=None,
+        )
+        mock_audit_live_issue_descriptions.return_value = [
+            {"issue_identifier": "PRO-8", "status": "drifted"}
+        ]
+
+        with contextlib.redirect_stdout(io.StringIO()):
+            self.assertEqual(linear_issue_descriptions.main(), 1)
 
 
 if __name__ == "__main__":

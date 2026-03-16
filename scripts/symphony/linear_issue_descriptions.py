@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Render canonical Linear issue descriptions from the repo task docs."""
+"""Render, audit, and sync canonical Linear issue descriptions from repo task docs."""
 
 from __future__ import annotations
 
@@ -9,12 +9,13 @@ import pathlib
 import re
 import sys
 from dataclasses import dataclass
+from typing import Any
 
 try:
-    from scripts.symphony import codex_dispatch
+    from scripts.symphony import codex_dispatch, linear_api
 except ModuleNotFoundError:  # pragma: no cover - script execution fallback
     sys.path.append(str(pathlib.Path(__file__).resolve().parents[2]))
-    from scripts.symphony import codex_dispatch
+    from scripts.symphony import codex_dispatch, linear_api
 
 
 GITHUB_BLOB_ROOT = "https://github.com/rputnam0/gpu_cfd/blob/main"
@@ -89,6 +90,17 @@ def format_dependencies(depends_on: list[str]) -> str:
     return ", ".join(f"`{dependency}`" for dependency in depends_on)
 
 
+def normalize_description_text(body: str) -> str:
+    normalized_lines: list[str] = []
+    for raw_line in body.strip().splitlines():
+        line = raw_line.rstrip()
+        bullet_match = re.match(r"^(?P<indent>\s*)\*\s+", line)
+        if bullet_match is not None:
+            line = re.sub(r"^(?P<indent>\s*)\*\s+", r"\g<indent>- ", line, count=1)
+        normalized_lines.append(line)
+    return "\n".join(normalized_lines).strip()
+
+
 def render_issue_description(
     root: pathlib.Path | None,
     issue_identifier: str,
@@ -139,8 +151,96 @@ def render_issue_description(
     )
 
 
+def audit_live_issue_descriptions(
+    root: pathlib.Path | None,
+    *,
+    team_key: str = "PRO",
+) -> list[dict[str, Any]]:
+    repo = (root or repo_root()).resolve()
+    live_issues = linear_api.list_team_issues(team_key)
+    results: list[dict[str, Any]] = []
+    for issue in live_issues:
+        issue_identifier = str(issue.get("identifier") or "")
+        issue_title = str(issue.get("title") or "")
+        live_description = str(issue.get("description") or "")
+        try:
+            pr_id = infer_pr_id(issue_title)
+            expected_description = render_issue_description(
+                repo,
+                issue_identifier,
+                issue_title,
+            )
+        except ValueError as exc:
+            results.append(
+                {
+                    "issue_identifier": issue_identifier,
+                    "issue_title": issue_title,
+                    "status": "skipped",
+                    "changed": False,
+                    "reason": str(exc),
+                }
+            )
+            continue
+        changed = (
+            normalize_description_text(live_description)
+            != normalize_description_text(expected_description)
+        )
+        results.append(
+            {
+                "issue_identifier": issue_identifier,
+                "issue_title": issue_title,
+                "pr_id": pr_id,
+                "status": "drifted" if changed else "in_sync",
+                "changed": changed,
+                "live_description": live_description,
+                "expected_description": expected_description,
+            }
+        )
+    return results
+
+
+def sync_live_issue_descriptions(
+    root: pathlib.Path | None,
+    *,
+    team_key: str = "PRO",
+) -> list[dict[str, Any]]:
+    results = audit_live_issue_descriptions(root, team_key=team_key)
+    synced_results: list[dict[str, Any]] = []
+    for result in results:
+        if result["status"] != "drifted":
+            synced_results.append(result)
+            continue
+        update_result = linear_api.update_issue_description(
+            str(result["issue_identifier"]),
+            str(result["expected_description"]),
+        )
+        synced_results.append(
+            {
+                **result,
+                "status": "updated" if update_result["changed"] else "in_sync",
+                "update_result": {
+                    "changed": update_result["changed"],
+                    "previous_description": update_result["previous_description"],
+                    "current_description": update_result["current_description"],
+                },
+            }
+        )
+    return synced_results
+
+
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument(
+        "--mode",
+        choices=("render", "audit", "sync"),
+        default="render",
+        help="Render issue descriptions, audit live Linear descriptions, or sync them.",
+    )
+    parser.add_argument(
+        "--team",
+        default="PRO",
+        help="Linear team key for audit/sync modes. Defaults to PRO.",
+    )
     parser.add_argument(
         "--issue",
         nargs=2,
@@ -174,16 +274,24 @@ def load_issue_specs(args: argparse.Namespace) -> list[tuple[str, str]]:
 def main() -> int:
     args = parse_args()
     repo = repo_root()
-    rendered = {
-        issue_id: render_issue_description(repo, issue_id, issue_title)
-        for issue_id, issue_title in load_issue_specs(args)
-    }
-    body = json.dumps(rendered, indent=2) + "\n"
+    if args.mode == "render":
+        payload: Any = {
+            issue_id: render_issue_description(repo, issue_id, issue_title)
+            for issue_id, issue_title in load_issue_specs(args)
+        }
+        exit_code = 0
+    elif args.mode == "audit":
+        payload = audit_live_issue_descriptions(repo, team_key=args.team)
+        exit_code = 1 if any(result["status"] == "drifted" for result in payload) else 0
+    else:
+        payload = sync_live_issue_descriptions(repo, team_key=args.team)
+        exit_code = 0
+    body = json.dumps(payload, indent=2) + "\n"
     if args.output:
         pathlib.Path(args.output).write_text(body, encoding="utf-8")
     else:
         print(body, end="")
-    return 0
+    return exit_code
 
 
 if __name__ == "__main__":

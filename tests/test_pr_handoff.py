@@ -37,6 +37,7 @@ class PrHandoffTests(unittest.TestCase):
     def test_build_pr_body_mentions_closing_issue(self) -> None:
         body = pr_handoff.build_pr_body("PRO-6", "Example change")
 
+        self.assertIn("<!-- gpu-cfd-linear-issue: PRO-6 -->", body)
         self.assertIn("Implement PRO-6: Example change", body)
         self.assertIn("Closes PRO-6", body)
 

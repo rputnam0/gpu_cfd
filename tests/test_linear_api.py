@@ -33,6 +33,9 @@ class LinearApiTests(unittest.TestCase):
         self.assertIn("## Decisions and Rationale", body)
         self.assertIn("Tried X, rejected because Y in the task card/spec", body)
         self.assertIn("Current status: planning", body)
+        self.assertIn("exact task file and PR card", body)
+        self.assertIn("docs/tasks/pr_inventory.md only if the PR ID", body)
+        self.assertNotIn("the issue context, pr_inventory, and the exact PR card", body)
 
     @mock.patch("scripts.symphony.linear_api.update_comment")
     @mock.patch("scripts.symphony.linear_api.create_comment")
@@ -179,6 +182,32 @@ class LinearApiTests(unittest.TestCase):
         )
 
         self.assertEqual(identifiers, ["PRO-19"])
+
+    def test_extract_linked_issue_identifier_prefers_explicit_marker(self) -> None:
+        identifier = linear_api.extract_linked_issue_identifier(
+            "Closes PRO-17\n<!-- gpu-cfd-linear-issue: pro-22 -->\nMentions PRO-19 too."
+        )
+
+        self.assertEqual(identifier, "PRO-22")
+
+    @mock.patch("scripts.symphony.linear_api.graphql")
+    @mock.patch("scripts.symphony.linear_api.fetch_issue")
+    def test_update_issue_description_short_circuits_when_unchanged(
+        self,
+        mock_fetch_issue: mock.Mock,
+        mock_graphql: mock.Mock,
+    ) -> None:
+        mock_fetch_issue.return_value = {
+            "id": "issue-17",
+            "identifier": "PRO-17",
+            "description": "expected body",
+        }
+
+        result = linear_api.update_issue_description("PRO-17", "expected body")
+
+        self.assertFalse(result["changed"])
+        self.assertEqual(result["current_description"], "expected body")
+        mock_graphql.assert_not_called()
 
     def test_dependent_is_unblocked_only_when_all_blockers_are_done(self) -> None:
         dependent = {

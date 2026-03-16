@@ -25,6 +25,26 @@ class PostMergeBridgeTests(unittest.TestCase):
             "PRO-99",
         )
 
+    def test_select_issue_identifier_prefers_explicit_marker(self) -> None:
+        snapshot = post_merge_bridge.PullRequestSnapshot(
+            number=17,
+            title="Mentions PRO-17 and PRO-18",
+            body=(
+                "Closes PRO-17\n"
+                "<!-- gpu-cfd-linear-issue: PRO-42 -->\n"
+                "Also references PRO-18 for context."
+            ),
+            head_ref_name="codex/pro-17-example",
+            url="https://github.com/rputnam0/gpu_cfd/pull/17",
+            state="MERGED",
+            merged_at="2026-03-15T12:00:00Z",
+        )
+
+        self.assertEqual(
+            post_merge_bridge.select_issue_identifier(snapshot, None),
+            "PRO-42",
+        )
+
     @mock.patch("scripts.symphony.post_merge_bridge.linear_api.release_direct_unblocked_dependents")
     @mock.patch("scripts.symphony.post_merge_bridge.linear_api.update_issue_state")
     @mock.patch("scripts.symphony.post_merge_bridge.select_issue_identifier")
