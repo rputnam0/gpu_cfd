@@ -6,6 +6,8 @@ import json
 import os
 import pathlib
 import tempfile
+import threading
+import time
 import unittest
 from unittest import mock
 
@@ -168,6 +170,82 @@ class CodexDispatchTests(unittest.TestCase):
             "Todo",
         )
         self.assertEqual(mock_finalize_run.call_args.kwargs["state_end"], "Todo")
+
+    def test_main_skips_linear_prefetch_when_trace_disabled(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_path = pathlib.Path(temp_dir)
+            workspace = temp_path / "PRO-17"
+            workspace.mkdir()
+
+            with (
+                mock.patch.object(
+                    codex_dispatch,
+                    "parse_args",
+                    return_value=argparse.Namespace(codex_args=["app-server"]),
+                ),
+                mock.patch.object(codex_dispatch, "repo_root", return_value=self.repo_root()),
+                mock.patch.object(codex_dispatch, "workspace_root", return_value=workspace),
+                mock.patch.object(codex_dispatch, "current_branch", return_value="main"),
+                mock.patch.object(
+                    codex_dispatch.runtime_config,
+                    "build_codex_command",
+                    return_value=["codex", "app-server"],
+                ),
+                mock.patch.object(codex_dispatch.trace, "is_enabled", return_value=False),
+                mock.patch.object(codex_dispatch, "fetch_issue_snapshot") as mock_fetch_issue,
+                mock.patch.object(
+                    codex_dispatch,
+                    "launch_codex_proxy",
+                    return_value=(0, {}),
+                ) as mock_launch,
+            ):
+                exit_code = codex_dispatch.main()
+
+        self.assertEqual(exit_code, 0)
+        mock_fetch_issue.assert_not_called()
+        self.assertEqual(
+            mock_launch.call_args.kwargs["command"],
+            ["codex", "app-server"],
+        )
+        self.assertIsNone(mock_launch.call_args.kwargs["transcript_dir"])
+
+    def test_stream_copy_flushes_small_chunks_without_waiting_for_eof(self) -> None:
+        read_fd, write_fd = os.pipe()
+        source = io.BufferedReader(io.FileIO(read_fd, "rb", closefd=True))
+
+        class Sink:
+            def __init__(self) -> None:
+                self.data = bytearray()
+
+            def write(self, chunk: bytes) -> int:
+                self.data.extend(chunk)
+                return len(chunk)
+
+            def flush(self) -> None:
+                return None
+
+            def close(self) -> None:
+                return None
+
+        sink = Sink()
+        copy_thread = threading.Thread(
+            target=codex_dispatch._stream_copy,
+            args=(source, [sink]),
+            daemon=True,
+        )
+        copy_thread.start()
+
+        os.write(write_fd, b'{"id":1}\n')
+
+        deadline = time.time() + 1.0
+        while time.time() < deadline and sink.data != b'{"id":1}\n':
+            time.sleep(0.01)
+
+        self.assertEqual(bytes(sink.data), b'{"id":1}\n')
+
+        os.close(write_fd)
+        copy_thread.join(timeout=1.0)
+        source.close()
 
 
 if __name__ == "__main__":
