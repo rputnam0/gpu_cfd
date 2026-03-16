@@ -10,10 +10,10 @@ import sys
 from dataclasses import asdict, dataclass
 
 try:
-    from scripts.symphony import linear_api, review_loop
+    from scripts.symphony import linear_api, review_loop, trace
 except ModuleNotFoundError:  # pragma: no cover - script execution fallback
     sys.path.append(str(pathlib.Path(__file__).resolve().parents[2]))
-    from scripts.symphony import linear_api, review_loop
+    from scripts.symphony import linear_api, review_loop, trace
 
 
 DONE_STATE = "Done"
@@ -122,6 +122,37 @@ def main() -> int:
         },
         "released_dependents": released_dependents,
     }
+    if trace.is_enabled():
+        trace_issue = issue_identifier or f"UNLINKED-PR-{snapshot.number}"
+        run_manifest = trace.ensure_run(
+            issue_id=trace_issue,
+            run_kind="post_merge_bridge",
+            branch=snapshot.head_ref_name,
+            pr_number=snapshot.number,
+        )
+        artifact = trace.capture_json_artifact(
+            issue_id=trace_issue,
+            run_id=run_manifest["run_id"],
+            artifact_type="post_merge_result",
+            label="Post-merge Bridge Result",
+            payload=result,
+            filename="post_merge_bridge_result.json",
+        )
+        trace.capture_event(
+            issue_id=trace_issue,
+            run_id=run_manifest["run_id"],
+            actor="Bridge",
+            stage="post_merge",
+            summary="Processed post-merge Linear transition and dependent release",
+            decision=DONE_STATE,
+            decision_rationale="Merged PR completed the issue lifecycle and released newly unblocked dependents",
+            artifact_refs=[artifact["artifact_id"]],
+        )
+        trace.finalize_run(
+            issue_id=trace_issue,
+            run_id=run_manifest["run_id"],
+            state_end=DONE_STATE if issue_identifier else None,
+        )
     print(json.dumps(result, indent=2))
     return 0
 

@@ -32,7 +32,7 @@ codex:
   # The separate local review pass is launched by scripts/symphony/pr_handoff.py
   # via scripts/symphony/review_loop.py and uses scripts/symphony/runtime_config.toml:
   # review = gpt-5.4 / xhigh
-  command: codex --config shell_environment_policy.inherit=all --config model_reasoning_effort=medium --model gpt-5.4 app-server
+  command: uv run python scripts/symphony/codex_dispatch.py app-server
   approval_policy: never
   thread_sandbox: workspace-write
   turn_sandbox_policy:
@@ -42,12 +42,14 @@ codex:
 
 You are working on Linear issue `{{ issue.identifier }}` for the `gpu_cfd` repository.
 
-This repository is doc-driven. Before changing code, open these files in order:
+This repository is doc-driven. Use progressive disclosure and keep context scoped to the task at
+hand. Before changing code, work in this order:
 
-1. `docs/README_FIRST.md`
-2. `docs/tasks/pr_inventory.md`
+1. `AGENTS.md`
+2. `.codex/skills/gpu-cfd-symphony/SKILL.md`
 3. The owning `docs/tasks/NN_*.md` file for the PR ID in this issue
-4. `.codex/skills/gpu-cfd-symphony/SKILL.md`
+4. The exact matching `## <PR-ID>` card in that file
+5. Only the supporting docs cited by that card or directly relevant review comments / boundary docs
 
 Issue context:
 
@@ -70,10 +72,16 @@ Execution contract:
 - Linear is the execution surface. The repository docs remain the technical source of truth.
 - Treat the assigned PR ID as a hard scope boundary. Do not absorb neighboring backlog items.
 - Respect dependency edges from `docs/backlog/gpu_cfd_pr_backlog.json` and `docs/tasks/pr_inventory.md`.
+- If the PR ID, owning task file, or card location is unclear, use `docs/tasks/pr_inventory.md` as the fallback map.
+- Treat the exact PR card as the execution contract. Broader specs and authority docs are supporting references, not mandatory pre-read material.
+- Do not read the full docs corpus by default. Expand outward only when the PR card's cited sources are insufficient.
 - Worker-side Linear access is required for workpad comments, state changes, and issue lookups.
 - Prefer Symphony's built-in `linear_graphql` tool when Symphony injects it into the app-server session.
 - The WSL Codex worker runtime also has the official Linear MCP configured and authenticated for individual workers. If neither `linear_graphql` nor Linear MCP is available, record a blocker and stop.
-- Keep one persistent Linear workpad comment or concise progress-note trail up to date during implementation and rework.
+- Write or update the canonical Linear workpad before code edits. Use it as durable working memory for the current plan, progress, decisions, rationale, gotchas, validation evidence, review context, and future-agent notes.
+- Keep the same canonical Linear workpad comment current during implementation and rework; do not fork the memory trail into multiple status comments.
+- Use a non-interactive planning pass before edits. Prefer the narrowest reversible implementation consistent with the PR card and cited docs, record assumptions and rationale in the workpad, and continue unless there is a real authority conflict, missing auth/secret, or an unsafe destructive action not covered by repo policy.
+- Dev-only observability is available through the repo-owned dispatch wrapper. When `GPU_CFD_TRACE_ENABLE=1`, it captures immutable context packs, workpad diffs, handoff/review events, and app-server transcripts under `GPU_CFD_TRACE_ROOT` for the standalone Symphony Trace Viewer.
 - If the issue state is `Todo`, move it to `In Progress` before implementation work.
 - If the issue state is `Rework`, start by using the GitHub CLI API to pull the latest review comments and review state for the current PR head before making new edits.
 - If the issue already has a PR attached, start with the same GitHub API review-feedback sweep before new edits.
@@ -84,7 +92,7 @@ Execution contract:
 - Use the issue branch name when available; otherwise create a `codex/` branch derived from the issue identifier.
 - Run the smallest relevant validation first, then broader checks when the scope requires it.
 - When the task is implementation-complete, commit and push the branch, record validation evidence in the workpad, then run `python3 scripts/symphony/pr_handoff.py --workspace "$PWD"`.
-- The Symphony `codex` block above configures the implementation worker only. The local pre-PR review pass uses the repo-owned review profile in `scripts/symphony/runtime_config.toml` (`gpt-5.4` with `xhigh`).
+- The Symphony workflow configuration for this repo applies to the implementation worker only. The local pre-PR review pass uses the repo-owned review profile in `scripts/symphony/runtime_config.toml` (`gpt-5.4` with `xhigh`).
 - If the handoff helper reports findings, inspect the latest artifact under `.codex/review_artifacts/`, fix the valid findings in the same run, rerun the smallest relevant validation, and rerun the handoff helper once.
 - When the handoff helper succeeds, it opens or updates the GitHub PR, enables auto-merge, moves the issue to `In Review`, and the run should stop after you update the workpad with the PR URL.
 - `In Review` is a dormant automated-review state. Do not wait, poll, or sleep for Devin.

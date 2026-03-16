@@ -7,6 +7,157 @@ from scripts.symphony import linear_api
 
 
 class LinearApiTests(unittest.TestCase):
+    def test_render_workpad_body_includes_marker_sections_and_guidance(self) -> None:
+        body = linear_api.render_workpad_body(
+            issue_identifier="PRO-17",
+            issue_title="Progressive disclosure cutover",
+            current_status="planning",
+            execution_plan=[
+                "Resolve the PR card before reading deeper docs.",
+                "Record decisions in the workpad before edits.",
+            ],
+            scoped_sources=[
+                "AGENTS.md",
+                "docs/tasks/pr_inventory.md",
+            ],
+            decisions_and_rationale=[
+                "Use the narrowest reversible implementation allowed by the task card.",
+            ],
+            validation=["Run the targeted Linear/workflow regression tests first."],
+            review_handoff_notes=["Future agent note: do not widen the PR scope."],
+        )
+
+        self.assertIn(linear_api.WORKPAD_MARKER, body)
+        self.assertIn("## Task Summary", body)
+        self.assertIn("## Execution Plan", body)
+        self.assertIn("## Decisions and Rationale", body)
+        self.assertIn("Tried X, rejected because Y in the task card/spec", body)
+        self.assertIn("Current status: planning", body)
+
+    @mock.patch("scripts.symphony.linear_api.update_comment")
+    @mock.patch("scripts.symphony.linear_api.create_comment")
+    @mock.patch("scripts.symphony.linear_api.find_workpad_comment")
+    def test_upsert_workpad_updates_existing_comment(
+        self,
+        mock_find_workpad_comment: mock.Mock,
+        mock_create_comment: mock.Mock,
+        mock_update_comment: mock.Mock,
+    ) -> None:
+        mock_find_workpad_comment.return_value = {"id": "comment-1", "body": "old"}
+        mock_update_comment.return_value = {
+            "id": "comment-1",
+            "body": "new",
+            "url": "https://linear.app/comment-1",
+        }
+
+        result = linear_api.upsert_workpad_comment(
+            "PRO-17",
+            body="new",
+        )
+
+        self.assertEqual(result["id"], "comment-1")
+        self.assertEqual(result["action"], "updated")
+        mock_create_comment.assert_not_called()
+        mock_update_comment.assert_called_once_with("comment-1", "new")
+
+    @mock.patch("scripts.symphony.linear_api.update_comment")
+    @mock.patch("scripts.symphony.linear_api.create_comment")
+    @mock.patch("scripts.symphony.linear_api.find_workpad_comment")
+    def test_upsert_workpad_creates_when_missing(
+        self,
+        mock_find_workpad_comment: mock.Mock,
+        mock_create_comment: mock.Mock,
+        mock_update_comment: mock.Mock,
+    ) -> None:
+        mock_find_workpad_comment.return_value = None
+        mock_create_comment.return_value = {
+            "id": "comment-2",
+            "body": "new",
+            "url": "https://linear.app/comment-2",
+        }
+
+        result = linear_api.upsert_workpad_comment(
+            "PRO-17",
+            body="new",
+        )
+
+        self.assertEqual(result["id"], "comment-2")
+        self.assertEqual(result["action"], "created")
+        mock_update_comment.assert_not_called()
+        mock_create_comment.assert_called_once_with("PRO-17", "new")
+
+    @mock.patch("scripts.symphony.linear_api.graphql")
+    def test_find_workpad_comment_searches_past_first_comments_page(
+        self,
+        mock_graphql: mock.Mock,
+    ) -> None:
+        mock_graphql.side_effect = [
+            {
+                "issues": {
+                    "nodes": [
+                        {
+                            "id": "issue-1",
+                            "identifier": "PRO-17",
+                            "title": "Example",
+                            "comments": {
+                                "pageInfo": {
+                                    "hasNextPage": True,
+                                    "endCursor": "cursor-1",
+                                },
+                                "nodes": [
+                                    {
+                                        "id": "comment-1",
+                                        "body": "ordinary comment",
+                                        "url": "https://linear.app/comment-1",
+                                        "createdAt": "2026-03-15T10:00:00Z",
+                                        "updatedAt": "2026-03-15T10:00:00Z",
+                                    }
+                                ],
+                            },
+                        }
+                    ]
+                }
+            },
+            {
+                "issues": {
+                    "nodes": [
+                        {
+                            "id": "issue-1",
+                            "identifier": "PRO-17",
+                            "title": "Example",
+                            "comments": {
+                                "pageInfo": {
+                                    "hasNextPage": False,
+                                    "endCursor": None,
+                                },
+                                "nodes": [
+                                    {
+                                        "id": "comment-2",
+                                        "body": (
+                                            f"{linear_api.WORKPAD_MARKER}\n\n"
+                                            f"{linear_api.WORKPAD_TITLE}\n"
+                                        ),
+                                        "url": "https://linear.app/comment-2",
+                                        "createdAt": "2026-03-15T11:00:00Z",
+                                        "updatedAt": "2026-03-15T11:00:00Z",
+                                    }
+                                ],
+                            },
+                        }
+                    ]
+                }
+            },
+        ]
+
+        comment = linear_api.find_workpad_comment("PRO-17")
+
+        self.assertIsNotNone(comment)
+        assert comment is not None
+        self.assertEqual(comment["id"], "comment-2")
+        self.assertEqual(mock_graphql.call_count, 2)
+        self.assertIsNone(mock_graphql.call_args_list[0].args[1]["after"])
+        self.assertEqual(mock_graphql.call_args_list[1].args[1]["after"], "cursor-1")
+
     def test_parse_issue_identifier(self) -> None:
         parsed = linear_api.parse_issue_identifier("pro-17")
 

@@ -15,10 +15,10 @@ from dataclasses import asdict, dataclass
 from typing import Any
 
 try:
-    from scripts.symphony import runtime_config
+    from scripts.symphony import runtime_config, trace
 except ModuleNotFoundError:  # pragma: no cover - script execution fallback
     sys.path.append(str(pathlib.Path(__file__).resolve().parents[2]))
-    from scripts.symphony import runtime_config
+    from scripts.symphony import runtime_config, trace
 
 
 DEFAULT_BASE_BRANCH = "origin/main"
@@ -551,6 +551,45 @@ def run_codex_review(
         "stderr_path": stderr_path.relative_to(root).as_posix(),
     }
     manifest_path.write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
+    if issue and trace.is_enabled():
+        run_manifest = trace.ensure_run(
+            issue_id=issue,
+            run_kind="local_review",
+            branch=branch,
+        )
+        artifact_refs: list[str] = []
+        for label, artifact_type, file_path in (
+            ("Local review manifest", "local_review_manifest", manifest_path),
+            ("Local review transcript", "local_review_transcript", jsonl_path),
+            ("Local review message", "local_review_message", message_path),
+            ("Local review stderr", "local_review_stderr", stderr_path),
+        ):
+            if not file_path.exists():
+                continue
+            artifact = trace.capture_file_artifact(
+                issue_id=issue,
+                run_id=run_manifest["run_id"],
+                artifact_type=artifact_type,
+                label=label,
+                source_path=file_path,
+            )
+            artifact_refs.append(artifact["artifact_id"])
+        trace.capture_event(
+            issue_id=issue,
+            run_id=run_manifest["run_id"],
+            actor="Local Codex review",
+            stage="review_completed",
+            summary="Local Codex review pass completed",
+            decision=f"returncode={completed.returncode}",
+            decision_rationale="Local review artifacts captured for trace playback",
+            artifact_refs=artifact_refs,
+            metadata={
+                "base_branch": base_branch,
+                "prompt": prompt,
+                "review_driver": manifest["review_driver"],
+                "timeout_seconds": timeout_seconds,
+            },
+        )
     print(json.dumps(manifest, indent=2))
     return completed.returncode
 

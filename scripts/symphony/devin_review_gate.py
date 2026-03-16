@@ -11,10 +11,10 @@ from dataclasses import asdict, dataclass
 from typing import Any
 
 try:
-    from scripts.symphony import linear_api, review_loop
+    from scripts.symphony import linear_api, review_loop, trace
 except ModuleNotFoundError:  # pragma: no cover - script execution fallback
     sys.path.append(str(pathlib.Path(__file__).resolve().parents[2]))
-    from scripts.symphony import linear_api, review_loop
+    from scripts.symphony import linear_api, review_loop, trace
 
 
 CHECK_CONTEXT = "devin-review-gate"
@@ -302,6 +302,38 @@ def main() -> int:
         "linear_update": linear_update,
         "status_context": CHECK_CONTEXT,
     }
+    if issue_identifier and trace.is_enabled():
+        run_manifest = trace.ensure_run(
+            issue_id=issue_identifier,
+            run_kind="review_bridge",
+            branch=snapshot.head_ref_name,
+            pr_number=snapshot.number,
+        )
+        artifact = trace.capture_json_artifact(
+            issue_id=issue_identifier,
+            run_id=run_manifest["run_id"],
+            artifact_type="review_bridge_result",
+            label="Devin Review Gate Result",
+            payload=result,
+            filename="devin_review_gate_result.json",
+        )
+        trace.capture_event(
+            issue_id=issue_identifier,
+            run_id=run_manifest["run_id"],
+            actor="Bridge",
+            stage="devin_review_gate",
+            summary="Processed GitHub + Devin review state for the current PR head",
+            decision=decision.review_state,
+            decision_rationale=decision.description,
+            artifact_refs=[artifact["artifact_id"]],
+            metadata={"target_state": decision.target_state},
+        )
+        trace.finalize_run(
+            issue_id=issue_identifier,
+            run_id=run_manifest["run_id"],
+            state_end=linear_update.get("current_state") or decision.target_state,
+            metadata={"status_context": CHECK_CONTEXT},
+        )
     print(json.dumps(result, indent=2))
     return 0
 

@@ -14,10 +14,10 @@ from dataclasses import dataclass
 from typing import Any
 
 try:
-    from scripts.symphony import linear_api, review_loop
+    from scripts.symphony import linear_api, review_loop, trace
 except ModuleNotFoundError:  # pragma: no cover - script execution fallback
     sys.path.append(str(pathlib.Path(__file__).resolve().parents[2]))
-    from scripts.symphony import linear_api, review_loop
+    from scripts.symphony import linear_api, review_loop, trace
 
 
 IN_REVIEW_STATE = "In Review"
@@ -226,6 +226,44 @@ def build_pr_body(issue_identifier: str, issue_title: str) -> str:
     )
 
 
+def sync_workpad(
+    *,
+    issue_identifier: str,
+    issue_title: str,
+    current_status: str,
+    task_summary: list[str] | None = None,
+    execution_plan: list[str] | None = None,
+    scoped_sources: list[str] | None = None,
+    decisions_and_rationale: list[str] | None = None,
+    validation: list[str] | None = None,
+    risks_blockers: list[str] | None = None,
+    review_handoff_notes: list[str] | None = None,
+) -> dict[str, Any]:
+    existing_comment = linear_api.find_workpad_comment(issue_identifier)
+    merged_body = linear_api.merge_workpad_body(
+        existing_comment.get("body") if existing_comment else None,
+        issue_identifier=issue_identifier,
+        issue_title=issue_title,
+        current_status=current_status,
+        task_summary=task_summary,
+        execution_plan=execution_plan,
+        scoped_sources=scoped_sources,
+        decisions_and_rationale=decisions_and_rationale,
+        validation=validation,
+        risks_blockers=risks_blockers,
+        review_handoff_notes=review_handoff_notes,
+    )
+    return linear_api.upsert_workpad_comment(issue_identifier, merged_body)
+
+
+def sync_workpad_best_effort(**kwargs: Any) -> str | None:
+    try:
+        sync_workpad(**kwargs)
+    except Exception as exc:
+        return f"workpad sync failed: {exc}"
+    return None
+
+
 def ensure_pr(
     workspace: pathlib.Path,
     issue_identifier: str,
@@ -314,6 +352,44 @@ def main() -> int:
     }
 
     if review_result.status == "findings":
+        workpad_warning = sync_workpad_best_effort(
+            issue_identifier=issue_identifier,
+            issue_title=issue_title,
+            current_status="awaiting_local_review",
+            validation=[
+                "Local Codex review reported findings; inspect the latest artifact before rerunning handoff.",
+            ],
+            review_handoff_notes=[
+                "Handoff paused because local review findings remain on the current branch.",
+            ],
+        )
+        if workpad_warning:
+            result["workpad_sync_warning"] = workpad_warning
+            print(workpad_warning, file=sys.stderr)
+        if trace.is_enabled():
+            run_manifest = trace.ensure_run(
+                issue_id=issue_identifier,
+                run_kind="implementation",
+                branch=current_branch(workspace),
+            )
+            artifact = trace.capture_json_artifact(
+                issue_id=issue_identifier,
+                run_id=run_manifest["run_id"],
+                artifact_type="pr_handoff_result",
+                label="PR Handoff Result",
+                payload=result,
+                filename="pr_handoff_result.json",
+            )
+            trace.capture_event(
+                issue_id=issue_identifier,
+                run_id=run_manifest["run_id"],
+                actor="Symphony",
+                stage="pr_handoff_blocked",
+                summary="PR handoff paused because local review findings remain",
+                decision="awaiting_local_review",
+                decision_rationale="Handoff requires a clean local review before opening or updating the PR",
+                artifact_refs=[artifact["artifact_id"]],
+            )
         print(json.dumps(result, indent=2))
         return 2
     if review_result.status != "local_review_complete":
@@ -340,6 +416,48 @@ def main() -> int:
         "current_state": linear_update["current_state"],
         "changed": linear_update["changed"],
     }
+    workpad_warning = sync_workpad_best_effort(
+        issue_identifier=issue_identifier,
+        issue_title=issue_title,
+        current_status="in_review",
+        validation=[
+            "Local Codex review completed with no material findings remaining.",
+            "GitHub auto-merge enabled for the current pull request.",
+        ],
+        review_handoff_notes=[
+            f"PR opened or updated: {pr_ref.url}",
+            f"Linear moved to {linear_update['current_state']} from {linear_update['previous_state']}.",
+        ],
+    )
+    if workpad_warning:
+        result["workpad_sync_warning"] = workpad_warning
+        print(workpad_warning, file=sys.stderr)
+    if trace.is_enabled():
+        run_manifest = trace.ensure_run(
+            issue_id=issue_identifier,
+            run_kind="implementation",
+            branch=branch,
+            pr_number=pr_ref.number,
+        )
+        artifact = trace.capture_json_artifact(
+            issue_id=issue_identifier,
+            run_id=run_manifest["run_id"],
+            artifact_type="pr_handoff_result",
+            label="PR Handoff Result",
+            payload=result,
+            filename="pr_handoff_result.json",
+        )
+        trace.capture_event(
+            issue_id=issue_identifier,
+            run_id=run_manifest["run_id"],
+            actor="GitHub",
+            stage="pr_handoff_complete",
+            summary="PR opened or updated and Linear moved to In Review",
+            decision="in_review",
+            decision_rationale="Local review completed cleanly and GitHub auto-merge was enabled",
+            artifact_refs=[artifact["artifact_id"]],
+            metadata={"pr_url": pr_ref.url, "pr_number": pr_ref.number},
+        )
     print(json.dumps(result, indent=2))
     return 0
 

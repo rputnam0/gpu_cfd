@@ -7,13 +7,15 @@ Linear project.
 
 - `WORKFLOW.md`: repo-owned Symphony workflow contract
 - `scripts/symphony/runtime_config.toml`: repo-owned Codex defaults
+- `scripts/symphony/codex_dispatch.py`: trace-aware implementation-worker wrapper that freezes the dispatch context pack before launching Codex
 - `scripts/symphony/review_loop.py`: local Codex review gate plus Devin review classifier
 - `scripts/symphony/pr_handoff.py`: worker-owned PR handoff that opens or updates a PR, enables
   auto-merge, and moves the issue to `In Review`
 - `scripts/symphony/devin_review_gate.py`: required GitHub status gate for the external Devin review
 - `scripts/symphony/post_merge_bridge.py`: merged-PR bridge that moves issues to `Done` and releases
   newly unblocked dependents
-- `scripts/symphony/linear_api.py`: small Linear GraphQL helper used by the bridges and handoff
+- `scripts/symphony/linear_api.py`: Linear GraphQL helper used by the bridges, handoff, and canonical workpad memory flow
+- `scripts/symphony/trace.py`: dev-only immutable trace bundle collector for dispatch, workpad, review, handoff, bridge, and merge events
 - `scripts/symphony/apply_runtime_patch.sh`: applies the tracked Symphony runtime patch to the WSL
   Symphony checkout
 - `scripts/symphony/patches/symphony-thread-resume-v2.patch`: tracked fork patch that adds exact
@@ -72,6 +74,9 @@ It adds:
 
 Review loop:
 
+- Workers start from `AGENTS.md`, resolve the exact PR card, and then read only the sources cited by that card.
+- Each issue keeps one canonical Linear workpad comment as durable working memory for plan, progress, decisions, rationale, validation, review notes, and future-agent callouts.
+- The implementation worker starts through `scripts/symphony/codex_dispatch.py`, which is the supported dev-observability seam for freezing the exact worker context pack and teeing app-server transcripts when trace mode is enabled.
 - Before a PR is opened or updated for review, the active worker run executes
   `scripts/symphony/pr_handoff.py` from the issue workspace.
 - That helper runs one local Codex review pass. If findings remain, it returns them to the same run
@@ -120,7 +125,7 @@ codex --version
 
 The checked-in workflow uses direct Codex CLI flags for the implementation worker profile:
 
-- implementation app-server: `gpt-5.4` with `medium`
+- implementation app-server: `uv run python scripts/symphony/codex_dispatch.py app-server` which wraps the `gpt-5.4` / `medium` implementation profile from `scripts/symphony/runtime_config.toml`
 - local review gate: `gpt-5.4` with `xhigh`
 
 The checked-in workflow keeps issue workspaces on the supported `workspaceWrite` sandbox and enables
@@ -209,6 +214,23 @@ Use these as the primary surfaces:
 - Symphony dashboard and logs for orchestrator state
 - Linear workpad comment for task history, validation evidence, and blockers
 - GitHub checks for local harness plus Devin review gate status
+
+## Trace viewer
+
+For development-only over-the-shoulder auditing, the repo can emit immutable local trace bundles.
+
+- Enable tracing explicitly with `GPU_CFD_TRACE_ENABLE=1`.
+- Override the trace root with `GPU_CFD_TRACE_ROOT`; the default is `~/projects/symphony-traces/gpu_cfd`.
+- The dispatch wrapper freezes the rendered worker prompt, `AGENTS.md`, the skill, the Linear issue payload, the current workpad, the resolved PR card, and every cited doc the card points at.
+- Workpad upserts, local review artifacts, PR handoff results, Devin bridge decisions, and post-merge transitions append to the same issue-centric trace graph.
+- The standalone local viewer lives outside this repo at `~/projects/symphony-trace-viewer` and reads those bundles directly.
+
+Run the viewer locally with:
+
+```bash
+cd ~/projects/symphony-trace-viewer
+uv run python -m symphony_trace_viewer --trace-root ~/projects/symphony-traces/gpu_cfd --port 8765
+```
 
 ## First-time launch on `wsl`
 

@@ -21,7 +21,7 @@ Phase 7 owns `P7-01..P7-08` and delivers the custom CUDA hotspot replacement lay
     - `docs/tasks/boundary_matrix.md` -> `### Phase 7 -> Phase 8`
     - `docs/tasks/08_phase6_pressure_swirl_nozzle_bc_startup.md` -> `## P6-10 Solver-stage integration, graph-safety hardening, and Phase 6 acceptance`
     - `docs/tasks/10_phase8_profiling_performance_acceptance.md` -> `## P8-05 Nsight Systems capture scripts and artifact layout`
-  - Phase spec or `README_FIRST` authority-order note for `FND-*`:
+  - Phase spec or `docs/authority/README.md` authority-order note for `FND-*`:
     - `docs/specs/phase7_custom_cuda_kernel_spec.md` -> `#### DD7.1 — Custom-kernel scope is limited to support-matrix-approved hotspot families ranked by interim profiling`
     - `docs/specs/phase7_custom_cuda_kernel_spec.md` -> `#### Step 1 — Audit the exact local v2412 source, consume the frozen support matrix, and freeze the hotspot ranking`
     - `docs/specs/phase7_custom_cuda_kernel_spec.md` -> `### Entry criteria`
@@ -71,7 +71,7 @@ Phase 7 owns `P7-01..P7-08` and delivers the custom CUDA hotspot replacement lay
     - `docs/authority/support_matrix.json` -> `backend_operational_policy`
     - `docs/authority/semantic_source_map.md` -> `## Frozen Mapping`
     - `docs/tasks/boundary_matrix.md` -> `### Phase 6 -> Phase 7`
-  - Phase spec or `README_FIRST` authority-order note for `FND-*`:
+  - Phase spec or `docs/authority/README.md` authority-order note for `FND-*`:
     - `docs/specs/phase7_custom_cuda_kernel_spec.md` -> `#### DD7.3 — Use a narrow host-side facade and POD device views`
     - `docs/specs/phase7_custom_cuda_kernel_spec.md` -> `#### DD7.4 — Default to persistent device allocations with stable addresses`
     - `docs/specs/phase7_custom_cuda_kernel_spec.md` -> `#### Step 2 — Add runtime controls and fallback switches`
@@ -119,7 +119,7 @@ Phase 7 owns `P7-01..P7-08` and delivers the custom CUDA hotspot replacement lay
     - `docs/authority/support_matrix.md` -> `## Global Policy` (static mesh/no processor patch assumptions)
     - `docs/tasks/05_phase3_execution_model.md` -> `## P3-07 Graph fingerprint, cache, and rebuild policy`
     - `docs/tasks/boundary_matrix.md` -> `### Phase 6 -> Phase 7`
-  - Phase spec or `README_FIRST` authority-order note for `FND-*`:
+  - Phase spec or `docs/authority/README.md` authority-order note for `FND-*`:
     - `docs/specs/phase7_custom_cuda_kernel_spec.md` -> `#### DD7.6 — Implement two limiter backends: atomic baseline and segmented/gather production backend`
     - `docs/specs/phase7_custom_cuda_kernel_spec.md` -> `#### Step 4 — Build adjacency preprocessing`
     - `docs/specs/phase7_custom_cuda_kernel_spec.md` -> `#### 2. Adjacency views for segmented/gather backend`
@@ -163,7 +163,7 @@ Phase 7 owns `P7-01..P7-08` and delivers the custom CUDA hotspot replacement lay
     - `docs/authority/graph_capture_support_matrix.md` -> `## Global Capture Rules` (no post-warmup allocation)
     - `docs/tasks/04_phase2_gpu_memory_model.md` -> `## P2-11 Scratch catalog and Phase 2 gate bundle`
     - `docs/tasks/04_phase2_gpu_memory_model.md` -> `## validation_checks` (Phase 2 -> Phase 3 seam includes `ScratchCatalog`)
-  - Phase spec or `README_FIRST` authority-order note for `FND-*`:
+  - Phase spec or `docs/authority/README.md` authority-order note for `FND-*`:
     - `docs/specs/phase7_custom_cuda_kernel_spec.md` -> `#### DD7.4 — Default to persistent device allocations with stable addresses`
     - `docs/specs/phase7_custom_cuda_kernel_spec.md` -> `#### Step 5 — Implement persistent scratch arena`
     - `docs/specs/phase7_custom_cuda_kernel_spec.md` -> `#### 6. Scratch arena`
@@ -215,7 +215,7 @@ Phase 7 owns `P7-01..P7-08` and delivers the custom CUDA hotspot replacement lay
     - `docs/authority/graph_capture_support_matrix.md` -> `## Canonical Stage IDs` (`alpha_pre`, `alpha_subcycle_body`)
     - `docs/tasks/07_phase5_generic_vof_core.md` -> `## P5-06 Full alpha + MULES + subcycling`
     - `docs/tasks/07_phase5_generic_vof_core.md` -> `## P5-07 Mixture update and interface/surface-tension subset`
-  - Phase spec or `README_FIRST` authority-order note for `FND-*`:
+  - Phase spec or `docs/authority/README.md` authority-order note for `FND-*`:
     - `docs/specs/phase7_custom_cuda_kernel_spec.md` -> `#### DD7.6 — Implement two limiter backends: atomic baseline and segmented/gather production backend`
     - `docs/specs/phase7_custom_cuda_kernel_spec.md` -> `#### Step 7 — Implement atomic alpha-flux assembly kernels`
     - `docs/specs/phase7_custom_cuda_kernel_spec.md` -> `#### Step 8 — Implement atomic phiBD, phiCorr, SuCorr construction`
@@ -272,7 +272,7 @@ Phase 7 owns `P7-01..P7-08` and delivers the custom CUDA hotspot replacement lay
     - `docs/tasks/08_phase6_pressure_swirl_nozzle_bc_startup.md` -> `## P6-10 Solver-stage integration, graph-safety hardening, and Phase 6 acceptance`
     - `docs/tasks/08_phase6_pressure_swirl_nozzle_bc_startup.md` -> `## open_discontinuities`
     - `docs/tasks/boundary_matrix.md` -> `### Phase 6 -> Phase 7`
-  - Phase spec or `README_FIRST` authority-order note for `FND-*`:
+  - Phase spec or `docs/authority/README.md` authority-order note for `FND-*`:
     - `docs/specs/phase7_custom_cuda_kernel_spec.md` -> `#### DD7.8 — Support only the audited scheme subset in custom kernels`
     - `docs/specs/phase7_custom_cuda_kernel_spec.md` -> `#### DD7.9 — Boundary-condition dispatch happens on host; boundary math happens on device`
     - `docs/specs/phase7_custom_cuda_kernel_spec.md` -> `#### Step 12 — Implement interface gradient/interpolation/normal kernels`
@@ -326,7 +326,7 @@ Phase 7 owns `P7-01..P7-08` and delivers the custom CUDA hotspot replacement lay
     - `docs/authority/acceptance_manifest.md` -> `## Exact Threshold Classes`
     - `docs/authority/acceptance_manifest.json` -> `threshold_classes.parity_replay.KP_CUSTOM_VS_BASELINE`
     - `docs/tasks/boundary_matrix.md` -> `### Phase 6 -> Phase 7`
-  - Phase spec or `README_FIRST` authority-order note for `FND-*`:
+  - Phase spec or `docs/authority/README.md` authority-order note for `FND-*`:
     - `docs/specs/phase7_custom_cuda_kernel_spec.md` -> `#### DD7.6 — Implement two limiter backends: atomic baseline and segmented/gather production backend`
     - `docs/specs/phase7_custom_cuda_kernel_spec.md` -> `#### Step 17 — Implement segmented/gather backend for repeated face-to-cell accumulation`
     - `docs/specs/phase7_custom_cuda_kernel_spec.md` -> `#### Step 18 — Switch MULES production backend to segmented and keep atomic as fallback`
@@ -386,7 +386,7 @@ Phase 7 owns `P7-01..P7-08` and delivers the custom CUDA hotspot replacement lay
     - `docs/tasks/boundary_matrix.md` -> `### Phase 6 -> Phase 7`
     - `docs/tasks/boundary_matrix.md` -> `### Phase 7 -> Phase 8`
     - `docs/tasks/10_phase8_profiling_performance_acceptance.md` -> `## P8-09 Baseline locks and CI/nightly integration (Deferred to Pass B)`
-  - Phase spec or `README_FIRST` authority-order note for `FND-*`:
+  - Phase spec or `docs/authority/README.md` authority-order note for `FND-*`:
     - `docs/specs/phase7_custom_cuda_kernel_spec.md` -> `#### Step 19 — Add graph-safety cleanup and capture validation`
     - `docs/specs/phase7_custom_cuda_kernel_spec.md` -> `#### Step 20 — Final profiling and acceptance run`
     - `docs/specs/phase7_custom_cuda_kernel_spec.md` -> `### Acceptance checklist`

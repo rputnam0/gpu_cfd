@@ -14,7 +14,7 @@ Phase 1 owns `P1-01..P1-07` and is limited to workstation, toolchain, and profil
     - `docs/authority/continuity_ledger.md` -> `# 1. Frozen global decisions` (source/version/toolchain pin ownership and runtime normalization)
     - `docs/authority/support_matrix.md` -> `## Global Policy` (default fail-fast posture)
     - `docs/tasks/01_foundation_authority_consumption.md` -> `## FND-02 Pin-manifest consumption and environment manifest emission`
-  - Phase spec or `README_FIRST` authority-order note for `FND-*`:
+  - Phase spec or `docs/authority/README.md` authority-order note for `FND-*`:
     - `docs/specs/phase1_blackwell_bringup_spec.md` -> `#### Step 2 — Add environment discovery tooling`
     - `docs/specs/phase1_blackwell_bringup_spec.md` -> `#### Step 3 — Add native CUDA and managed-memory probe binary`
     - `docs/specs/phase1_blackwell_bringup_spec.md` -> `#### Tooling-side host data structures`
@@ -63,7 +63,7 @@ Phase 1 owns `P1-01..P1-07` and is limited to workstation, toolchain, and profil
     - `docs/authority/master_pin_manifest.md` -> `## Consumption Rules`
     - `docs/authority/continuity_ledger.md` -> `# 1. Frozen global decisions` (toolchain ownership and NVTX3 requirement)
     - `docs/tasks/01_foundation_authority_consumption.md` -> `## FND-02 Pin-manifest consumption and environment manifest emission`
-  - Phase spec or `README_FIRST` authority-order note for `FND-*`:
+  - Phase spec or `docs/authority/README.md` authority-order note for `FND-*`:
     - `docs/specs/phase1_blackwell_bringup_spec.md` -> `#### Step 4 — Add Blackwell environment wrapper`
     - `docs/specs/phase1_blackwell_bringup_spec.md` -> `#### Step 5 — Add NVTX3 wrapper and audit old includes`
     - `docs/specs/phase1_blackwell_bringup_spec.md` -> `#### Step 7 — Add build wrapper and build modes`
@@ -109,7 +109,7 @@ Phase 1 owns `P1-01..P1-07` and is limited to workstation, toolchain, and profil
     - `docs/authority/master_pin_manifest.md` -> `## Frozen Defaults` (GPU target and PTX/JIT requirement)
     - `docs/authority/master_pin_manifest.md` -> `## Consumption Rules`
     - `docs/tasks/01_foundation_authority_consumption.md` -> `## FND-02 Pin-manifest consumption and environment manifest emission`
-  - Phase spec or `README_FIRST` authority-order note for `FND-*`:
+  - Phase spec or `docs/authority/README.md` authority-order note for `FND-*`:
     - `docs/specs/phase1_blackwell_bringup_spec.md` -> `#### Step 8 — Inspect produced binaries for native target and PTX`
     - `docs/specs/phase1_blackwell_bringup_spec.md` -> `### Acceptance checklist`
     - `docs/specs/phase1_blackwell_bringup_spec.md` -> `### Artifacts to produce`
@@ -154,7 +154,7 @@ Phase 1 owns `P1-01..P1-07` and is limited to workstation, toolchain, and profil
     - `docs/authority/support_matrix.json` -> `global_policy`, `exact_audited_scheme_tuple`, `function_object_policy`
     - `docs/tasks/01_foundation_authority_consumption.md` -> `## FND-03 Reference-case and validation-ladder utilities`
     - `docs/tasks/01_foundation_authority_consumption.md` -> `## FND-04 Support-matrix scanner and fail-fast policy`
-  - Phase spec or `README_FIRST` authority-order note for `FND-*`:
+  - Phase spec or `docs/authority/README.md` authority-order note for `FND-*`:
     - `docs/specs/phase1_blackwell_bringup_spec.md` -> `#### Step 9 — Add three repo-local smoke cases`
     - `docs/specs/phase1_blackwell_bringup_spec.md` -> `#### Step 10 — Audit fvSolution in smoke cases`
     - `docs/specs/phase1_blackwell_bringup_spec.md` -> `#### Step 11 — Run unprofiled smoke cases in the primary lane`
@@ -201,7 +201,7 @@ Phase 1 owns `P1-01..P1-07` and is limited to workstation, toolchain, and profil
     - `docs/authority/master_pin_manifest.md` -> `## Frozen Defaults` (Compute Sanitizer pin)
     - `docs/authority/support_matrix.md` -> `## Global Policy` (fail-fast and debug and production separation)
     - `docs/tasks/01_foundation_authority_consumption.md` -> `## FND-04 Support-matrix scanner and fail-fast policy`
-  - Phase spec or `README_FIRST` authority-order note for `FND-*`:
+  - Phase spec or `docs/authority/README.md` authority-order note for `FND-*`:
     - `docs/specs/phase1_blackwell_bringup_spec.md` -> `#### Step 12 — Run Compute Sanitizer memcheck on the smallest case`
     - `docs/specs/phase1_blackwell_bringup_spec.md` -> `#### Compute Sanitizer hook`
     - `docs/specs/phase1_blackwell_bringup_spec.md` -> `### Validation strategy`
@@ -244,7 +244,7 @@ Phase 1 owns `P1-01..P1-07` and is limited to workstation, toolchain, and profil
     - `docs/authority/graph_capture_support_matrix.md` -> `## Global Capture Rules`
     - `docs/tasks/01_foundation_authority_consumption.md` -> `## FND-06 Graph stage registry and graph-support-matrix loader`
     - `docs/authority/acceptance_manifest.md` -> `## Tuple-Specific NVTX Contract`
-  - Phase spec or `README_FIRST` authority-order note for `FND-*`:
+  - Phase spec or `docs/authority/README.md` authority-order note for `FND-*`:
     - `docs/specs/phase1_blackwell_bringup_spec.md` -> `#### Step 13 — Run low-overhead Nsight Systems profile`
     - `docs/specs/phase1_blackwell_bringup_spec.md` -> `#### Step 14 — Run UVM-fault diagnostic Nsight Systems profile`
     - `docs/specs/phase1_blackwell_bringup_spec.md` -> `### Instrumentation and profiling hooks`
@@ -292,7 +292,7 @@ Phase 1 owns `P1-01..P1-07` and is limited to workstation, toolchain, and profil
     - `docs/authority/master_pin_manifest.md` -> `## Required Revalidation If This Manifest Changes`
     - `docs/authority/acceptance_manifest.md` -> `## Disposition Rules`
     - `docs/tasks/01_foundation_authority_consumption.md` -> `## FND-05 Acceptance-manifest evaluator scaffold`
-  - Phase spec or `README_FIRST` authority-order note for `FND-*`:
+  - Phase spec or `docs/authority/README.md` authority-order note for `FND-*`:
     - `docs/specs/phase1_blackwell_bringup_spec.md` -> `#### Step 15 — Run PTX-JIT compatibility test`
     - `docs/specs/phase1_blackwell_bringup_spec.md` -> `#### Step 16 — Produce acceptance report and stop`
     - `docs/specs/phase1_blackwell_bringup_spec.md` -> `### Acceptance checklist`
