@@ -117,6 +117,13 @@ def select_issue_identifier(
 ) -> str | None:
     if override:
         return override.strip() or None
+    explicit_identifier = linear_api.extract_linked_issue_identifier(
+        snapshot.body,
+        snapshot.title,
+        snapshot.head_ref_name,
+    )
+    if explicit_identifier:
+        return explicit_identifier
     identifiers = linear_api.extract_issue_identifiers(
         snapshot.body,
         snapshot.title,

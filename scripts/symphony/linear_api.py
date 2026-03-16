@@ -20,6 +20,10 @@ LINEAR_GRAPHQL_URL = "https://api.linear.app/graphql"
 ISSUE_IDENTIFIER_PATTERN = re.compile(
     r"\b(?P<prefix>PRO)-(?P<number>\d+)\b", re.IGNORECASE
 )
+LINKED_ISSUE_MARKER_PATTERN = re.compile(
+    r"<!--\s*gpu-cfd-linear-issue:\s*(?P<identifier>[A-Z]+-\d+)\s*-->",
+    re.IGNORECASE,
+)
 WORKPAD_MARKER = "<!-- gpu-cfd-workpad:v1 -->"
 WORKPAD_TITLE = "# GPU CFD Worker Workpad"
 WORKPAD_SECTIONS = (
@@ -106,6 +110,19 @@ mutation($id: String!, $stateId: String!) {
 }
 """
 
+ISSUE_UPDATE_DESCRIPTION_MUTATION = """
+mutation($id: String!, $description: String!) {
+  issueUpdate(id: $id, input: { description: $description }) {
+    success
+    issue {
+      id
+      identifier
+      description
+    }
+  }
+}
+"""
+
 COMMENT_CREATE_MUTATION = """
 mutation($issueId: String!, $body: String!) {
   commentCreate(input: { issueId: $issueId, body: $body }) {
@@ -171,6 +188,34 @@ query($teamKey: String!, $number: Float!) {
 }
 """
 
+TEAM_ISSUES_QUERY = """
+query($teamKey: String!, $after: String) {
+  issues(
+    filter: { team: { key: { eq: $teamKey } } }
+    first: 100
+    after: $after
+  ) {
+    pageInfo {
+      hasNextPage
+      endCursor
+    }
+    nodes {
+      id
+      identifier
+      title
+      description
+      url
+      state {
+        name
+      }
+      team {
+        key
+      }
+    }
+  }
+}
+"""
+
 
 @dataclass(frozen=True)
 class ParsedIssueIdentifier:
@@ -186,6 +231,11 @@ def parse_issue_identifier(issue_identifier: str) -> ParsedIssueIdentifier:
     return ParsedIssueIdentifier(team_key=match.group(1), number=int(match.group(2)))
 
 
+def normalize_issue_identifier(issue_identifier: str) -> str:
+    parsed = parse_issue_identifier(issue_identifier)
+    return f"{parsed.team_key}-{parsed.number}"
+
+
 def extract_issue_identifiers(*texts: str) -> list[str]:
     identifiers: list[str] = []
     for text in texts:
@@ -194,6 +244,19 @@ def extract_issue_identifiers(*texts: str) -> list[str]:
             if identifier not in identifiers:
                 identifiers.append(identifier)
     return identifiers
+
+
+def render_issue_link_marker(issue_identifier: str) -> str:
+    return f"<!-- gpu-cfd-linear-issue: {normalize_issue_identifier(issue_identifier)} -->"
+
+
+def extract_linked_issue_identifier(*texts: str) -> str | None:
+    for text in texts:
+        match = LINKED_ISSUE_MARKER_PATTERN.search(text or "")
+        if match is None:
+            continue
+        return normalize_issue_identifier(match.group("identifier"))
+    return None
 
 
 def _render_bullet_lines(items: list[str]) -> list[str]:
@@ -320,6 +383,30 @@ def update_issue_state(issue_identifier: str, target_state_name: str) -> dict[st
     }
 
 
+def update_issue_description(issue_identifier: str, description: str) -> dict[str, Any]:
+    issue = fetch_issue(issue_identifier)
+    current_description = str(issue.get("description") or "")
+    if current_description == description:
+        return {
+            "changed": False,
+            "issue": issue,
+            "previous_description": current_description,
+            "current_description": current_description,
+        }
+
+    mutation_data = graphql(
+        ISSUE_UPDATE_DESCRIPTION_MUTATION,
+        {"id": issue["id"], "description": description},
+    )
+    updated_issue = mutation_data["issueUpdate"]["issue"]
+    return {
+        "changed": True,
+        "issue": updated_issue,
+        "previous_description": current_description,
+        "current_description": str(updated_issue.get("description") or ""),
+    }
+
+
 def list_issue_comments(issue_identifier: str) -> list[dict[str, Any]]:
     comments: list[dict[str, Any]] = []
     after: str | None = None
@@ -333,6 +420,22 @@ def list_issue_comments(issue_identifier: str) -> list[dict[str, Any]]:
         next_cursor = page_info.get("endCursor")
         if not next_cursor:
             return comments
+        after = str(next_cursor)
+
+
+def list_team_issues(team_key: str) -> list[dict[str, Any]]:
+    issues: list[dict[str, Any]] = []
+    after: str | None = None
+    while True:
+        data = graphql(TEAM_ISSUES_QUERY, {"teamKey": team_key.upper(), "after": after})
+        issues_payload = data.get("issues", {})
+        issues.extend(list(issues_payload.get("nodes", [])))
+        page_info = issues_payload.get("pageInfo", {})
+        if not page_info.get("hasNextPage"):
+            return issues
+        next_cursor = page_info.get("endCursor")
+        if not next_cursor:
+            return issues
         after = str(next_cursor)
 
 
@@ -400,7 +503,8 @@ def render_workpad_body(
     scoped_sources_lines = _render_bullet_lines(scoped_sources or [])
     scoped_sources_lines.extend(
         [
-            "- Start with AGENTS.md, the issue context, pr_inventory, and the exact PR card.",
+            "- Start with AGENTS.md, the issue context, and the exact task file and PR card.",
+            "- Use docs/tasks/pr_inventory.md only if the PR ID, task file, or card location is unclear.",
             "- Expand outward only when the cited sources are insufficient.",
         ]
     )

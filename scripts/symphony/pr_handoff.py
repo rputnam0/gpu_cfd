@@ -218,6 +218,8 @@ def build_pr_title(issue_identifier: str, issue_title: str) -> str:
 def build_pr_body(issue_identifier: str, issue_title: str) -> str:
     return "\n".join(
         [
+            linear_api.render_issue_link_marker(issue_identifier),
+            "",
             "## Summary",
             f"- Implement {issue_identifier}: {issue_title}",
             "",
