@@ -463,7 +463,11 @@ def _stream_copy(
         transcript_handle = transcript_path.open("wb")
     try:
         while True:
-            chunk = source.read(8192)
+            chunk_reader = getattr(source, "read1", None)
+            if callable(chunk_reader):
+                chunk = chunk_reader(8192)
+            else:
+                chunk = source.read(8192)
             if not chunk:
                 break
             for target in targets:

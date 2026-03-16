@@ -6,6 +6,8 @@ import json
 import os
 import pathlib
 import tempfile
+import threading
+import time
 import unittest
 from unittest import mock
 
@@ -206,6 +208,44 @@ class CodexDispatchTests(unittest.TestCase):
             ["codex", "app-server"],
         )
         self.assertIsNone(mock_launch.call_args.kwargs["transcript_dir"])
+
+    def test_stream_copy_flushes_small_chunks_without_waiting_for_eof(self) -> None:
+        read_fd, write_fd = os.pipe()
+        source = io.BufferedReader(io.FileIO(read_fd, "rb", closefd=True))
+
+        class Sink:
+            def __init__(self) -> None:
+                self.data = bytearray()
+
+            def write(self, chunk: bytes) -> int:
+                self.data.extend(chunk)
+                return len(chunk)
+
+            def flush(self) -> None:
+                return None
+
+            def close(self) -> None:
+                return None
+
+        sink = Sink()
+        copy_thread = threading.Thread(
+            target=codex_dispatch._stream_copy,
+            args=(source, [sink]),
+            daemon=True,
+        )
+        copy_thread.start()
+
+        os.write(write_fd, b'{"id":1}\n')
+
+        deadline = time.time() + 1.0
+        while time.time() < deadline and sink.data != b'{"id":1}\n':
+            time.sleep(0.01)
+
+        self.assertEqual(bytes(sink.data), b'{"id":1}\n')
+
+        os.close(write_fd)
+        copy_thread.join(timeout=1.0)
+        source.close()
 
 
 if __name__ == "__main__":
