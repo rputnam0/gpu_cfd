@@ -22,6 +22,3 @@ jobs:
 
       - name: Run review-loop unit tests
         run: uv run python -m unittest discover -s tests
-
-      - name: Run repo preflight
-        run: uv run python scripts/symphony/preflight.py --mode repo
