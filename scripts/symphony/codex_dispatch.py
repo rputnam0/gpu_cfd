@@ -608,18 +608,26 @@ def main() -> int:
     repo = repo_root()
     workspace = workspace_root()
     issue_identifier = issue_identifier_from_workspace(workspace)
-    issue_payload = fetch_issue_snapshot(issue_identifier)
-    issue_payload.setdefault("identifier", issue_identifier)
     branch = current_branch(workspace)
-    state_start = issue_state_name(issue_payload) or None
-    run_kind = "rework" if state_start == "Rework" else "implementation"
+    tracing_enabled = trace.is_enabled()
+    issue_payload: dict[str, Any] | None = None
+    state_start: str | None = None
+    run_kind = "implementation"
+
+    if tracing_enabled:
+        issue_payload = fetch_issue_snapshot(issue_identifier)
+        issue_payload.setdefault("identifier", issue_identifier)
+        state_start = issue_state_name(issue_payload) or None
+        run_kind = "rework" if state_start == "Rework" else "implementation"
+
     codex_args = args.codex_args or ["app-server"]
     command = runtime_config.build_codex_command("implementation", codex_args)
 
     run_manifest: dict[str, Any] | None = None
     transcript_dir: pathlib.Path | None = None
     commit_before = current_commit(workspace)
-    if trace.is_enabled():
+    if tracing_enabled:
+        assert issue_payload is not None
         env_metadata = {
             "workspace_path": workspace.as_posix(),
             "repo_root": repo.as_posix(),

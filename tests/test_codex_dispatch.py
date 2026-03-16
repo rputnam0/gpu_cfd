@@ -169,6 +169,44 @@ class CodexDispatchTests(unittest.TestCase):
         )
         self.assertEqual(mock_finalize_run.call_args.kwargs["state_end"], "Todo")
 
+    def test_main_skips_linear_prefetch_when_trace_disabled(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_path = pathlib.Path(temp_dir)
+            workspace = temp_path / "PRO-17"
+            workspace.mkdir()
+
+            with (
+                mock.patch.object(
+                    codex_dispatch,
+                    "parse_args",
+                    return_value=argparse.Namespace(codex_args=["app-server"]),
+                ),
+                mock.patch.object(codex_dispatch, "repo_root", return_value=self.repo_root()),
+                mock.patch.object(codex_dispatch, "workspace_root", return_value=workspace),
+                mock.patch.object(codex_dispatch, "current_branch", return_value="main"),
+                mock.patch.object(
+                    codex_dispatch.runtime_config,
+                    "build_codex_command",
+                    return_value=["codex", "app-server"],
+                ),
+                mock.patch.object(codex_dispatch.trace, "is_enabled", return_value=False),
+                mock.patch.object(codex_dispatch, "fetch_issue_snapshot") as mock_fetch_issue,
+                mock.patch.object(
+                    codex_dispatch,
+                    "launch_codex_proxy",
+                    return_value=(0, {}),
+                ) as mock_launch,
+            ):
+                exit_code = codex_dispatch.main()
+
+        self.assertEqual(exit_code, 0)
+        mock_fetch_issue.assert_not_called()
+        self.assertEqual(
+            mock_launch.call_args.kwargs["command"],
+            ["codex", "app-server"],
+        )
+        self.assertIsNone(mock_launch.call_args.kwargs["transcript_dir"])
+
 
 if __name__ == "__main__":
     unittest.main()
