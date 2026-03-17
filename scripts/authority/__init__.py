@@ -15,6 +15,12 @@ from .pins import (
     emit_environment_manifests,
     resolve_consumer_pin_manifest,
 )
+from .source_audit import (
+    ResolvedSourceAuditSurface,
+    render_source_audit_note,
+    resolve_source_audit_surfaces,
+    validate_source_audit_note,
+)
 
 __all__ = [
     "AuthorityBundle",
@@ -24,8 +30,12 @@ __all__ = [
     "AuthoritySchemaError",
     "ConsumerPinResolution",
     "EmittedEnvironmentManifests",
+    "ResolvedSourceAuditSurface",
     "emit_environment_manifests",
     "load_authority_bundle",
     "main",
+    "render_source_audit_note",
     "resolve_consumer_pin_manifest",
+    "resolve_source_audit_surfaces",
+    "validate_source_audit_note",
 ]
