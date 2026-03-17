@@ -101,7 +101,7 @@ class CodexDispatchTests(unittest.TestCase):
     def test_enforce_source_audit_gate_rejects_missing_required_note_file(self) -> None:
         with self.assertRaisesRegex(
             codex_dispatch.DispatchError,
-            "required reviewed source-audit note phase5_symbol_reconciliation.md was not found",
+            "required reviewed source-audit note phase5_symbol_reconciliation.md was not found in tracked files",
         ):
             codex_dispatch.enforce_source_audit_gate(
                 self.repo_root(),
@@ -127,13 +127,14 @@ class CodexDispatchTests(unittest.TestCase):
         note_path.write_text(note_text, encoding="utf-8")
         self.addCleanup(note_path.unlink)
 
-        codex_dispatch.enforce_source_audit_gate(
-            self.repo_root(),
-            {
-                "pr_id": "P5-02",
-                "card_markdown": "Phase 5 consumer.",
-            },
-        )
+        with mock.patch.object(codex_dispatch, "find_source_audit_note", return_value=note_path):
+            codex_dispatch.enforce_source_audit_gate(
+                self.repo_root(),
+                {
+                    "pr_id": "P5-02",
+                    "card_markdown": "Phase 5 consumer.",
+                },
+            )
 
     def test_task_requires_source_audit_gate_detects_phase_consumers(self) -> None:
         self.assertTrue(

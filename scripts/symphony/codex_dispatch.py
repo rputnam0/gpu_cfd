@@ -506,18 +506,29 @@ def resolve_source_audit_requirement(pr_context: dict[str, Any]) -> dict[str, An
 
 
 def find_source_audit_note(repo: pathlib.Path, note_filename: str) -> pathlib.Path:
-    matches = sorted(
-        path
-        for path in repo.rglob(note_filename)
-        if ".git" not in path.parts
+    completed = subprocess.run(
+        ["git", "ls-files", "--", note_filename],
+        cwd=repo,
+        text=True,
+        capture_output=True,
+        check=False,
     )
+    if completed.returncode != 0:
+        raise DispatchError(
+            f"failed to resolve checked-in source-audit note {note_filename}: {completed.stderr.strip()}"
+        )
+    matches = [
+        (repo / line.strip()).resolve()
+        for line in completed.stdout.splitlines()
+        if line.strip()
+    ]
     if not matches:
         raise DispatchError(
-            f"required reviewed source-audit note {note_filename} was not found in the repo"
+            f"required reviewed source-audit note {note_filename} was not found in tracked files"
         )
     if len(matches) > 1:
         raise DispatchError(
-            f"required reviewed source-audit note {note_filename} is ambiguous: "
+            f"required reviewed source-audit note {note_filename} is ambiguous in tracked files: "
             + ", ".join(path.as_posix() for path in matches)
         )
     return matches[0]
