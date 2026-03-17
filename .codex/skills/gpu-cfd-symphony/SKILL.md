@@ -42,17 +42,28 @@ repository's authority docs, backlog dependencies, and PR-card scope.
    rationale, gotchas, and scope notes in the workpad; continue without asking humans unless there
    is a real authority conflict, missing auth/secret, or an unsafe destructive action not covered
    by repo policy.
-4. Confirm the branch state and reproduce the current behavior before editing.
-5. Implement with TDD where practical, following `AGENTS.md`.
-6. Keep the workpad current as plan, progress, decisions, rationale, validation, review findings,
+4. Use native Codex sub-agents as bounded recursive research helpers when context discovery is the
+   bottleneck. The implementation worker profile explicitly enables multi-agent support and the
+   project child-agent definitions. Prefer `gpt-5.4-mini` for those helper agents.
+   Good helper tasks: locate exact doc sections, trace code paths, summarize nearby tests or APIs,
+   inspect review payloads, and compare adjacent implementations.
+   Prefer the project helper agents in `.codex/agents/` when they fit: `docs_scout`,
+   `codepath_scout`, and `review_payload_scout`.
+   Keep each helper narrowly scoped and ask for short path/citation-focused findings.
+   The main `gpt-5.4` worker remains the orchestrator: do not delegate code edits, test authoring,
+   branch management, Linear updates, PR handoff, or final technical judgment to
+   `gpt-5.4-mini`.
+5. Confirm the branch state and reproduce the current behavior before editing.
+6. Implement with TDD where practical, following `AGENTS.md`.
+7. Keep the workpad current as plan, progress, decisions, rationale, validation, review findings,
    and future-agent notes evolve.
-7. Run the smallest direct validation first, then any broader checks required by the card.
-8. When implementation or rework is ready for review, commit and push the branch, then run
+8. Run the smallest direct validation first, then any broader checks required by the card.
+9. When implementation or rework is ready for review, commit and push the branch, then run
    `python3 scripts/symphony/pr_handoff.py --workspace "$PWD"`.
    Run that helper from the issue workspace directly. If the workspace still has unrelated dirty
    control-plane files, the helper creates its own clean committed review clone; do not invent a
    separate manual clean-clone workflow.
-9. If the handoff helper reports findings on remediation pass 1 or 2, inspect the latest artifact
+10. If the handoff helper reports findings on remediation pass 1 or 2, inspect the latest artifact
    under `.codex/review_artifacts/`, fix the valid findings in the same implementation run, rerun
    targeted validation, and rerun the handoff helper.
    Those first two remediation passes belong to the same implementation worker; stay in
@@ -62,18 +73,18 @@ repository's authority docs, backlog dependencies, and PR-card scope.
    If the third and final local review pass still reports findings, the helper creates one child
    `Backlog` issue per residual finding, opens or updates the PR, enables auto-merge, moves the
    parent issue to `In Review`, and returns `stop_worker=true`.
-10. When the handoff helper succeeds cleanly, it opens or updates the PR, enables GitHub
+11. When the handoff helper succeeds cleanly, it opens or updates the PR, enables GitHub
     auto-merge, moves the issue to `In Review`, returns `stop_worker=true`, and you should stop
     after you update the workpad with the PR URL.
-11. `In Review` is a dormant automated-review queue. Do not wait or poll from the worker.
-12. On a `Rework` run, start by using the GitHub CLI API to pull the latest review comments and
+12. `In Review` is a dormant automated-review queue. Do not wait or poll from the worker.
+13. On a `Rework` run, start by using the GitHub CLI API to pull the latest review comments and
     review state for the current PR head, and record the actionable thread IDs / URLs in the
     Linear workpad. Do not rely on memory alone.
-13. Treat valid actionable Devin feedback as mandatory fix work. Fix those findings first, rerun
+14. Treat valid actionable Devin feedback as mandatory fix work. Fix those findings first, rerun
     targeted validation, push, and rerun the handoff helper before returning to `In Review`.
     This workflow requires one Devin review round; after those actionable findings are resolved,
     GitHub may merge without waiting for a second Devin pass on the new head.
-14. Use the `gh api` PR comment/review endpoints described in `AGENTS.md` when you need the full
+15. Use the `gh api` PR comment/review endpoints described in `AGENTS.md` when you need the full
     inline Devin feedback payload, including file path, line, diff hunk, and body.
 
 ## Handoff rules

@@ -48,6 +48,11 @@ class ProgressiveDisclosureContractTests(unittest.TestCase):
         self.assertNotIn("3. `docs/tasks/pr_inventory.md`", workflow_text)
         self.assertIn("use `docs/tasks/pr_inventory.md` as the fallback map", workflow_text)
         self.assertIn("Write or update the canonical Linear workpad", workflow_text)
+        self.assertIn("Use native Codex sub-agents", workflow_text)
+        self.assertIn("`gpt-5.4-mini`", workflow_text)
+        self.assertIn("`docs_scout`, `codepath_scout`, and `review_payload_scout`", workflow_text)
+        self.assertIn("explicitly enables multi-agent support", workflow_text)
+        self.assertIn("Do not delegate code edits", workflow_text)
         self.assertIn("same implementation worker", workflow_text)
         self.assertIn("moves the issue to `In Review`", workflow_text)
         self.assertIn("The finite local-review cycle is 3 total passes", workflow_text)
@@ -56,10 +61,30 @@ class ProgressiveDisclosureContractTests(unittest.TestCase):
         self.assertIn("1. Open `AGENTS.md`.", skill_text)
         self.assertNotIn("2. Open `docs/tasks/pr_inventory.md`.", skill_text)
         self.assertIn("use `docs/tasks/pr_inventory.md` as the fallback map", skill_text)
+        self.assertIn("bounded recursive", skill_text)
+        self.assertIn("`gpt-5.4-mini`", skill_text)
+        self.assertIn("`docs_scout`,", skill_text)
+        self.assertIn("explicitly enables multi-agent support", skill_text)
+        self.assertIn("do not delegate code edits", skill_text)
         self.assertIn("same implementation worker", skill_text)
         self.assertIn("`Backlog` issue per residual finding", skill_text)
         self.assertIn("returns `stop_worker=true`", skill_text)
         self.assertNotIn("README_FIRST", skill_text)
+
+    def test_project_codex_config_enables_bounded_multi_agent_support(self) -> None:
+        config_text = self.read_text(".codex/config.toml")
+        docs_scout = self.read_text(".codex/agents/docs-scout.md")
+        codepath_scout = self.read_text(".codex/agents/codepath-scout.md")
+        review_payload_scout = self.read_text(".codex/agents/review-payload-scout.md")
+
+        self.assertIn("multi_agent = true", config_text)
+        self.assertIn("child_agents_md = true", config_text)
+        self.assertIn('model = "gpt-5.4-mini"', config_text)
+        self.assertIn("max_threads = 3", config_text)
+        self.assertIn("max_depth = 1", config_text)
+        self.assertIn("read-only documentation scout", docs_scout.lower())
+        self.assertIn("read-only codebase scout", codepath_scout.lower())
+        self.assertIn("read-only review-context scout", review_payload_scout.lower())
 
     def test_repo_docs_no_longer_reference_readme_first(self) -> None:
         tracked_paths = [
