@@ -260,7 +260,11 @@ def stage_plan_schema(bundle: AuthorityBundle) -> dict[str, Any]:
                     },
                     "ordered_ladder": {"const": ordered_case_roles},
                     "conditional_selection": {"type": "boolean"},
-                    "conditional_reason": {"type": "string", "minLength": 1},
+                    "conditional_reason": {
+                        "type": "string",
+                        "minLength": 1,
+                        "pattern": r".*\S.*",
+                    },
                 },
                 "allOf": [
                     {
@@ -269,6 +273,13 @@ def stage_plan_schema(bundle: AuthorityBundle) -> dict[str, Any]:
                             "required": ["conditional_selection"],
                         },
                         "then": {"required": ["conditional_reason"]},
+                    },
+                    {
+                        "if": {
+                            "properties": {"conditional_selection": {"const": False}},
+                            "required": ["conditional_selection"],
+                        },
+                        "then": {"not": {"required": ["conditional_reason"]}},
                     }
                 ],
             },
@@ -279,8 +290,8 @@ def stage_plan_schema(bundle: AuthorityBundle) -> dict[str, Any]:
                     "type": "object",
                     "required": ["name", "cmd"],
                     "properties": {
-                        "name": {"type": "string", "minLength": 1},
-                        "cmd": {"type": "string", "minLength": 1},
+                        "name": {"type": "string", "minLength": 1, "pattern": r".*\S.*"},
+                        "cmd": {"type": "string", "minLength": 1, "pattern": r".*\S.*"},
                         "cwd": {"type": "string"},
                     },
                 },

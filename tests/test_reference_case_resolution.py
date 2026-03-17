@@ -249,11 +249,39 @@ class ReferenceCaseResolutionTests(unittest.TestCase):
             1,
         )
         self.assertEqual(
+            schema["properties"]["stages"]["items"]["properties"]["name"]["pattern"],
+            r".*\S.*",
+        )
+        self.assertEqual(
             schema["properties"]["stages"]["items"]["properties"]["cmd"]["minLength"],
             1,
         )
+        self.assertEqual(
+            schema["properties"]["stages"]["items"]["properties"]["cmd"]["pattern"],
+            r".*\S.*",
+        )
         self.assertEqual(schema["properties"]["stages"]["minItems"], 1)
         self.assertIn("allOf", schema["properties"]["phase_gate_selection"])
+        self.assertEqual(
+            schema["properties"]["phase_gate_selection"]["properties"]["conditional_reason"][
+                "pattern"
+            ],
+            r".*\S.*",
+        )
+        self.assertEqual(
+            len(schema["properties"]["phase_gate_selection"]["allOf"]),
+            2,
+        )
+        self.assertEqual(
+            schema["properties"]["phase_gate_selection"]["allOf"][1],
+            {
+                "if": {
+                    "properties": {"conditional_selection": {"const": False}},
+                    "required": ["conditional_selection"],
+                },
+                "then": {"not": {"required": ["conditional_reason"]}},
+            },
+        )
         stage_plan_variants = schema["allOf"][0]["oneOf"]
         self.assertEqual(len(stage_plan_variants), 14)
         phase5_r1_core_variant = next(
