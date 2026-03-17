@@ -21,6 +21,7 @@ except ModuleNotFoundError:  # pragma: no cover - script execution fallback
 
 
 IN_REVIEW_STATE = "In Review"
+LOCAL_REVIEW_ROUND_CAP = 3
 NO_FINDINGS_MARKERS = (
     "no material findings remain",
     "no material issues remain",
@@ -153,6 +154,13 @@ def artifact_dir_for_branch(workspace: pathlib.Path, branch: str) -> pathlib.Pat
         / "review_artifacts"
         / review_loop.sanitize_path_component(branch)
     )
+
+
+def completed_review_round_count(workspace: pathlib.Path, branch: str) -> int:
+    target_dir = artifact_dir_for_branch(workspace, branch)
+    if not target_dir.exists():
+        return 0
+    return len(list(target_dir.glob("*-codex-review.md")))
 
 
 def load_manifest_message(workspace: pathlib.Path, branch: str) -> tuple[dict[str, Any], str]:
@@ -354,6 +362,72 @@ def main() -> int:
     }
 
     if review_result.status == "findings":
+        branch = current_branch(workspace)
+        review_round_count = completed_review_round_count(workspace, branch)
+        if review_round_count >= LOCAL_REVIEW_ROUND_CAP:
+            if branch in {"", "main"}:
+                raise HandoffError("refusing PR handoff from the default branch")
+            ensure_branch_pushed(workspace, branch)
+            pr_ref = ensure_pr(workspace, issue_identifier, issue_title, branch)
+            linear_update = linear_api.update_issue_state(issue_identifier, IN_REVIEW_STATE)
+
+            result["branch"] = branch
+            result["review_round_count"] = review_round_count
+            result["pull_request"] = {
+                "number": pr_ref.number,
+                "url": pr_ref.url,
+                "auto_merge_enabled": False,
+            }
+            result["linear_update"] = {
+                "previous_state": linear_update["previous_state"],
+                "current_state": linear_update["current_state"],
+                "changed": linear_update["changed"],
+            }
+            workpad_warning = sync_workpad_best_effort(
+                issue_identifier=issue_identifier,
+                issue_title=issue_title,
+                current_status="in_review",
+                validation=[
+                    f"Local Codex review reached the {LOCAL_REVIEW_ROUND_CAP}-round cap with findings still open.",
+                    "Escalated to PR review with the latest local-review artifact referenced in the workpad.",
+                ],
+                review_handoff_notes=[
+                    f"PR opened or updated after local-review cap: {pr_ref.url}",
+                    f"Linear moved to {linear_update['current_state']} from {linear_update['previous_state']}.",
+                    "Latest local review artifact still contains actionable findings for follow-up in review.",
+                ],
+            )
+            if workpad_warning:
+                result["workpad_sync_warning"] = workpad_warning
+                print(workpad_warning, file=sys.stderr)
+            if trace.is_enabled():
+                run_manifest = trace.ensure_run(
+                    issue_id=issue_identifier,
+                    run_kind="implementation",
+                    branch=branch,
+                    pr_number=pr_ref.number,
+                )
+                artifact = trace.capture_json_artifact(
+                    issue_id=issue_identifier,
+                    run_id=run_manifest["run_id"],
+                    artifact_type="pr_handoff_result",
+                    label="PR Handoff Result",
+                    payload=result,
+                    filename="pr_handoff_result.json",
+                )
+                trace.capture_event(
+                    issue_id=issue_identifier,
+                    run_id=run_manifest["run_id"],
+                    actor="GitHub",
+                    stage="pr_handoff_escalated",
+                    summary="PR opened or updated after local review reached the remediation cap",
+                    decision="in_review",
+                    decision_rationale="Workflow escalates to hosted review after the local review cap is reached",
+                    artifact_refs=[artifact["artifact_id"]],
+                    metadata={"pr_url": pr_ref.url, "pr_number": pr_ref.number},
+                )
+            print(json.dumps(result, indent=2))
+            return 0
         workpad_warning = sync_workpad_best_effort(
             issue_identifier=issue_identifier,
             issue_title=issue_title,

@@ -41,6 +41,36 @@ class PrHandoffTests(unittest.TestCase):
         self.assertIn("Implement PRO-6: Example change", body)
         self.assertIn("Closes PRO-6", body)
 
+    def test_completed_review_round_count_counts_review_messages(self) -> None:
+        workspace = pathlib.Path("/tmp/workspace")
+        artifact_dir = (
+            workspace
+            / ".codex"
+            / "review_artifacts"
+            / "codex-pro-6-example"
+        )
+
+        with mock.patch.object(
+            pr_handoff,
+            "artifact_dir_for_branch",
+            return_value=artifact_dir,
+        ):
+            with mock.patch.object(pathlib.Path, "exists", return_value=True):
+                with mock.patch.object(
+                    pathlib.Path,
+                    "glob",
+                    return_value=[
+                        artifact_dir / "20260101T000000Z-codex-review.md",
+                        artifact_dir / "20260101T010000Z-codex-review.md",
+                        artifact_dir / "20260101T020000Z-codex-review.md",
+                    ],
+                ):
+                    count = pr_handoff.completed_review_round_count(
+                        workspace, "codex/pro-6-example"
+                    )
+
+        self.assertEqual(count, 3)
+
     @mock.patch("scripts.symphony.pr_handoff.linear_api.upsert_workpad_comment")
     @mock.patch("scripts.symphony.pr_handoff.linear_api.merge_workpad_body")
     @mock.patch("scripts.symphony.pr_handoff.linear_api.find_workpad_comment")
@@ -144,6 +174,96 @@ class PrHandoffTests(unittest.TestCase):
         self.assertEqual(result, 0)
         mock_ensure_branch_pushed.assert_called_once()
         mock_enable_auto_merge.assert_called_once_with(mock.ANY, 6)
+
+    @mock.patch("builtins.print")
+    @mock.patch("scripts.symphony.pr_handoff.trace.is_enabled", return_value=False)
+    @mock.patch("scripts.symphony.pr_handoff.sync_workpad")
+    @mock.patch("scripts.symphony.pr_handoff.linear_api.update_issue_state")
+    @mock.patch("scripts.symphony.pr_handoff.ensure_pr")
+    @mock.patch("scripts.symphony.pr_handoff.ensure_branch_pushed")
+    @mock.patch("scripts.symphony.pr_handoff.completed_review_round_count", return_value=3)
+    @mock.patch("scripts.symphony.pr_handoff.current_branch")
+    @mock.patch("scripts.symphony.pr_handoff.run_host_review")
+    @mock.patch("scripts.symphony.pr_handoff.linear_api.fetch_issue")
+    @mock.patch("scripts.symphony.pr_handoff.worktree_is_clean")
+    @mock.patch("scripts.symphony.pr_handoff.parse_args")
+    def test_main_escalates_findings_to_pr_after_local_review_cap(
+        self,
+        mock_parse_args: mock.Mock,
+        mock_worktree_is_clean: mock.Mock,
+        mock_fetch_issue: mock.Mock,
+        mock_run_host_review: mock.Mock,
+        mock_current_branch: mock.Mock,
+        _mock_review_round_count: mock.Mock,
+        mock_ensure_branch_pushed: mock.Mock,
+        mock_ensure_pr: mock.Mock,
+        mock_update_issue_state: mock.Mock,
+        mock_sync_workpad: mock.Mock,
+        _mock_trace_is_enabled: mock.Mock,
+        _mock_print: mock.Mock,
+    ) -> None:
+        mock_parse_args.return_value = mock.Mock(workspace="/tmp/PRO-6")
+        mock_worktree_is_clean.return_value = True
+        mock_fetch_issue.return_value = {"title": "Example change"}
+        mock_run_host_review.return_value = pr_handoff.ReviewResult(
+            status="findings",
+            message="- [P2] Example finding",
+            manifest={"message_path": ".codex/review_artifacts/latest.md"},
+        )
+        mock_current_branch.return_value = "codex/pro-6-example"
+        mock_ensure_pr.return_value = pr_handoff.PullRequestRef(
+            number=6,
+            url="https://github.com/example/pull/6",
+            is_draft=False,
+        )
+        mock_update_issue_state.return_value = {
+            "previous_state": "In Progress",
+            "current_state": "In Review",
+            "changed": True,
+        }
+        mock_sync_workpad.return_value = {"id": "comment-1"}
+
+        result = pr_handoff.main()
+
+        self.assertEqual(result, 0)
+        mock_ensure_branch_pushed.assert_called_once()
+        mock_ensure_pr.assert_called_once()
+        mock_update_issue_state.assert_called_once_with("PRO-6", "In Review")
+
+    @mock.patch("builtins.print")
+    @mock.patch("scripts.symphony.pr_handoff.trace.is_enabled", return_value=False)
+    @mock.patch("scripts.symphony.pr_handoff.sync_workpad")
+    @mock.patch("scripts.symphony.pr_handoff.completed_review_round_count", return_value=2)
+    @mock.patch("scripts.symphony.pr_handoff.current_branch", return_value="codex/pro-6-example")
+    @mock.patch("scripts.symphony.pr_handoff.run_host_review")
+    @mock.patch("scripts.symphony.pr_handoff.linear_api.fetch_issue")
+    @mock.patch("scripts.symphony.pr_handoff.worktree_is_clean")
+    @mock.patch("scripts.symphony.pr_handoff.parse_args")
+    def test_main_pauses_findings_before_local_review_cap(
+        self,
+        mock_parse_args: mock.Mock,
+        mock_worktree_is_clean: mock.Mock,
+        mock_fetch_issue: mock.Mock,
+        mock_run_host_review: mock.Mock,
+        _mock_current_branch: mock.Mock,
+        _mock_review_round_count: mock.Mock,
+        mock_sync_workpad: mock.Mock,
+        _mock_trace_is_enabled: mock.Mock,
+        _mock_print: mock.Mock,
+    ) -> None:
+        mock_parse_args.return_value = mock.Mock(workspace="/tmp/PRO-6")
+        mock_worktree_is_clean.return_value = True
+        mock_fetch_issue.return_value = {"title": "Example change"}
+        mock_run_host_review.return_value = pr_handoff.ReviewResult(
+            status="findings",
+            message="- [P2] Example finding",
+            manifest={"message_path": ".codex/review_artifacts/latest.md"},
+        )
+        mock_sync_workpad.return_value = {"id": "comment-1"}
+
+        result = pr_handoff.main()
+
+        self.assertEqual(result, 2)
 
 
 if __name__ == "__main__":
