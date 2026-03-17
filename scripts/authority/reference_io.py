@@ -57,11 +57,11 @@ def reference_io_overlay_command(
     case_dir: str = ".",
     json_out: str = REFERENCE_IO_OVERLAY_ARTIFACT,
 ) -> str:
-    script_path = pathlib.Path(__file__).resolve()
     return " ".join(
         [
             "python3",
-            shlex.quote(script_path.as_posix()),
+            "-m",
+            "scripts.authority.reference_io",
             "--case-dir",
             shlex.quote(case_dir),
             "--json-out",
@@ -128,7 +128,7 @@ def apply_reference_io_overlay(
     control_dict_path.write_text("\n".join(rewritten_lines) + "\n", encoding="utf-8")
 
     overlay_artifact = (
-        pathlib.Path(json_out).name if json_out is not None else REFERENCE_IO_OVERLAY_ARTIFACT
+        pathlib.Path(json_out).as_posix() if json_out is not None else REFERENCE_IO_OVERLAY_ARTIFACT
     )
     payload = build_reference_io_normalization_payload(overlay_artifact=overlay_artifact)
     payload["control_dict"] = control_dict_relative_path
@@ -138,6 +138,7 @@ def apply_reference_io_overlay(
         json_out_path = pathlib.Path(json_out)
         if not json_out_path.is_absolute():
             json_out_path = case_dir_path / json_out_path
+        json_out_path.parent.mkdir(parents=True, exist_ok=True)
         json_out_path.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
 
     return payload

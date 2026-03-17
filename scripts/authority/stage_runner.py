@@ -11,6 +11,8 @@ from typing import Any, Mapping
 
 from .env_probe import OpenFOAMBaselineProbeReport
 
+REPO_PYTHONPATH = pathlib.Path(__file__).resolve().parents[2].as_posix()
+
 
 @dataclass(frozen=True)
 class StageRunnerContext:
@@ -149,6 +151,7 @@ def wrap_stage_command(
         "-i",
         "HOME=" + os.path.expanduser("~"),
         "PATH=/usr/bin:/bin",
+        "PYTHONPATH=" + REPO_PYTHONPATH,
         "bash",
         "--noprofile",
         "--norc",

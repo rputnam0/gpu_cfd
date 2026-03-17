@@ -73,6 +73,20 @@ class ReferenceIoOverlayTests(unittest.TestCase):
             None,
         )
 
+    def test_apply_reference_io_overlay_preserves_nested_json_out_path(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            case_dir = pathlib.Path(temp_dir)
+            control_dict = case_dir / "system" / "controlDict"
+            control_dict.parent.mkdir(parents=True, exist_ok=True)
+            control_dict.write_text("application incompressibleVoF;\n", encoding="utf-8")
+            json_out = pathlib.Path("artifacts/reference/reference_freeze_overlay.json")
+
+            overlay = apply_reference_io_overlay(case_dir, json_out=json_out)
+            written_overlay = json.loads((case_dir / json_out).read_text(encoding="utf-8"))
+
+        self.assertEqual(overlay["overlay_artifact"], json_out.as_posix())
+        self.assertEqual(written_overlay["overlay_artifact"], json_out.as_posix())
+
 
 if __name__ == "__main__":
     unittest.main()

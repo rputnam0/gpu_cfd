@@ -199,6 +199,49 @@ class StageRunnerTests(unittest.TestCase):
         self.assertIn("GPU_CFD_REVIEWED_SOURCE_TUPLE_ID", wrapped)
         self.assertNotIn("/opt/openfoam12", wrapped)
 
+    def test_wrap_stage_command_exports_repo_pythonpath_for_module_stages(self) -> None:
+        bundle = load_authority_bundle(repo_root())
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            bashrc_path = write_bashrc(pathlib.Path(temp_dir), name="baseline_b_module_stage.sh")
+            report = probe_openfoam_baselines(
+                bundle,
+                output_dir=temp_dir,
+                baselines={
+                    "Baseline B": BaselineProbeRequest(
+                        lane="experimental",
+                        runtime_base="exaFOAM/SPUMA 0.1-v2412",
+                        bashrc_path=str(bashrc_path),
+                        host_observations=sample_host_observations(lane="experimental"),
+                        local_mirror_refs=sample_local_mirror_refs(),
+                        repo_commit="def456abc123",
+                        command_paths=sample_commands(),
+                        openfoam_env={
+                            "WM_PROJECT": "OpenFOAM",
+                            "WM_PROJECT_VERSION": "v2412",
+                            "WM_OPTIONS": "linux64ClangDPInt32Opt",
+                        },
+                    ),
+                },
+            )
+            context = resolve_stage_runner_context(
+                pathlib.Path(temp_dir),
+                probe_report=report,
+                baseline_name="Baseline B",
+            )
+
+        wrapped = wrap_stage_command(
+            context,
+            case_dir=pathlib.Path("/tmp/cases/r1"),
+            stage={
+                "name": "reference_io_normalization",
+                "cmd": reference_io_overlay_command(json_out="reference_freeze_overlay.json"),
+            },
+        )
+
+        self.assertIn("python3 -m scripts.authority.reference_io", wrapped)
+        self.assertIn("PYTHONPATH=", wrapped)
+
     def test_stage_runner_context_allows_explicit_manifest_overrides(self) -> None:
         bundle = load_authority_bundle(repo_root())
 
@@ -834,6 +877,7 @@ class StageRunnerTests(unittest.TestCase):
             stage_plan["stages"][0]["cmd"],
             reference_io_overlay_command(json_out="reference_freeze_overlay.json"),
         )
+        self.assertNotIn(repo_root().as_posix(), stage_plan["stages"][0]["cmd"])
         self.assertEqual(
             case_meta["io_normalization"]["policy"],
             {
@@ -842,6 +886,62 @@ class StageRunnerTests(unittest.TestCase):
                 "write_precision": 12,
                 "time_precision": 12,
             },
+        )
+
+    def test_build_stage_plan_preserves_nested_reference_io_overlay_artifact_path(self) -> None:
+        bundle = load_authority_bundle(repo_root())
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_root = pathlib.Path(temp_dir)
+            bashrc_path = write_bashrc(temp_root, name="baseline_b_nested_reference_io.sh")
+            report = probe_openfoam_baselines(
+                bundle,
+                output_dir=temp_dir,
+                baselines={
+                    "Baseline B": BaselineProbeRequest(
+                        lane="experimental",
+                        runtime_base="exaFOAM/SPUMA 0.1-v2412",
+                        bashrc_path=str(bashrc_path),
+                        host_observations=sample_host_observations(lane="experimental"),
+                        local_mirror_refs=sample_local_mirror_refs(),
+                        repo_commit="def456abc123",
+                        command_paths=sample_commands(),
+                        openfoam_env={
+                            "WM_PROJECT": "OpenFOAM",
+                            "WM_PROJECT_VERSION": "v2412",
+                            "WM_OPTIONS": "linux64ClangDPInt32Opt",
+                        },
+                    ),
+                },
+            )
+            context = resolve_stage_runner_context(
+                temp_root,
+                probe_report=report,
+                baseline_name="Baseline B",
+            )
+            stage_plan = build_stage_plan_payload(
+                bundle,
+                context=context,
+                case_role="R1",
+                phase_gate="Phase 2",
+                conditional_reason="patch-manifest coverage under test",
+                io_normalization={
+                    "overlay_artifact": "artifacts/reference/reference_freeze_overlay.json"
+                },
+                stages=[{"name": "transient_run", "cmd": "foamRun -solver incompressibleVoF"}],
+            )
+
+        self.assertEqual(
+            stage_plan["io_normalization"]["overlay_artifact"],
+            "artifacts/reference/reference_freeze_overlay.json",
+        )
+        self.assertEqual(
+            stage_plan["stages"][0]["overlay_artifact"],
+            "artifacts/reference/reference_freeze_overlay.json",
+        )
+        self.assertIn(
+            "--json-out artifacts/reference/reference_freeze_overlay.json",
+            stage_plan["stages"][0]["cmd"],
         )
 
     def test_emit_case_bundle_allows_case_specific_provenance_fields(self) -> None:
