@@ -172,7 +172,6 @@ def evaluate_acceptance(
     """Evaluate one tuple deterministically against hard gates, soft gates, and class results."""
 
     manifest_revision = bundle.authority_revisions["acceptance_manifest"]["sha256"]
-    context = evaluation_context or AcceptanceEvaluationContext()
     try:
         resolved = resolve_accepted_tuple(bundle, tuple_id)
     except ValueError:
@@ -195,6 +194,9 @@ def evaluate_acceptance(
             class_results={},
             waiver=None,
         )
+    context = evaluation_context or AcceptanceEvaluationContext(
+        is_production_acceptance_run=resolved.production_eligible,
+    )
 
     required_pressure_bridge_mode = resolved.raw.get("required_pressure_bridge_mode")
     if required_pressure_bridge_mode and context.pressure_bridge_mode != required_pressure_bridge_mode:
@@ -269,8 +271,20 @@ def evaluate_acceptance(
         disposition = "pass"
         reason = "All hard gates, soft gates, and active threshold/parity classes passed."
 
-    release_eligible = disposition == "pass" and resolved.production_eligible
-    baseline_lock_eligible = disposition == "pass" and resolved.production_eligible
+    skipped_scoped_hard_gate = any(
+        result["scope"] is not None and not bool(result["applicable"])
+        for result in hard_results.values()
+    )
+    release_eligible = (
+        disposition == "pass"
+        and resolved.production_eligible
+        and not skipped_scoped_hard_gate
+    )
+    baseline_lock_eligible = (
+        disposition == "pass"
+        and resolved.production_eligible
+        and not skipped_scoped_hard_gate
+    )
     return AcceptanceVerdict(
         schema_version=VERDICT_SCHEMA_VERSION,
         manifest_revision=resolved.manifest_revision,

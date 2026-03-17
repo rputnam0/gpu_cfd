@@ -282,6 +282,63 @@ class AcceptanceEvaluatorTests(unittest.TestCase):
             verdict.class_results["TC_R2_TRANSPORT"]["details"],
         )
 
+    def test_production_eligible_tuples_default_to_production_scope(self) -> None:
+        bundle = load_authority_bundle(repo_root())
+        hard_gates = passing_hard_gates()
+        hard_gates["pinned_host_pressure_stage_events"] = 1
+
+        verdict = evaluate_acceptance(
+            bundle,
+            tuple_id="P8_R1_NATIVE_ASYNC_BASELINE",
+            hard_gate_observations=hard_gates,
+            soft_gate_observations=passing_soft_gates(),
+            class_results={
+                "TC_R1_NOZZLE": AcceptanceClassResult(
+                    class_id="TC_R1_NOZZLE",
+                    passed=True,
+                ),
+                "RP_STRICT": AcceptanceClassResult(
+                    class_id="RP_STRICT",
+                    passed=True,
+                ),
+            },
+        )
+
+        self.assertEqual(verdict.disposition, "fail")
+        self.assertEqual(
+            verdict.gate_results["hard"]["pinned_host_pressure_stage_events"]["applicable"],
+            True,
+        )
+
+    def test_diagnostic_context_never_marks_tuple_release_eligible(self) -> None:
+        bundle = load_authority_bundle(repo_root())
+        hard_gates = passing_hard_gates()
+        hard_gates["pinned_host_pressure_stage_events"] = 4
+
+        verdict = evaluate_acceptance(
+            bundle,
+            tuple_id="P8_R1_NATIVE_ASYNC_BASELINE",
+            hard_gate_observations=hard_gates,
+            soft_gate_observations=passing_soft_gates(),
+            class_results={
+                "TC_R1_NOZZLE": AcceptanceClassResult(
+                    class_id="TC_R1_NOZZLE",
+                    passed=True,
+                ),
+                "RP_STRICT": AcceptanceClassResult(
+                    class_id="RP_STRICT",
+                    passed=True,
+                ),
+            },
+            evaluation_context=AcceptanceEvaluationContext(
+                is_production_acceptance_run=False,
+            ),
+        )
+
+        self.assertEqual(verdict.disposition, "pass")
+        self.assertFalse(verdict.release_eligible)
+        self.assertFalse(verdict.baseline_lock_eligible)
+
 
 if __name__ == "__main__":
     unittest.main()
