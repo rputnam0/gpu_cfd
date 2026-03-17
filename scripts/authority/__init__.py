@@ -2,6 +2,7 @@
 
 from .acceptance import (
     AcceptanceClassResult,
+    AcceptanceEvaluationContext,
     AcceptanceVerdict,
     AcceptanceWaiver,
     AcceptanceWaiverHook,
@@ -27,6 +28,7 @@ from .pins import (
 
 __all__ = [
     "AcceptanceClassResult",
+    "AcceptanceEvaluationContext",
     "AcceptanceVerdict",
     "AcceptanceWaiver",
     "AcceptanceWaiverHook",

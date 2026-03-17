@@ -32,6 +32,15 @@ class AcceptanceWaiver:
     metadata: dict[str, Any] | None = None
 
 
+@dataclass(frozen=True)
+class AcceptanceEvaluationContext:
+    is_production_acceptance_run: bool = False
+    uses_accepted_startup_path: bool = True
+    in_timed_steady_state_window: bool = True
+    in_steady_state_inner_ranges: bool = True
+    pressure_bridge_mode: str | None = None
+
+
 class AcceptanceWaiverHook(Protocol):
     def resolve_soft_gate_waiver(
         self,
@@ -157,11 +166,13 @@ def evaluate_acceptance(
     hard_gate_observations: dict[str, Any],
     soft_gate_observations: dict[str, Any],
     class_results: dict[str, AcceptanceClassResult],
+    evaluation_context: AcceptanceEvaluationContext | None = None,
     waiver_hook: AcceptanceWaiverHook | None = None,
 ) -> AcceptanceVerdict:
     """Evaluate one tuple deterministically against hard gates, soft gates, and class results."""
 
     manifest_revision = bundle.authority_revisions["acceptance_manifest"]["sha256"]
+    context = evaluation_context or AcceptanceEvaluationContext()
     try:
         resolved = resolve_accepted_tuple(bundle, tuple_id)
     except ValueError:
@@ -185,13 +196,42 @@ def evaluate_acceptance(
             waiver=None,
         )
 
+    required_pressure_bridge_mode = resolved.raw.get("required_pressure_bridge_mode")
+    if required_pressure_bridge_mode and context.pressure_bridge_mode != required_pressure_bridge_mode:
+        return AcceptanceVerdict(
+            schema_version=VERDICT_SCHEMA_VERSION,
+            manifest_revision=resolved.manifest_revision,
+            tuple_id=resolved.tuple_id,
+            admitted=False,
+            admission=resolved.admission,
+            disposition="non_admitted",
+            reason=(
+                "Tuple requires pressure bridge mode "
+                f"{required_pressure_bridge_mode!r}, observed "
+                f"{context.pressure_bridge_mode!r}; run remains diagnostic-only outside the "
+                "accepted tuple matrix."
+            ),
+            production_eligible=resolved.production_eligible,
+            release_eligible=False,
+            baseline_lock_eligible=False,
+            required_orchestration_ranges=resolved.required_orchestration_ranges,
+            required_stage_ids=resolved.required_stage_ids,
+            production_defaults=resolved.production_defaults,
+            gate_results={"hard": {}, "soft": {}},
+            thresholds_used=resolved.thresholds_used,
+            class_results={},
+            waiver=None,
+        )
+
     hard_results = _evaluate_gate_family(
         bundle.acceptance.raw["hard_gates"],
         hard_gate_observations,
+        context,
     )
     soft_results = _evaluate_gate_family(
         bundle.acceptance.raw["soft_gates"],
         soft_gate_observations,
+        context,
     )
     class_evaluation = _evaluate_active_classes(resolved, class_results)
 
@@ -272,12 +312,17 @@ def _active_parity_class_ids(accepted_tuple: AcceptedTuple) -> tuple[str, ...]:
 def _evaluate_gate_family(
     definitions: dict[str, dict[str, Any]],
     observations: dict[str, Any],
+    context: AcceptanceEvaluationContext,
 ) -> dict[str, dict[str, Any]]:
     results: dict[str, dict[str, Any]] = {}
     for gate_id, definition in definitions.items():
+        applicable = _gate_scope_applies(str(definition.get("scope") or ""), context)
         observed = observations.get(gate_id)
         missing = gate_id not in observations
-        if missing:
+        if not applicable:
+            passed = True
+            missing = False
+        elif missing:
             passed = False
         else:
             passed = _compare(observed, definition["operator"], definition["value"])
@@ -286,6 +331,8 @@ def _evaluate_gate_family(
             "operator": definition["operator"],
             "expected": definition["value"],
             "scope": definition.get("scope"),
+            "applicable": applicable,
+            "skipped": not applicable,
             "passed": passed,
             "missing": missing,
         }
@@ -306,6 +353,17 @@ def _evaluate_active_classes(
                 "passed": False,
                 "details": "Missing required class evaluation result.",
                 "observed": None,
+            }
+            continue
+        if provided.class_id != class_id:
+            results[class_id] = {
+                "class_id": class_id,
+                "passed": False,
+                "details": (
+                    f"Supplied class result {provided.class_id!r} does not match required class "
+                    f"{class_id!r}."
+                ),
+                "observed": provided.observed,
             }
             continue
         results[class_id] = {
@@ -346,3 +404,20 @@ def _compare(observed: Any, operator: str, expected: Any) -> bool:
     if operator == "<=":
         return observed <= expected
     raise AuthorityConflictError(f"unsupported acceptance gate operator {operator!r}")
+
+
+def _gate_scope_applies(
+    scope: str,
+    context: AcceptanceEvaluationContext,
+) -> bool:
+    if not scope:
+        return True
+    if scope == "production_acceptance_runs":
+        return context.is_production_acceptance_run
+    if scope == "accepted_startup_path":
+        return context.uses_accepted_startup_path
+    if scope == "timed_steady_state_windows":
+        return context.in_timed_steady_state_window
+    if scope == "steady_state_inner_ranges":
+        return context.in_steady_state_inner_ranges
+    raise AuthorityConflictError(f"unsupported acceptance gate scope {scope!r}")

@@ -6,6 +6,7 @@ import unittest
 from scripts.authority import load_authority_bundle
 from scripts.authority.acceptance import (
     AcceptanceClassResult,
+    AcceptanceEvaluationContext,
     AcceptanceWaiver,
     evaluate_acceptance,
     resolve_accepted_tuple,
@@ -192,6 +193,93 @@ class AcceptanceEvaluatorTests(unittest.TestCase):
         self.assertEqual(
             matched.waiver["manifest_revision"],
             bundle.authority_revisions["acceptance_manifest"]["sha256"],
+        )
+
+    def test_scoped_hard_gates_are_skipped_when_context_marks_them_out_of_scope(self) -> None:
+        bundle = load_authority_bundle(repo_root())
+        hard_gates = passing_hard_gates()
+        hard_gates["pinned_host_pressure_stage_events"] = 3
+        hard_gates["host_setFields_startup_events"] = 2
+
+        verdict = evaluate_acceptance(
+            bundle,
+            tuple_id="P5_R2_TRANSPORT_NATIVE_ASYNC_BASELINE",
+            hard_gate_observations=hard_gates,
+            soft_gate_observations=passing_soft_gates(),
+            class_results={
+                "TC_R2_TRANSPORT": AcceptanceClassResult(
+                    class_id="TC_R2_TRANSPORT",
+                    passed=True,
+                )
+            },
+            evaluation_context=AcceptanceEvaluationContext(
+                is_production_acceptance_run=False,
+                uses_accepted_startup_path=False,
+            ),
+        )
+
+        self.assertEqual(verdict.disposition, "pass")
+        self.assertEqual(
+            verdict.gate_results["hard"]["pinned_host_pressure_stage_events"]["applicable"],
+            False,
+        )
+        self.assertEqual(
+            verdict.gate_results["hard"]["host_setFields_startup_events"]["applicable"],
+            False,
+        )
+
+    def test_amgx_tuple_requires_device_direct_pressure_bridge_for_admission(self) -> None:
+        bundle = load_authority_bundle(repo_root())
+
+        verdict = evaluate_acceptance(
+            bundle,
+            tuple_id="P5_R1CORE_AMGX_ASYNC_BASELINE",
+            hard_gate_observations=passing_hard_gates(),
+            soft_gate_observations=passing_soft_gates(),
+            class_results={
+                "TC_R1CORE_GENERIC": AcceptanceClassResult(
+                    class_id="TC_R1CORE_GENERIC",
+                    passed=True,
+                ),
+                "RP_STRICT": AcceptanceClassResult(
+                    class_id="RP_STRICT",
+                    passed=True,
+                ),
+                "BP_AMGX_R1CORE": AcceptanceClassResult(
+                    class_id="BP_AMGX_R1CORE",
+                    passed=True,
+                ),
+            },
+            evaluation_context=AcceptanceEvaluationContext(
+                pressure_bridge_mode="PinnedHost",
+            ),
+        )
+
+        self.assertEqual(verdict.disposition, "non_admitted")
+        self.assertIn("DeviceDirect", verdict.reason)
+        self.assertFalse(verdict.admitted)
+
+    def test_mismatched_class_result_id_cannot_satisfy_required_class(self) -> None:
+        bundle = load_authority_bundle(repo_root())
+
+        verdict = evaluate_acceptance(
+            bundle,
+            tuple_id="P5_R2_TRANSPORT_NATIVE_ASYNC_BASELINE",
+            hard_gate_observations=passing_hard_gates(),
+            soft_gate_observations=passing_soft_gates(),
+            class_results={
+                "TC_R2_TRANSPORT": AcceptanceClassResult(
+                    class_id="TC_R2_SURFACE",
+                    passed=True,
+                )
+            },
+        )
+
+        self.assertEqual(verdict.disposition, "fail")
+        self.assertIn("Threshold/parity class failures", verdict.reason)
+        self.assertIn(
+            "does not match required class",
+            verdict.class_results["TC_R2_TRANSPORT"]["details"],
         )
 
 
