@@ -14,7 +14,12 @@ from scripts.authority import (
     validate_acceptance_tuple_stage_requirements,
     validate_tuple_stage_requirements,
 )
-from scripts.authority.bundle import AcceptanceManifest, AcceptedTuple, GraphCaptureMatrix, GraphStage
+from scripts.authority.bundle import (
+    AcceptanceManifest,
+    AcceptedTuple,
+    GraphCaptureMatrix,
+    GraphStage,
+)
 
 
 def repo_root() -> pathlib.Path:
@@ -29,18 +34,27 @@ class GraphStageRegistryTests(unittest.TestCase):
             registry.required_orchestration_ranges,
             ("solver/timeStep", "solver/steady_state", "solver/pimpleOuter"),
         )
-        self.assertEqual(registry.stage("pressure_solve_amgx").capture_policy, "graph-external until individually validated")
+        self.assertEqual(
+            registry.stage("pressure_solve_amgx").capture_policy,
+            "graph-external until individually validated",
+        )
         self.assertTrue(registry.run_mode("graph_fixed").production_accepted)
         self.assertFalse(registry.run_mode("sync_debug").production_accepted)
-        self.assertEqual(registry.resolve_fallback_mode("pressure_solve_native"), "async_no_graph")
+        self.assertEqual(
+            registry.resolve_fallback_mode("pressure_solve_native"), "async_no_graph"
+        )
 
-    def test_acceptance_tuple_stage_requirements_validate_against_canonical_registry(self) -> None:
+    def test_acceptance_tuple_stage_requirements_validate_against_canonical_registry(
+        self,
+    ) -> None:
         bundle = load_authority_bundle(repo_root())
         registry = build_graph_stage_registry(bundle)
 
         report = validate_acceptance_tuple_stage_requirements(bundle, registry=registry)
 
-        self.assertEqual(report.validated_tuple_count, len(bundle.acceptance.tuples_by_id))
+        self.assertEqual(
+            report.validated_tuple_count, len(bundle.acceptance.tuples_by_id)
+        )
         self.assertIn("P8_R1_NATIVE_GRAPH_BASELINE", report.tuple_stage_ids)
         self.assertEqual(
             report.tuple_stage_ids["P8_R1_NATIVE_GRAPH_BASELINE"][-3:],
@@ -64,7 +78,9 @@ class GraphStageRegistryTests(unittest.TestCase):
     def test_report_is_json_serializable_for_downstream_consumers(self) -> None:
         bundle = load_authority_bundle(repo_root())
         registry = build_graph_stage_registry(bundle)
-        validation = validate_acceptance_tuple_stage_requirements(bundle, registry=registry)
+        validation = validate_acceptance_tuple_stage_requirements(
+            bundle, registry=registry
+        )
 
         report = registry.emit_report(
             validation,
@@ -74,13 +90,17 @@ class GraphStageRegistryTests(unittest.TestCase):
 
         payload = report.as_dict()
         self.assertEqual(payload["schema_version"], "1.0.0")
-        self.assertEqual(payload["run_modes"]["async_no_graph"]["production_accepted"], True)
+        self.assertEqual(
+            payload["run_modes"]["async_no_graph"]["production_accepted"], True
+        )
         self.assertEqual(
             list(payload["stages"])[:4],
             ["warmup", "pre_solve", "outer_iter_body", "momentum_predictor"],
         )
         self.assertEqual(
-            payload["accepted_tuples"]["P8_R1_NATIVE_GRAPH_BASELINE"]["required_stage_ids"][-3:],
+            payload["accepted_tuples"]["P8_R1_NATIVE_GRAPH_BASELINE"][
+                "required_stage_ids"
+            ][-3:],
             ["pressure_solve_native", "pressure_post", "nozzle_bc_update"],
         )
         self.assertEqual(
@@ -103,7 +123,9 @@ class GraphStageRegistryTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temp_dir:
             temp_root = pathlib.Path(temp_dir)
             self._copy_tree(repo_root(), temp_root)
-            json_path = temp_root / "docs" / "authority" / "graph_capture_support_matrix.json"
+            json_path = (
+                temp_root / "docs" / "authority" / "graph_capture_support_matrix.json"
+            )
             payload = json.loads(json_path.read_text(encoding="utf-8"))
             payload["run_modes"].append(dict(payload["run_modes"][0]))
             json_path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
@@ -118,7 +140,9 @@ class GraphStageRegistryTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temp_dir:
             temp_root = pathlib.Path(temp_dir)
             self._copy_tree(repo_root(), temp_root)
-            json_path = temp_root / "docs" / "authority" / "graph_capture_support_matrix.json"
+            json_path = (
+                temp_root / "docs" / "authority" / "graph_capture_support_matrix.json"
+            )
             payload = json.loads(json_path.read_text(encoding="utf-8"))
             payload["run_modes"][0]["production_accepted"] = "false"
             json_path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
@@ -134,7 +158,10 @@ class GraphStageRegistryTests(unittest.TestCase):
         invalid_stage = GraphStage(
             stage_id="warmup",
             fallback_mode="graphFixd",
-            raw={**bundle.graph.stages_by_id["warmup"].raw, "fallback_mode": "graphFixd"},
+            raw={
+                **bundle.graph.stages_by_id["warmup"].raw,
+                "fallback_mode": "graphFixd",
+            },
         )
         invalid_graph = GraphCaptureMatrix(
             run_modes=bundle.graph.run_modes,
@@ -143,9 +170,11 @@ class GraphStageRegistryTests(unittest.TestCase):
             raw={
                 **bundle.graph.raw,
                 "stages": [
-                    {**stage, "fallback_mode": "graphFixd"}
-                    if stage["stage_id"] == "warmup"
-                    else dict(stage)
+                    (
+                        {**stage, "fallback_mode": "graphFixd"}
+                        if stage["stage_id"] == "warmup"
+                        else dict(stage)
+                    )
                     for stage in bundle.graph.raw["stages"]
                 ],
             },
@@ -164,7 +193,11 @@ class GraphStageRegistryTests(unittest.TestCase):
             bundle,
             "P8_R1CORE_NATIVE_GRAPH_BASELINE",
             required_stage_ids=tuple(
-                "pressure_solve_amgx" if stage_id == "pressure_solve_native" else stage_id
+                (
+                    "pressure_solve_amgx"
+                    if stage_id == "pressure_solve_native"
+                    else stage_id
+                )
                 for stage_id in bundle.acceptance.tuples_by_id[
                     "P8_R1CORE_NATIVE_GRAPH_BASELINE"
                 ].required_stage_ids
@@ -235,7 +268,9 @@ class GraphStageRegistryTests(unittest.TestCase):
             tuple_id,
             required_stage_ids=tuple(
                 stage_id
-                for stage_id in bundle.acceptance.tuples_by_id[tuple_id].required_stage_ids
+                for stage_id in bundle.acceptance.tuples_by_id[
+                    tuple_id
+                ].required_stage_ids
                 if stage_id != "nozzle_bc_update"
             ),
         )
@@ -274,7 +309,9 @@ class GraphStageRegistryTests(unittest.TestCase):
         ):
             validate_acceptance_tuple_stage_requirements(mutated_bundle)
 
-    def test_stale_acceptance_orchestration_ranges_fail_even_with_override(self) -> None:
+    def test_stale_acceptance_orchestration_ranges_fail_even_with_override(
+        self,
+    ) -> None:
         bundle = load_authority_bundle(repo_root())
         mutated_bundle = replace(
             bundle,
@@ -296,6 +333,21 @@ class GraphStageRegistryTests(unittest.TestCase):
         ):
             build_graph_stage_registry(mutated_bundle)
 
+    def test_mutate_acceptance_tuple_preserves_explicit_falsy_overrides(self) -> None:
+        bundle = load_authority_bundle(repo_root())
+        tuple_id = "P8_R1CORE_NATIVE_GRAPH_BASELINE"
+
+        mutated_bundle = self._mutate_acceptance_tuple(
+            bundle,
+            tuple_id,
+            execution_mode="",
+            required_stage_ids=(),
+        )
+
+        mutated_tuple = mutated_bundle.acceptance.tuples_by_id[tuple_id]
+        self.assertEqual(mutated_tuple.execution_mode, "")
+        self.assertEqual(mutated_tuple.required_stage_ids, ())
+
     def _copy_tree(self, source: pathlib.Path, destination: pathlib.Path) -> None:
         for path in source.rglob("*"):
             relative = path.relative_to(source)
@@ -316,8 +368,14 @@ class GraphStageRegistryTests(unittest.TestCase):
         raw_updates: dict | None = None,
     ):
         original = bundle.acceptance.tuples_by_id[tuple_id]
-        updated_execution_mode = execution_mode or original.execution_mode
-        updated_stage_ids = required_stage_ids or original.required_stage_ids
+        updated_execution_mode = (
+            execution_mode if execution_mode is not None else original.execution_mode
+        )
+        updated_stage_ids = (
+            required_stage_ids
+            if required_stage_ids is not None
+            else original.required_stage_ids
+        )
         updated_tuple = AcceptedTuple(
             tuple_id=original.tuple_id,
             case_id=original.case_id,
@@ -342,6 +400,7 @@ class GraphStageRegistryTests(unittest.TestCase):
             },
         )
         return replace(bundle, acceptance=updated_manifest)
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -8,7 +8,6 @@ from typing import Any, Iterable, Mapping
 
 from .bundle import AcceptedTuple, AuthorityBundle, load_authority_bundle
 
-
 STAGE_REGISTRY_SCHEMA_VERSION = "1.0.0"
 
 
@@ -111,7 +110,9 @@ class GraphStageRegistry:
         try:
             return self.run_modes_by_id[run_mode]
         except KeyError as exc:
-            raise GraphRegistryValidationError(f"unknown run mode {run_mode!r}") from exc
+            raise GraphRegistryValidationError(
+                f"unknown run mode {run_mode!r}"
+            ) from exc
 
     def resolve_fallback_mode(self, stage_id: str) -> str:
         fallback_mode = self.stage(stage_id).fallback_mode
@@ -225,9 +226,13 @@ def validate_acceptance_tuple_stage_requirements(
     accepted_execution_modes = tuple(
         bundle.acceptance.raw["coverage_rules"]["accepted_execution_modes"]
     )
-    backend_restrictions = bundle.acceptance.raw["coverage_rules"]["backend_restrictions"]
+    backend_restrictions = bundle.acceptance.raw["coverage_rules"][
+        "backend_restrictions"
+    ]
     amgx_admitted_case_ids = set(backend_restrictions["amgx_admitted_case_ids"])
-    amgx_admitted_execution_modes = set(backend_restrictions["amgx_admitted_execution_modes"])
+    amgx_admitted_execution_modes = set(
+        backend_restrictions["amgx_admitted_execution_modes"]
+    )
     amgx_required_pressure_bridge_mode = backend_restrictions[
         "amgx_required_pressure_bridge_mode"
     ]
@@ -251,13 +256,17 @@ def validate_acceptance_tuple_stage_requirements(
     acceptance_orchestration_ranges = tuple(
         bundle.acceptance.raw["nvtx_contract_defaults"]["required_orchestration_ranges"]
     )
-    if acceptance_orchestration_ranges != resolved_registry.required_orchestration_ranges:
+    if (
+        acceptance_orchestration_ranges
+        != resolved_registry.required_orchestration_ranges
+    ):
         raise GraphRegistryValidationError(
             "acceptance NVTX orchestration ranges do not match the canonical graph registry"
         )
     if (
         expected_orchestration_ranges is not None
-        and expected_orchestration_ranges != resolved_registry.required_orchestration_ranges
+        and expected_orchestration_ranges
+        != resolved_registry.required_orchestration_ranges
     ):
         raise GraphRegistryValidationError(
             "expected orchestration ranges do not match the canonical graph registry"
@@ -307,7 +316,9 @@ def _validate_acceptance_tuple_contract(
         "amgx": "pressure_solve_amgx",
     }
     try:
-        expected_pressure_stage = expected_pressure_stage_by_backend[accepted_tuple.backend]
+        expected_pressure_stage = expected_pressure_stage_by_backend[
+            accepted_tuple.backend
+        ]
     except KeyError as exc:
         raise GraphRegistryValidationError(
             f"{tuple_id} uses unknown backend {accepted_tuple.backend!r}"
@@ -343,7 +354,11 @@ def _validate_acceptance_tuple_contract(
             raise GraphRegistryValidationError(
                 f"{tuple_id} backend 'amgx' requires pressure bridge mode {amgx_required_pressure_bridge_mode!r}"
             )
-        if accepted_tuple.raw.get("production_eligible") is not amgx_production_eligible:
+        production_eligible = accepted_tuple.raw.get("production_eligible")
+        if (
+            not isinstance(production_eligible, bool)
+            or production_eligible != amgx_production_eligible
+        ):
             raise GraphRegistryValidationError(
                 f"{tuple_id} backend 'amgx' must keep production_eligible set to {str(amgx_production_eligible).lower()}"
             )
@@ -358,7 +373,9 @@ def validate_tuple_stage_requirements(
     for tuple_id, stage_ids in tuple_stage_ids.items():
         normalized_stage_ids = tuple(str(stage_id) for stage_id in stage_ids)
         unknown_stage_ids = [
-            stage_id for stage_id in normalized_stage_ids if stage_id not in registry.stages_by_id
+            stage_id
+            for stage_id in normalized_stage_ids
+            if stage_id not in registry.stages_by_id
         ]
         if unknown_stage_ids:
             raise GraphRegistryValidationError(
