@@ -209,6 +209,71 @@ class GraphStageRegistryTests(unittest.TestCase):
         ):
             validate_acceptance_tuple_stage_requirements(mutated_bundle)
 
+    def test_generic_tuple_may_not_require_nozzle_bc_stage(self) -> None:
+        bundle = load_authority_bundle(repo_root())
+        tuple_id = "P8_R1CORE_NATIVE_GRAPH_BASELINE"
+        mutated_bundle = self._mutate_acceptance_tuple(
+            bundle,
+            tuple_id,
+            required_stage_ids=(
+                *bundle.acceptance.tuples_by_id[tuple_id].required_stage_ids,
+                "nozzle_bc_update",
+            ),
+        )
+
+        with self.assertRaisesRegex(
+            GraphRegistryValidationError,
+            "P8_R1CORE_NATIVE_GRAPH_BASELINE case 'R1-core' may not require stage 'nozzle_bc_update'",
+        ):
+            validate_acceptance_tuple_stage_requirements(mutated_bundle)
+
+    def test_nozzle_tuple_must_require_nozzle_bc_stage(self) -> None:
+        bundle = load_authority_bundle(repo_root())
+        tuple_id = "P8_R1_NATIVE_GRAPH_BASELINE"
+        mutated_bundle = self._mutate_acceptance_tuple(
+            bundle,
+            tuple_id,
+            required_stage_ids=tuple(
+                stage_id
+                for stage_id in bundle.acceptance.tuples_by_id[tuple_id].required_stage_ids
+                if stage_id != "nozzle_bc_update"
+            ),
+        )
+
+        with self.assertRaisesRegex(
+            GraphRegistryValidationError,
+            "P8_R1_NATIVE_GRAPH_BASELINE case 'R1' requires stage 'nozzle_bc_update'",
+        ):
+            validate_acceptance_tuple_stage_requirements(mutated_bundle)
+
+    def test_amgx_tuple_must_require_device_direct_bridge_mode(self) -> None:
+        bundle = load_authority_bundle(repo_root())
+        mutated_bundle = self._mutate_acceptance_tuple(
+            bundle,
+            "P8_R1CORE_AMGX_ASYNC_BASELINE",
+            raw_updates={"required_pressure_bridge_mode": "PinnedHost"},
+        )
+
+        with self.assertRaisesRegex(
+            GraphRegistryValidationError,
+            "P8_R1CORE_AMGX_ASYNC_BASELINE backend 'amgx' requires pressure bridge mode 'DeviceDirect'",
+        ):
+            validate_acceptance_tuple_stage_requirements(mutated_bundle)
+
+    def test_amgx_tuple_must_keep_production_eligibility_false(self) -> None:
+        bundle = load_authority_bundle(repo_root())
+        mutated_bundle = self._mutate_acceptance_tuple(
+            bundle,
+            "P8_R1CORE_AMGX_ASYNC_BASELINE",
+            raw_updates={"production_eligible": True},
+        )
+
+        with self.assertRaisesRegex(
+            GraphRegistryValidationError,
+            "P8_R1CORE_AMGX_ASYNC_BASELINE backend 'amgx' must keep production_eligible set to false",
+        ):
+            validate_acceptance_tuple_stage_requirements(mutated_bundle)
+
     def test_stale_acceptance_orchestration_ranges_fail_even_with_override(self) -> None:
         bundle = load_authority_bundle(repo_root())
         mutated_bundle = replace(
@@ -248,18 +313,22 @@ class GraphStageRegistryTests(unittest.TestCase):
         *,
         execution_mode: str | None = None,
         required_stage_ids: tuple[str, ...] | None = None,
+        raw_updates: dict | None = None,
     ):
         original = bundle.acceptance.tuples_by_id[tuple_id]
+        updated_execution_mode = execution_mode or original.execution_mode
+        updated_stage_ids = required_stage_ids or original.required_stage_ids
         updated_tuple = AcceptedTuple(
             tuple_id=original.tuple_id,
             case_id=original.case_id,
             backend=original.backend,
-            execution_mode=execution_mode or original.execution_mode,
-            required_stage_ids=required_stage_ids or original.required_stage_ids,
+            execution_mode=updated_execution_mode,
+            required_stage_ids=updated_stage_ids,
             raw={
                 **original.raw,
-                "execution_mode": execution_mode or original.execution_mode,
-                "required_stage_ids": list(required_stage_ids or original.required_stage_ids),
+                "execution_mode": updated_execution_mode,
+                "required_stage_ids": list(updated_stage_ids),
+                **(raw_updates or {}),
             },
         )
         updated_manifest = AcceptanceManifest(

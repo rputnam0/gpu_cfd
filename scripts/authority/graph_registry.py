@@ -228,6 +228,10 @@ def validate_acceptance_tuple_stage_requirements(
     backend_restrictions = bundle.acceptance.raw["coverage_rules"]["backend_restrictions"]
     amgx_admitted_case_ids = set(backend_restrictions["amgx_admitted_case_ids"])
     amgx_admitted_execution_modes = set(backend_restrictions["amgx_admitted_execution_modes"])
+    amgx_required_pressure_bridge_mode = backend_restrictions[
+        "amgx_required_pressure_bridge_mode"
+    ]
+    amgx_production_eligible = backend_restrictions["amgx_production_eligible"]
     tuple_stage_ids: dict[str, tuple[str, ...]] = {}
     for tuple_id, accepted_tuple in bundle.acceptance.tuples_by_id.items():
         _validate_acceptance_tuple_contract(
@@ -236,6 +240,8 @@ def validate_acceptance_tuple_stage_requirements(
             accepted_execution_modes=accepted_execution_modes,
             amgx_admitted_case_ids=amgx_admitted_case_ids,
             amgx_admitted_execution_modes=amgx_admitted_execution_modes,
+            amgx_required_pressure_bridge_mode=amgx_required_pressure_bridge_mode,
+            amgx_production_eligible=amgx_production_eligible,
         )
         tuple_stage_ids[tuple_id] = accepted_tuple.required_stage_ids
     report = validate_tuple_stage_requirements(
@@ -266,6 +272,8 @@ def _validate_acceptance_tuple_contract(
     accepted_execution_modes: tuple[str, ...],
     amgx_admitted_case_ids: set[str],
     amgx_admitted_execution_modes: set[str],
+    amgx_required_pressure_bridge_mode: str,
+    amgx_production_eligible: bool,
 ) -> None:
     tuple_id = accepted_tuple.tuple_id
     execution_mode = accepted_tuple.execution_mode
@@ -282,6 +290,16 @@ def _validate_acceptance_tuple_contract(
     if "write_stage" in stage_ids:
         raise GraphRegistryValidationError(
             f"{tuple_id} may not require 'write_stage' in the current acceptance manifest"
+        )
+    requires_nozzle_stage = accepted_tuple.case_id in {"R1", "R0"}
+    has_nozzle_stage = "nozzle_bc_update" in stage_ids
+    if requires_nozzle_stage and not has_nozzle_stage:
+        raise GraphRegistryValidationError(
+            f"{tuple_id} case {accepted_tuple.case_id!r} requires stage 'nozzle_bc_update'"
+        )
+    if not requires_nozzle_stage and has_nozzle_stage:
+        raise GraphRegistryValidationError(
+            f"{tuple_id} case {accepted_tuple.case_id!r} may not require stage 'nozzle_bc_update'"
         )
 
     expected_pressure_stage_by_backend = {
@@ -317,6 +335,17 @@ def _validate_acceptance_tuple_contract(
         if execution_mode not in amgx_admitted_execution_modes:
             raise GraphRegistryValidationError(
                 f"{tuple_id} backend 'amgx' is not admitted for execution mode {execution_mode!r}"
+            )
+        if (
+            accepted_tuple.raw.get("required_pressure_bridge_mode")
+            != amgx_required_pressure_bridge_mode
+        ):
+            raise GraphRegistryValidationError(
+                f"{tuple_id} backend 'amgx' requires pressure bridge mode {amgx_required_pressure_bridge_mode!r}"
+            )
+        if accepted_tuple.raw.get("production_eligible") is not amgx_production_eligible:
+            raise GraphRegistryValidationError(
+                f"{tuple_id} backend 'amgx' must keep production_eligible set to {str(amgx_production_eligible).lower()}"
             )
 
 
