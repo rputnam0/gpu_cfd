@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+import math
+import re
 from typing import Any
 
 from .bundle import AuthorityBundle
@@ -17,6 +19,11 @@ BACKEND_CITATION = "docs/authority/support_matrix.json#backend_operational_polic
 CONTINUITY_CITATION = "docs/authority/continuity_ledger.md#1-frozen-global-decisions"
 DEBUG_FALLBACK_POLICY = "debugOnlyFallback"
 FAIL_FAST_POLICY = "failFast"
+_VECTOR_VALUE_PATTERN = re.compile(
+    r"^\(\s*[-+]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][-+]?\d+)?"
+    r"\s+[-+]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][-+]?\d+)?"
+    r"\s+[-+]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][-+]?\d+)?\s*\)$"
+)
 
 
 @dataclass(frozen=True)
@@ -285,6 +292,18 @@ def _scan_backend(request: SupportScanRequest) -> tuple[SupportScanIssue, ...]:
                 debug_fallback_eligible=True,
             ),
         )
+    if request.execution_mode == "debug" and request.backend_pressure_mode not in {
+        "DeviceDirect",
+        "PinnedHost",
+    }:
+        return (
+            SupportScanIssue(
+                code="backend_mode_not_admitted",
+                message="AmgX bridge mode must be one of the frozen Phase 4 bridge modes.",
+                citations=(BACKEND_CITATION, CONTINUITY_CITATION),
+                detail={"backend": request.backend, "pressure_mode": request.backend_pressure_mode},
+            ),
+        )
     return ()
 
 
@@ -436,13 +455,15 @@ def _scan_startup_seed(bundle: AuthorityBundle, request: SupportScanRequest) -> 
             )
         )
     allowed_field_entries = {
-        (row["value_class"], row["field"]) for row in seed_policy["allowed_field_value_entries"]
+        (row["value_class"], row["field"]): row["value_type"]
+        for row in seed_policy["allowed_field_value_entries"]
     }
     allowed_region_types = {
         row["region_type"] for row in seed_policy["supported_region_types"]
     }
     for field_value in spec.default_field_values:
-        if (field_value.value_class, field_value.field) not in allowed_field_entries:
+        expected_value_type = allowed_field_entries.get((field_value.value_class, field_value.field))
+        if expected_value_type is None:
             issues.append(
                 SupportScanIssue(
                     code="startup_seed_field_value_not_admitted",
@@ -454,6 +475,10 @@ def _scan_startup_seed(bundle: AuthorityBundle, request: SupportScanRequest) -> 
                     },
                 )
             )
+            continue
+        type_issue = _scan_startup_seed_field_value_type(field_value, expected_value_type)
+        if type_issue is not None:
+            issues.append(type_issue)
     for region in spec.regions:
         if region.region_type not in allowed_region_types:
             issues.append(
@@ -465,7 +490,8 @@ def _scan_startup_seed(bundle: AuthorityBundle, request: SupportScanRequest) -> 
                 )
             )
         for field_value in region.field_values:
-            if (field_value.value_class, field_value.field) not in allowed_field_entries:
+            expected_value_type = allowed_field_entries.get((field_value.value_class, field_value.field))
+            if expected_value_type is None:
                 issues.append(
                     SupportScanIssue(
                         code="startup_seed_field_value_not_admitted",
@@ -478,15 +504,19 @@ def _scan_startup_seed(bundle: AuthorityBundle, request: SupportScanRequest) -> 
                         },
                     )
                 )
+                continue
+            type_issue = _scan_startup_seed_field_value_type(
+                field_value,
+                expected_value_type,
+                region_type=region.region_type,
+            )
+            if type_issue is not None:
+                issues.append(type_issue)
     return tuple(issues)
 
 
 def _normalize_scheme_key(key: str) -> str:
-    return (
-        key.replace("alpha.water", "alpha1")
-        .replace("alpha.air", "alpha1")
-        .replace("grad(alpha1)", "grad(alpha1)")
-    )
+    return key.replace("alpha.water", "alpha1")
 
 
 def _normalize_boundary_kind(condition: SupportBoundaryCondition, row: dict[str, Any]) -> str:
@@ -499,3 +529,41 @@ def _normalize_boundary_kind(condition: SupportBoundaryCondition, row: dict[str,
         ):
             return str(alias["normalizes_to"])
     return condition.kind
+
+
+def _scan_startup_seed_field_value_type(
+    field_value: SupportStartupSeedFieldValue,
+    expected_value_type: str,
+    *,
+    region_type: str | None = None,
+) -> SupportScanIssue | None:
+    if expected_value_type == "scalar" and _is_supported_scalar_value(field_value.value):
+        return None
+    if expected_value_type == "vector" and _is_supported_vector_value(field_value.value):
+        return None
+    detail: dict[str, Any] = {
+        "value_class": field_value.value_class,
+        "field": field_value.field,
+        "expected_value_type": expected_value_type,
+        "value_repr": repr(field_value.value),
+    }
+    if region_type is not None:
+        detail["region_type"] = region_type
+    return SupportScanIssue(
+        code="startup_seed_field_value_type_not_admitted",
+        message="Startup-seed values must match the frozen scalar/vector DSL forms.",
+        citations=(STARTUP_SEED_CITATION,),
+        detail=detail,
+    )
+
+
+def _is_supported_scalar_value(value: Any) -> bool:
+    return isinstance(value, (int, float)) and not isinstance(value, bool) and math.isfinite(value)
+
+
+def _is_supported_vector_value(value: Any) -> bool:
+    if isinstance(value, str):
+        return bool(_VECTOR_VALUE_PATTERN.fullmatch(value.strip()))
+    if isinstance(value, (tuple, list)) and len(value) == 3:
+        return all(_is_supported_scalar_value(component) for component in value)
+    return False

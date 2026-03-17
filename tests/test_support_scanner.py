@@ -299,6 +299,88 @@ class SupportScannerTests(unittest.TestCase):
         self.assertTrue(report.startup_allowed)
         self.assertEqual(report.reject_reasons, ())
 
+    def test_startup_seed_rejects_malformed_scalar_and_vector_values(self) -> None:
+        request = SupportScanRequest(
+            **{
+                **self.make_supported_request().__dict__,
+                "startup_seed": SupportStartupSeedSpec(
+                    enabled=True,
+                    force_reseed=False,
+                    precedence="lastWins",
+                    default_field_values=(
+                        SupportStartupSeedFieldValue(
+                            value_class="volScalarFieldValue",
+                            field="alpha.water",
+                            value="(0 0 1)",
+                        ),
+                    ),
+                    regions=(
+                        SupportStartupSeedRegion(
+                            region_type="cylinderToCell",
+                            field_values=(
+                                SupportStartupSeedFieldValue(
+                                    value_class="volVectorFieldValue",
+                                    field="U",
+                                    value=1.0,
+                                ),
+                            ),
+                        ),
+                    ),
+                ),
+            }
+        )
+
+        with self.assertRaises(SupportScanRejected) as context:
+            enforce_support_scan(self.bundle, request)
+
+        self.assertEqual(
+            tuple(reason["code"] for reason in context.exception.report.reject_reasons),
+            (
+                "startup_seed_field_value_type_not_admitted",
+                "startup_seed_field_value_type_not_admitted",
+            ),
+        )
+
+    def test_extra_alpha_air_scheme_entries_are_rejected(self) -> None:
+        request = SupportScanRequest(
+            **{
+                **self.make_supported_request().__dict__,
+                "schemes": {
+                    **self.make_supported_request().schemes,
+                    "gradSchemes": {
+                        **self.make_supported_request().schemes["gradSchemes"],
+                        "grad(alpha.air)": "Gauss linear",
+                    },
+                },
+            }
+        )
+
+        with self.assertRaises(SupportScanRejected) as context:
+            enforce_support_scan(self.bundle, request)
+
+        self.assertEqual(
+            tuple(reason["code"] for reason in context.exception.report.reject_reasons),
+            ("unsupported_scheme_tuple",),
+        )
+
+    def test_debug_amgx_rejects_unknown_bridge_modes(self) -> None:
+        request = SupportScanRequest(
+            **{
+                **self.make_supported_request().__dict__,
+                "execution_mode": "debug",
+                "backend": "amgx",
+                "backend_pressure_mode": "TypoMode",
+            }
+        )
+
+        with self.assertRaises(SupportScanRejected) as context:
+            enforce_support_scan(self.bundle, request)
+
+        self.assertEqual(
+            tuple(reason["code"] for reason in context.exception.report.reject_reasons),
+            ("backend_mode_not_admitted",),
+        )
+
 
 if __name__ == "__main__":
     unittest.main()
