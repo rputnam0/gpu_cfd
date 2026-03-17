@@ -9,6 +9,7 @@ from scripts.authority import (
     allowed_phase_gate_case_roles,
     case_meta_schema,
     load_authority_bundle,
+    reference_io_overlay_command,
     resolve_phase_gate_case,
     resolve_reference_case,
     resolve_reference_case_by_frozen_id,
@@ -81,6 +82,19 @@ def sample_case_meta_payload(
             "host_env": "baseline_a/host_env.json",
             "manifest_refs": "baseline_a/manifest_refs.json",
         },
+        "io_normalization": {
+            "stage_name": "reference_io_normalization",
+            "stage_kind": "compare-prep",
+            "overlay_artifact": "reference_freeze_overlay.json",
+            "comparison_scope": "same_baseline_rerun",
+            "preserves_numerics": True,
+            "policy": {
+                "write_format": "ascii",
+                "write_compression": "off",
+                "write_precision": 12,
+                "time_precision": 12,
+            },
+        },
     }
     if overrides:
         payload.update(overrides)
@@ -119,6 +133,19 @@ def sample_stage_plan_payload(
             "host_env": "baseline_a/host_env.json",
             "manifest_refs": "baseline_a/manifest_refs.json",
         },
+        "io_normalization": {
+            "stage_name": "reference_io_normalization",
+            "stage_kind": "compare-prep",
+            "overlay_artifact": "reference_freeze_overlay.json",
+            "comparison_scope": "same_baseline_rerun",
+            "preserves_numerics": True,
+            "policy": {
+                "write_format": "ascii",
+                "write_compression": "off",
+                "write_precision": 12,
+                "time_precision": 12,
+            },
+        },
         "phase_gate_selection": {
             "selected_case_role": resolved.case_role,
             "available_case_roles": available_case_roles,
@@ -126,6 +153,13 @@ def sample_stage_plan_payload(
             "conditional_selection": conditional_selection,
         },
         "stages": [
+            {
+                "name": "reference_io_normalization",
+                "cmd": reference_io_overlay_command(json_out="reference_freeze_overlay.json"),
+                "cwd": ".",
+                "stage_kind": "compare-prep",
+                "overlay_artifact": "reference_freeze_overlay.json",
+            },
             {
                 "name": "transient_run",
                 "cmd": "foamRun -solver incompressibleVoF",
@@ -247,11 +281,22 @@ class ReferenceCaseResolutionTests(unittest.TestCase):
         self.assertIn("case_id", schema["required"])
         self.assertIn("baseline", schema["required"])
         self.assertIn("provenance", schema["required"])
+        self.assertIn("io_normalization", schema["required"])
         self.assertIn("resolved_direct_slot_numerics", schema["required"])
         self.assertIn("openfoam_bashrc_used", schema["required"])
         self.assertEqual(schema["properties"]["phase_gates"]["minItems"], 1)
         self.assertEqual(schema["properties"]["mesh_full_360"]["enum"], [0, 1])
         self.assertEqual(schema["properties"]["provenance"]["required"], ["probe_payload", "host_env", "manifest_refs"])
+        self.assertEqual(
+            schema["properties"]["io_normalization"]["properties"]["stage_kind"]["const"],
+            "compare-prep",
+        )
+        self.assertEqual(
+            schema["properties"]["io_normalization"]["properties"]["policy"]["properties"][
+                "write_format"
+            ]["const"],
+            "ascii",
+        )
         case_variants = schema["allOf"][0]["oneOf"]
         self.assertEqual(len(case_variants), 4)
         r1_core_variant = next(
@@ -332,6 +377,19 @@ class ReferenceCaseResolutionTests(unittest.TestCase):
         ):
             validate_case_meta(bundle, payload)
 
+    def test_case_meta_validation_rejects_non_canonical_io_normalization_policy(self) -> None:
+        bundle = load_authority_bundle(repo_root())
+        payload = sample_case_meta_payload(bundle)
+        payload["io_normalization"] = dict(payload["io_normalization"])
+        payload["io_normalization"]["policy"] = dict(payload["io_normalization"]["policy"])
+        payload["io_normalization"]["policy"]["write_precision"] = 10
+
+        with self.assertRaisesRegex(
+            AuthoritySelectionError,
+            "case_meta.json io_normalization policy write_precision must remain 12",
+        ):
+            validate_case_meta(bundle, payload)
+
     def test_case_meta_validation_allows_r2_to_omit_nozzle_only_fields(self) -> None:
         bundle = load_authority_bundle(repo_root())
 
@@ -364,9 +422,14 @@ class ReferenceCaseResolutionTests(unittest.TestCase):
         self.assertEqual(schema["type"], "object")
         self.assertIn("baseline", schema["required"])
         self.assertIn("provenance", schema["required"])
+        self.assertIn("io_normalization", schema["required"])
         self.assertEqual(
             schema["properties"]["phase_gate_selection"]["properties"]["ordered_ladder"]["const"],
             ["R2", "R1-core", "R1", "R0"],
+        )
+        self.assertEqual(
+            schema["properties"]["io_normalization"]["properties"]["comparison_scope"]["const"],
+            "same_baseline_rerun",
         )
         conditional_reason_schema = schema["properties"]["phase_gate_selection"]["properties"][
             "conditional_reason"
@@ -458,6 +521,18 @@ class ReferenceCaseResolutionTests(unittest.TestCase):
         )
 
         validate_stage_plan(bundle, sample_stage_plan_payload(bundle))
+
+    def test_stage_plan_validation_rejects_non_canonical_io_normalization_stage_kind(self) -> None:
+        bundle = load_authority_bundle(repo_root())
+        payload = sample_stage_plan_payload(bundle)
+        payload["io_normalization"] = dict(payload["io_normalization"])
+        payload["io_normalization"]["stage_kind"] = "run"
+
+        with self.assertRaisesRegex(
+            AuthoritySelectionError,
+            "stage_plan.json io_normalization stage_kind must remain 'compare-prep'",
+        ):
+            validate_stage_plan(bundle, payload)
 
     def test_stage_plan_validation_rejects_phase_local_ladder_rewrites(self) -> None:
         bundle = load_authority_bundle(repo_root())
