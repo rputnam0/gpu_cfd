@@ -78,6 +78,12 @@ Review loop:
 
 - Workers start from `AGENTS.md`, resolve the exact PR card, and then read only the sources cited by that card.
 - Each issue keeps one canonical Linear workpad comment as durable working memory for plan, progress, decisions, rationale, validation, review notes, and future-agent callouts.
+- The implementation worker profile explicitly enables Codex multi-agent support plus the
+  project child-agent definitions under `.codex/agents/`.
+- The implementation worker may use bounded recursive research helpers to surface doc sections,
+  code paths, nearby tests/APIs, or review payload details. The preferred helper model is the
+  Codex mini lane (`codex-mini-latest`); the main `gpt-5.4`
+  implementation worker remains responsible for edits, validation, handoff, and final judgment.
 - The implementation worker starts through `scripts/symphony/codex_dispatch.py`, which is the supported dev-observability seam for freezing the exact worker context pack and teeing app-server transcripts when trace mode is enabled.
 - Before a PR is opened or updated for review, the active worker run executes
   `scripts/symphony/pr_handoff.py` from the issue workspace.

@@ -132,6 +132,7 @@ def render_issue_description(
         f"* If the PR ID, task file, or card location is unclear, use `{pr_inventory.relative_to(repo).as_posix()}` as the fallback map.\n"
         "* Treat the PR card below as the execution contract; broader specs are supporting context only.\n"
         "* Write or update the canonical Linear workpad before edits.\n\n"
+        "* Use native Codex sub-agents as bounded recursive research helpers for doc lookup, code-path tracing, nearby test/API summaries, or review-payload inspection. The implementation worker profile explicitly enables multi-agent support and the project child-agent definitions. Prefer the Codex mini lane (`codex-mini-latest`) for those helpers, and keep code edits, tests, Linear updates, PR handoff, and final technical judgment on the main `gpt-5.4` worker.\n\n"
         "## Source docs\n\n"
         f"* Task card: {github_doc_link(repo, metadata.task_file)}\n"
         f"* PR inventory: {github_doc_link(repo, pr_inventory)}\n"
