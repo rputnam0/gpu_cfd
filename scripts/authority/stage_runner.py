@@ -6,6 +6,7 @@ import json
 import os
 import pathlib
 import shlex
+import sys
 from dataclasses import dataclass
 from typing import Any, Mapping
 
@@ -151,6 +152,7 @@ def wrap_stage_command(
         "-i",
         "HOME=" + os.path.expanduser("~"),
         "PATH=/usr/bin:/bin",
+        "GPU_CFD_PYTHON=" + sys.executable,
         "PYTHONPATH=" + REPO_PYTHONPATH,
         "bash",
         "--noprofile",

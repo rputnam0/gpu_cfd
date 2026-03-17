@@ -239,8 +239,9 @@ class StageRunnerTests(unittest.TestCase):
             },
         )
 
-        self.assertIn("python3 -m scripts.authority.reference_io", wrapped)
+        self.assertIn("${GPU_CFD_PYTHON} -m scripts.authority.reference_io", wrapped)
         self.assertIn("PYTHONPATH=", wrapped)
+        self.assertIn("GPU_CFD_PYTHON=", wrapped)
 
     def test_stage_runner_context_allows_explicit_manifest_overrides(self) -> None:
         bundle = load_authority_bundle(repo_root())
@@ -875,9 +876,13 @@ class StageRunnerTests(unittest.TestCase):
         )
         self.assertEqual(
             stage_plan["stages"][0]["cmd"],
-            reference_io_overlay_command(json_out="reference_freeze_overlay.json"),
+            reference_io_overlay_command(
+                json_out="../reference_freeze_overlay.json",
+                overlay_artifact="reference_freeze_overlay.json",
+            ),
         )
         self.assertNotIn(repo_root().as_posix(), stage_plan["stages"][0]["cmd"])
+        self.assertIn("--overlay-artifact reference_freeze_overlay.json", stage_plan["stages"][0]["cmd"])
         self.assertEqual(
             case_meta["io_normalization"]["policy"],
             {
@@ -940,7 +945,11 @@ class StageRunnerTests(unittest.TestCase):
             "artifacts/reference/reference_freeze_overlay.json",
         )
         self.assertIn(
-            "--json-out artifacts/reference/reference_freeze_overlay.json",
+            "--json-out ../artifacts/reference/reference_freeze_overlay.json",
+            stage_plan["stages"][0]["cmd"],
+        )
+        self.assertIn(
+            "--overlay-artifact artifacts/reference/reference_freeze_overlay.json",
             stage_plan["stages"][0]["cmd"],
         )
 

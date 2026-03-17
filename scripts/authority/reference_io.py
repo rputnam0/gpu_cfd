@@ -55,17 +55,21 @@ def build_reference_io_normalization_payload(
 def reference_io_overlay_command(
     *,
     case_dir: str = ".",
-    json_out: str = REFERENCE_IO_OVERLAY_ARTIFACT,
+    json_out: str | None = None,
+    overlay_artifact: str = REFERENCE_IO_OVERLAY_ARTIFACT,
 ) -> str:
+    resolved_json_out = json_out or _stage_json_out_path(overlay_artifact)
     return " ".join(
         [
-            "python3",
+            "${GPU_CFD_PYTHON}",
             "-m",
             "scripts.authority.reference_io",
             "--case-dir",
             shlex.quote(case_dir),
             "--json-out",
-            shlex.quote(json_out),
+            shlex.quote(resolved_json_out),
+            "--overlay-artifact",
+            shlex.quote(overlay_artifact),
         ]
     )
 
@@ -76,7 +80,7 @@ def reference_io_overlay_stage(
 ) -> dict[str, Any]:
     return {
         "name": REFERENCE_IO_STAGE_NAME,
-        "cmd": reference_io_overlay_command(json_out=overlay_artifact),
+        "cmd": reference_io_overlay_command(overlay_artifact=overlay_artifact),
         "cwd": ".",
         "stage_kind": REFERENCE_IO_STAGE_KIND,
         "overlay_artifact": overlay_artifact,
@@ -87,6 +91,7 @@ def apply_reference_io_overlay(
     case_dir: pathlib.Path | str,
     *,
     json_out: pathlib.Path | str | None = None,
+    overlay_artifact: str | None = None,
     control_dict_relative_path: str = REFERENCE_IO_CONTROL_DICT,
 ) -> dict[str, Any]:
     case_dir_path = pathlib.Path(case_dir)
@@ -127,10 +132,8 @@ def apply_reference_io_overlay(
 
     control_dict_path.write_text("\n".join(rewritten_lines) + "\n", encoding="utf-8")
 
-    overlay_artifact = (
-        pathlib.Path(json_out).as_posix() if json_out is not None else REFERENCE_IO_OVERLAY_ARTIFACT
-    )
-    payload = build_reference_io_normalization_payload(overlay_artifact=overlay_artifact)
+    resolved_overlay_artifact = overlay_artifact or REFERENCE_IO_OVERLAY_ARTIFACT
+    payload = build_reference_io_normalization_payload(overlay_artifact=resolved_overlay_artifact)
     payload["control_dict"] = control_dict_relative_path
     payload["changes"] = changes
 
@@ -151,10 +154,15 @@ def main(argv: list[str] | None = None) -> int:
         "--json-out",
         help="Optional JSON output path for the emitted reference I/O overlay metadata",
     )
+    parser.add_argument(
+        "--overlay-artifact",
+        help="Bundle-relative overlay artifact reference recorded in emitted metadata",
+    )
     args = parser.parse_args(argv)
     payload = apply_reference_io_overlay(
         args.case_dir,
         json_out=args.json_out,
+        overlay_artifact=args.overlay_artifact,
     )
     if args.json_out is None:
         print(json.dumps(payload, indent=2, sort_keys=True))
@@ -164,6 +172,10 @@ def main(argv: list[str] | None = None) -> int:
 def _policy_value_string(policy_key: str) -> str:
     value = REFERENCE_IO_POLICY[policy_key]
     return str(value)
+
+
+def _stage_json_out_path(overlay_artifact: str) -> str:
+    return (pathlib.PurePosixPath("..") / pathlib.PurePosixPath(overlay_artifact)).as_posix()
 
 
 if __name__ == "__main__":
