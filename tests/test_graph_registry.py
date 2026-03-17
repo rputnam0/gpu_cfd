@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import pathlib
+import tempfile
 import unittest
 
 from scripts.authority import (
@@ -91,6 +92,46 @@ class GraphStageRegistryTests(unittest.TestCase):
             "unknown run mode 'graphFixd'",
         ):
             registry.run_mode("graphFixd")
+
+    def test_duplicate_run_modes_fail_fast(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_root = pathlib.Path(temp_dir)
+            self._copy_tree(repo_root(), temp_root)
+            json_path = temp_root / "docs" / "authority" / "graph_capture_support_matrix.json"
+            payload = json.loads(json_path.read_text(encoding="utf-8"))
+            payload["run_modes"].append(dict(payload["run_modes"][0]))
+            json_path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+
+            with self.assertRaisesRegex(
+                GraphRegistryValidationError,
+                "duplicate run mode 'sync_debug'",
+            ):
+                load_graph_stage_registry(temp_root)
+
+    def test_non_boolean_production_accepted_fails_fast(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_root = pathlib.Path(temp_dir)
+            self._copy_tree(repo_root(), temp_root)
+            json_path = temp_root / "docs" / "authority" / "graph_capture_support_matrix.json"
+            payload = json.loads(json_path.read_text(encoding="utf-8"))
+            payload["run_modes"][0]["production_accepted"] = "false"
+            json_path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+
+            with self.assertRaisesRegex(
+                GraphRegistryValidationError,
+                "run mode 'sync_debug' production_accepted must be a boolean",
+            ):
+                load_graph_stage_registry(temp_root)
+
+    def _copy_tree(self, source: pathlib.Path, destination: pathlib.Path) -> None:
+        for path in source.rglob("*"):
+            relative = path.relative_to(source)
+            target = destination / relative
+            if path.is_dir():
+                target.mkdir(parents=True, exist_ok=True)
+                continue
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.write_bytes(path.read_bytes())
 
 if __name__ == "__main__":
     unittest.main()

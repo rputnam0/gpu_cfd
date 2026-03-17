@@ -5,12 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any, Iterable, Mapping
 
-from .bundle import (
-    AcceptanceManifest,
-    AcceptedTuple,
-    AuthorityBundle,
-    load_authority_bundle,
-)
+from .bundle import AcceptedTuple, AuthorityBundle, load_authority_bundle
 
 
 STAGE_REGISTRY_SCHEMA_VERSION = "1.0.0"
@@ -162,14 +157,21 @@ def load_graph_stage_registry(root: str | None = None) -> GraphStageRegistry:
 
 
 def build_graph_stage_registry(bundle: AuthorityBundle) -> GraphStageRegistry:
-    run_modes = {
-        str(item["run_mode"]): GraphRunMode(
-            run_mode=str(item["run_mode"]),
-            production_accepted=bool(item["production_accepted"]),
+    run_modes: dict[str, GraphRunMode] = {}
+    for item in bundle.graph.raw["run_modes"]:
+        run_mode_id = str(item["run_mode"])
+        if run_mode_id in run_modes:
+            raise GraphRegistryValidationError(f"duplicate run mode {run_mode_id!r}")
+        production_accepted = item["production_accepted"]
+        if not isinstance(production_accepted, bool):
+            raise GraphRegistryValidationError(
+                f"run mode {run_mode_id!r} production_accepted must be a boolean"
+            )
+        run_modes[run_mode_id] = GraphRunMode(
+            run_mode=run_mode_id,
+            production_accepted=production_accepted,
             description=str(item["description"]),
         )
-        for item in bundle.graph.raw["run_modes"]
-    }
     stages = {
         stage_id: CanonicalGraphStage(
             stage_id=stage_id,
@@ -236,4 +238,3 @@ def validate_tuple_stage_requirements(
         tuple_stage_ids=validated,
         stage_ids_in_use=tuple(sorted(stage_ids_in_use)),
     )
-
