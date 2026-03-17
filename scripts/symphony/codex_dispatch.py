@@ -33,6 +33,7 @@ SOURCE_AUDIT_EXEMPT_TASK_IDS = {"FND-07", "P5-01", "P7-01"}
 SOURCE_AUDIT_PHASE_REQUIREMENTS = {
     "P5": {
         "note_filename": "phase5_symbol_reconciliation.md",
+        "required_artifacts": [],
         "required_surfaces": [
             "alphaPredictor",
             "pressureCorrector",
@@ -42,6 +43,10 @@ SOURCE_AUDIT_PHASE_REQUIREMENTS = {
     },
     "P7": {
         "note_filename": "phase7_source_audit.md",
+        "required_artifacts": [
+            "phase7_hotspot_ranking.md",
+            "phase7_hotspot_scope_freeze.json",
+        ],
         "required_surfaces": [
             "alphaPredictor",
             "pressureCorrector",
@@ -475,22 +480,27 @@ def build_dispatch_context(
     }
 
 
-def task_requires_source_audit_gate(pr_context: dict[str, Any] | None) -> bool:
-    if pr_context is None:
+def pr_id_requires_source_audit_gate(pr_id: str) -> bool:
+    normalized_pr_id = str(pr_id or "").upper()
+    if normalized_pr_id in SOURCE_AUDIT_EXEMPT_TASK_IDS:
         return False
-    pr_id = str(pr_context.get("pr_id") or "").upper()
-    if pr_id in SOURCE_AUDIT_EXEMPT_TASK_IDS:
-        return False
-    phase_match = re.match(r"^P(?P<phase>\d+)-", pr_id)
+    phase_match = re.match(r"^P(?P<phase>\d+)-", normalized_pr_id)
     if not phase_match:
         return False
     phase_prefix = f"P{phase_match.group('phase')}"
     if phase_prefix not in SOURCE_AUDIT_PHASE_REQUIREMENTS:
         return False
-    index_match = re.match(r"^P\d+-(?P<index>\d+)$", pr_id)
+    index_match = re.match(r"^P\d+-(?P<index>\d+)$", normalized_pr_id)
     if not index_match:
         return False
     return int(index_match.group("index")) >= 2
+
+
+def task_requires_source_audit_gate(pr_context: dict[str, Any] | None) -> bool:
+    if pr_context is None:
+        return False
+    pr_id = str(pr_context.get("pr_id") or "").upper()
+    return pr_id_requires_source_audit_gate(pr_id)
 
 
 def resolve_source_audit_requirement(pr_context: dict[str, Any]) -> dict[str, Any]:
@@ -505,14 +515,14 @@ def resolve_source_audit_requirement(pr_context: dict[str, Any]) -> dict[str, An
     return requirement
 
 
-def find_source_audit_note(repo: pathlib.Path, note_filename: str) -> pathlib.Path:
+def find_tracked_artifact(repo: pathlib.Path, filename: str) -> pathlib.Path:
     completed = subprocess.run(
         [
             "git",
             "ls-files",
             "--",
-            note_filename,
-            f":(glob)**/{note_filename}",
+            filename,
+            f":(glob)**/{filename}",
         ],
         cwd=repo,
         text=True,
@@ -521,7 +531,7 @@ def find_source_audit_note(repo: pathlib.Path, note_filename: str) -> pathlib.Pa
     )
     if completed.returncode != 0:
         raise DispatchError(
-            f"failed to resolve checked-in source-audit note {note_filename}: {completed.stderr.strip()}"
+            f"failed to resolve tracked artifact {filename}: {completed.stderr.strip()}"
         )
     matches = [
         (repo / line.strip()).resolve()
@@ -530,11 +540,11 @@ def find_source_audit_note(repo: pathlib.Path, note_filename: str) -> pathlib.Pa
     ]
     if not matches:
         raise DispatchError(
-            f"required reviewed source-audit note {note_filename} was not found in tracked files"
+            f"required tracked artifact {filename} was not found in tracked files"
         )
     if len(matches) > 1:
         raise DispatchError(
-            f"required reviewed source-audit note {note_filename} is ambiguous in tracked files: "
+            f"required tracked artifact {filename} is ambiguous in tracked files: "
             + ", ".join(path.as_posix() for path in matches)
         )
     return matches[0]
@@ -548,7 +558,9 @@ def enforce_source_audit_gate(
         return
     assert pr_context is not None
     requirement = resolve_source_audit_requirement(pr_context)
-    note_path = find_source_audit_note(repo, str(requirement["note_filename"]))
+    note_path = find_tracked_artifact(repo, str(requirement["note_filename"]))
+    for artifact_name in requirement["required_artifacts"]:
+        find_tracked_artifact(repo, str(artifact_name))
     bundle = load_authority_bundle(repo)
     validate_source_audit_note(
         bundle,
@@ -723,13 +735,28 @@ def main() -> int:
     tracing_enabled = trace.is_enabled()
     issue_payload = fetch_issue_snapshot(issue_identifier)
     issue_payload.setdefault("identifier", issue_identifier)
+    pr_context = resolve_pr_context(repo, issue_payload)
+    if pr_context is None:
+        gated_candidates = [
+            candidate
+            for candidate in extract_task_card_candidates(
+                str(issue_payload.get("title") or ""),
+                str(issue_payload.get("description") or ""),
+            )
+            if pr_id_requires_source_audit_gate(candidate)
+        ]
+        if gated_candidates:
+            raise DispatchError(
+                "could not resolve PR context for gated source-audit task(s): "
+                + ", ".join(sorted(gated_candidates))
+            )
     state_start: str | None = None
     run_kind = "implementation"
     state_start = issue_state_name(issue_payload) or None
     run_kind = "rework" if state_start == "Rework" else "implementation"
     enforce_source_audit_gate(
         repo,
-        resolve_pr_context(repo, issue_payload),
+        pr_context,
     )
 
     codex_args = args.codex_args or ["app-server"]

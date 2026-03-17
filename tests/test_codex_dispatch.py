@@ -101,7 +101,7 @@ class CodexDispatchTests(unittest.TestCase):
     def test_enforce_source_audit_gate_rejects_missing_required_note_file(self) -> None:
         with self.assertRaisesRegex(
             codex_dispatch.DispatchError,
-            "required reviewed source-audit note phase5_symbol_reconciliation.md was not found in tracked files",
+            "required tracked artifact phase5_symbol_reconciliation.md was not found in tracked files",
         ):
             codex_dispatch.enforce_source_audit_gate(
                 self.repo_root(),
@@ -127,7 +127,7 @@ class CodexDispatchTests(unittest.TestCase):
         note_path.write_text(note_text, encoding="utf-8")
         self.addCleanup(note_path.unlink)
 
-        with mock.patch.object(codex_dispatch, "find_source_audit_note", return_value=note_path):
+        with mock.patch.object(codex_dispatch, "find_tracked_artifact", return_value=note_path):
             codex_dispatch.enforce_source_audit_gate(
                 self.repo_root(),
                 {
@@ -136,7 +136,35 @@ class CodexDispatchTests(unittest.TestCase):
                 },
             )
 
+    def test_enforce_source_audit_gate_requires_phase7_scope_freeze_artifacts(self) -> None:
+        note_path = self.repo_root() / "phase7_source_audit.md"
+        note_path.write_text("placeholder", encoding="utf-8")
+        self.addCleanup(note_path.unlink)
+
+        with mock.patch.object(
+            codex_dispatch,
+            "find_tracked_artifact",
+            side_effect=[
+                note_path,
+                codex_dispatch.DispatchError(
+                    "required tracked artifact phase7_hotspot_ranking.md was not found in tracked files"
+                ),
+            ],
+        ):
+            with self.assertRaisesRegex(
+                codex_dispatch.DispatchError,
+                "phase7_hotspot_ranking.md",
+            ):
+                codex_dispatch.enforce_source_audit_gate(
+                    self.repo_root(),
+                    {"pr_id": "P7-02", "card_markdown": "Phase 7 consumer."},
+                )
+
     def test_task_requires_source_audit_gate_detects_phase_consumers(self) -> None:
+        self.assertTrue(codex_dispatch.pr_id_requires_source_audit_gate("P5-02"))
+        self.assertTrue(codex_dispatch.pr_id_requires_source_audit_gate("P7-03"))
+        self.assertFalse(codex_dispatch.pr_id_requires_source_audit_gate("P5-01"))
+        self.assertFalse(codex_dispatch.pr_id_requires_source_audit_gate("P4-01"))
         self.assertTrue(
             codex_dispatch.task_requires_source_audit_gate(
                 {
@@ -177,6 +205,38 @@ class CodexDispatchTests(unittest.TestCase):
                 {"pr_id": "P7-01", "card_markdown": "Source-audit note producer."}
             )
         )
+
+    def test_main_rejects_unresolved_gated_source_audit_issue(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_path = pathlib.Path(temp_dir)
+            workspace = temp_path / "PRO-17"
+            workspace.mkdir()
+
+            with (
+                mock.patch.object(
+                    codex_dispatch,
+                    "parse_args",
+                    return_value=argparse.Namespace(codex_args=["app-server"]),
+                ),
+                mock.patch.object(codex_dispatch, "repo_root", return_value=self.repo_root()),
+                mock.patch.object(codex_dispatch, "workspace_root", return_value=workspace),
+                mock.patch.object(
+                    codex_dispatch,
+                    "fetch_issue_snapshot",
+                    return_value={
+                        "identifier": "PRO-17",
+                        "title": "Implement P5-02 runtime gate",
+                        "description": "This issue is scoped to P5-02.",
+                        "state": {"name": "Todo"},
+                    },
+                ),
+                mock.patch.object(codex_dispatch, "resolve_pr_context", return_value=None),
+            ):
+                with self.assertRaisesRegex(
+                    codex_dispatch.DispatchError,
+                    "could not resolve PR context for gated source-audit task\\(s\\): P5-02",
+                ):
+                    codex_dispatch.main()
 
     def test_main_preserves_worker_exit_code_when_trace_finalization_fetch_fails(
         self,
