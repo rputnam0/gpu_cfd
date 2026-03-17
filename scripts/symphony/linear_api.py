@@ -55,6 +55,7 @@ query($teamKey: String!, $number: Float!) {
       identifier
       title
       description
+      branchName
       url
       labels {
         nodes {

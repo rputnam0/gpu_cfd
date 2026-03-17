@@ -26,6 +26,13 @@ from .pins import (
     emit_environment_manifests,
     resolve_consumer_pin_manifest,
 )
+from .source_audit import (
+    ResolvedSourceAuditSurface,
+    SOURCE_AUDIT_OWNERSHIP_SCOPE_PLACEHOLDER,
+    render_source_audit_note,
+    resolve_source_audit_surfaces,
+    validate_source_audit_note,
+)
 from .support_scanner import (
     SupportBoundaryCondition,
     SupportFunctionObject,
@@ -54,6 +61,8 @@ __all__ = [
     "AuthoritySchemaError",
     "ConsumerPinResolution",
     "EmittedEnvironmentManifests",
+    "ResolvedSourceAuditSurface",
+    "SOURCE_AUDIT_OWNERSHIP_SCOPE_PLACEHOLDER",
     "SupportBoundaryCondition",
     "SupportFunctionObject",
     "SupportScanIssue",
@@ -68,8 +77,11 @@ __all__ = [
     "evaluate_acceptance",
     "load_authority_bundle",
     "main",
+    "render_source_audit_note",
     "repo_root",
     "resolve_accepted_tuple",
     "resolve_consumer_pin_manifest",
+    "resolve_source_audit_surfaces",
     "scan_support_matrix",
+    "validate_source_audit_note",
 ]
