@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import pathlib
+import shlex
 from dataclasses import dataclass
 from typing import Any, Mapping
 
@@ -72,6 +73,7 @@ def resolve_stage_runner_context(
         artifact_label="probe payload",
         baseline_name=baseline_name,
     )
+    _validate_probe_payload_status(probe_payload, baseline_name=baseline_name)
     host_env_payload = _read_json_payload(
         resolved_host_env_path,
         artifact_label="host_env manifest",
@@ -122,20 +124,20 @@ def wrap_stage_command(
     command_segment = f"{env_prefix} {command}" if env_prefix else command
 
     segments = [
-        f'. "{_escape_double_quoted(context.bashrc_path)}"',
-        f'export GPU_CFD_BASELINE="{_escape_double_quoted(context.baseline_name)}"',
-        f'export GPU_CFD_HOST_ENV="{_escape_double_quoted(context.host_env_path.as_posix())}"',
-        f'export GPU_CFD_MANIFEST_REFS="{_escape_double_quoted(context.manifest_refs_path.as_posix())}"',
-        f'export GPU_CFD_PROBE_PAYLOAD="{_escape_double_quoted(context.probe_payload_path.as_posix())}"',
-        f'cd "{_escape_double_quoted(cwd.as_posix())}"',
+        f". {shlex.quote(context.bashrc_path)}",
+        f"export GPU_CFD_BASELINE={shlex.quote(context.baseline_name)}",
+        f"export GPU_CFD_HOST_ENV={shlex.quote(context.host_env_path.as_posix())}",
+        f"export GPU_CFD_MANIFEST_REFS={shlex.quote(context.manifest_refs_path.as_posix())}",
+        f"export GPU_CFD_PROBE_PAYLOAD={shlex.quote(context.probe_payload_path.as_posix())}",
+        f"cd {shlex.quote(cwd.as_posix())}",
     ]
     if context.reviewed_source_tuple_id:
         segments.append(
             "export GPU_CFD_REVIEWED_SOURCE_TUPLE_ID="
-            + f'"{_escape_double_quoted(context.reviewed_source_tuple_id)}"'
+            + shlex.quote(context.reviewed_source_tuple_id)
         )
     segments.append(command_segment)
-    return "bash -lc '" + " && ".join(segments) + "'"
+    return shlex.join(["bash", "--noprofile", "--norc", "-c", " && ".join(segments)])
 
 
 def render_stage_runner_log_context(
@@ -231,12 +233,24 @@ def _validate_payload_baseline(payload: Mapping[str, Any], *, baseline_name: str
         )
 
 
+def _validate_probe_payload_status(payload: Mapping[str, Any], *, baseline_name: str) -> None:
+    status = _normalize_optional_string(payload.get("status"))
+    if status == "ok":
+        return
+    diagnostics = payload.get("diagnostics")
+    diagnostic_suffix = ""
+    if isinstance(diagnostics, list):
+        rendered = ", ".join(str(item).strip() for item in diagnostics if str(item).strip())
+        if rendered:
+            diagnostic_suffix = f": {rendered}"
+    raise StageRunnerResolutionError(
+        f"probe payload for {baseline_name} is not runnable; status={status or 'unknown'}"
+        + diagnostic_suffix
+    )
+
+
 def _normalize_optional_string(value: Any) -> str | None:
     if value is None:
         return None
     normalized = str(value).strip()
     return normalized or None
-
-
-def _escape_double_quoted(value: str) -> str:
-    return value.replace("\\", "\\\\").replace('"', '\\"')

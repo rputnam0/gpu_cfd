@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import pathlib
+import subprocess
 import tempfile
 import unittest
 
@@ -161,15 +162,17 @@ class StageRunnerTests(unittest.TestCase):
             case_dir=case_dir,
             stage={
                 "name": "transient_run",
-                "cmd": "foamRun -solver incompressibleVoF",
+                "cmd": "python -c 'print(\"quoted\")'",
                 "cwd": "run",
                 "env_prefix": "FOAM_SIGFPE=1",
             },
         )
 
-        self.assertIn('. "/envs/baseline-b/etc/bashrc"', wrapped)
-        self.assertIn('cd "/tmp/cases/r1/run"', wrapped)
-        self.assertIn("FOAM_SIGFPE=1 foamRun -solver incompressibleVoF", wrapped)
+        self.assertIn("bash --noprofile --norc -c", wrapped)
+        self.assertIn(". /envs/baseline-b/etc/bashrc", wrapped)
+        self.assertIn("cd /tmp/cases/r1/run", wrapped)
+        self.assertIn("FOAM_SIGFPE=1 python -c", wrapped)
+        self.assertIn('print("quoted")', wrapped)
         self.assertIn("GPU_CFD_REVIEWED_SOURCE_TUPLE_ID", wrapped)
         self.assertNotIn("/opt/openfoam12", wrapped)
 
@@ -211,6 +214,98 @@ class StageRunnerTests(unittest.TestCase):
         self.assertEqual(context.bashrc_path, "/override/envs/custom/etc/bashrc")
         self.assertEqual(context.host_env_path.name, "host_env.json")
         self.assertEqual(context.manifest_refs_path.name, "manifest_refs.json")
+
+    def test_wrap_stage_command_executes_single_quoted_commands(self) -> None:
+        bundle = load_authority_bundle(repo_root())
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_root = pathlib.Path(temp_dir)
+            bashrc_path = temp_root / "baseline.sh"
+            bashrc_path.write_text("export FROM_STAGE_BASHRC=1\n", encoding="utf-8")
+            case_dir = temp_root / "case"
+            case_dir.mkdir()
+
+            report = probe_openfoam_baselines(
+                bundle,
+                output_dir=temp_dir,
+                baselines={
+                    "Baseline A": BaselineProbeRequest(
+                        lane="primary",
+                        runtime_base="OpenFOAM 12",
+                        bashrc_path=str(bashrc_path),
+                        host_observations=sample_host_observations(),
+                        local_mirror_refs=sample_local_mirror_refs(),
+                        repo_commit="abc123def456",
+                        command_paths=sample_commands(),
+                        openfoam_env={
+                            "WM_PROJECT": "OpenFOAM",
+                            "WM_PROJECT_VERSION": "12",
+                            "WM_OPTIONS": "linux64GccDPInt32Opt",
+                        },
+                    ),
+                },
+            )
+            context = resolve_stage_runner_context(
+                temp_root,
+                probe_report=report,
+                baseline_name="Baseline A",
+            )
+            wrapped = wrap_stage_command(
+                context,
+                case_dir=case_dir,
+                stage={
+                    "name": "quoted_python",
+                    "cmd": "python -c 'import os; print(os.environ[\"FROM_STAGE_BASHRC\"])'",
+                },
+            )
+            completed = subprocess.run(
+                wrapped,
+                shell=True,
+                text=True,
+                capture_output=True,
+                check=False,
+            )
+
+        self.assertEqual(completed.returncode, 0, completed.stderr)
+        self.assertEqual(completed.stdout.strip(), "1")
+
+    def test_stage_runner_context_rejects_diagnostic_probe_payloads(self) -> None:
+        bundle = load_authority_bundle(repo_root())
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            command_paths = sample_commands()
+            command_paths["foamRun"] = ""
+
+            report = probe_openfoam_baselines(
+                bundle,
+                output_dir=temp_dir,
+                baselines={
+                    "Baseline B": BaselineProbeRequest(
+                        lane="experimental",
+                        runtime_base="exaFOAM/SPUMA 0.1-v2412",
+                        bashrc_path="/envs/baseline-b/etc/bashrc",
+                        host_observations=sample_host_observations(lane="experimental"),
+                        local_mirror_refs=sample_local_mirror_refs(),
+                        repo_commit="def456abc123",
+                        command_paths=command_paths,
+                        openfoam_env={
+                            "WM_PROJECT": "OpenFOAM",
+                            "WM_PROJECT_VERSION": "v2412",
+                            "WM_OPTIONS": "linux64ClangDPInt32Opt",
+                        },
+                    ),
+                },
+            )
+
+            with self.assertRaisesRegex(
+                ValueError,
+                "probe payload for Baseline B is not runnable; status=diagnostic",
+            ):
+                resolve_stage_runner_context(
+                    pathlib.Path(temp_dir),
+                    probe_report=report,
+                    baseline_name="Baseline B",
+                )
 
     def test_stage_runner_log_context_includes_baseline_and_manifest_provenance(self) -> None:
         bundle = load_authority_bundle(repo_root())
