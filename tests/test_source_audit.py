@@ -32,8 +32,9 @@ class SourceAuditHelperTests(unittest.TestCase):
             [entry.contract_surface for entry in resolved],
             ["Alpha transport", "Pressure corrector"],
         )
-        self.assertEqual(resolved[0].ownership_scope, "alphaPredictor.C")
-        self.assertEqual(resolved[1].ownership_scope, "pressureCorrector.C")
+        self.assertIn("alphaPredictor.C", resolved[0].ownership_scope)
+        self.assertIn("DeviceMULES.*", resolved[0].ownership_scope)
+        self.assertIn("pressureCorrector.C", resolved[1].ownership_scope)
 
     def test_resolve_source_audit_surfaces_accepts_phase_doc_aliases(self) -> None:
         bundle = load_authority_bundle(repo_root())
@@ -68,6 +69,7 @@ class SourceAuditHelperTests(unittest.TestCase):
         self.assertIn("| Alpha transport |", note)
         self.assertIn("twoPhaseSolver::alphaPredictor()", note)
         self.assertIn("alphaPredictor.C", note)
+        self.assertIn("DeviceMULES.*", note)
         self.assertIn("| Pressure bridge |", note)
         self.assertIn("PressureMatrixCache", note)
 
@@ -156,6 +158,30 @@ class SourceAuditHelperTests(unittest.TestCase):
                 note_text=note,
                 touched_surfaces=["Pressure bridge"],
             )
+
+    def test_validate_source_audit_note_allows_expanded_ownership_scope(self) -> None:
+        bundle = load_authority_bundle(repo_root())
+        note = render_source_audit_note(
+            bundle,
+            touched_surfaces=["Alpha transport"],
+            review_status="reviewed",
+        )
+        original_scope = (
+            "local `alphaPredictor.C` path plus `DeviceAlphaTransport.*` / `DeviceMULES.*`"
+        )
+        expanded_scope = original_scope + " and ownership-reviewed Phase 5 boundaries"
+        note = note.replace(
+            f"{original_scope} | {original_scope}",
+            f"{original_scope} | {expanded_scope}",
+        )
+
+        result = validate_source_audit_note(
+            bundle,
+            note_text=note,
+            touched_surfaces=["Alpha transport"],
+        )
+
+        self.assertEqual(result[0].contract_surface, "Alpha transport")
 
     def test_source_audit_cli_check_validates_reviewed_note(self) -> None:
         bundle = load_authority_bundle(repo_root())
