@@ -44,7 +44,7 @@ class TupleStageValidationReport:
             "validated_tuple_count": self.validated_tuple_count,
             "tuple_stage_ids": {
                 tuple_id: list(stage_ids)
-                for tuple_id, stage_ids in sorted(self.tuple_stage_ids.items())
+                for tuple_id, stage_ids in self.tuple_stage_ids.items()
             },
             "stage_ids_in_use": list(self.stage_ids_in_use),
         }
@@ -69,7 +69,7 @@ class StageRegistryReport:
                     "production_accepted": policy.production_accepted,
                     "description": policy.description,
                 }
-                for run_mode, policy in sorted(self.run_modes.items())
+                for run_mode, policy in self.run_modes.items()
             },
             "stages": {
                 stage_id: {
@@ -80,13 +80,13 @@ class StageRegistryReport:
                     "fallback_mode": stage.fallback_mode,
                     "notes": stage.notes,
                 }
-                for stage_id, stage in sorted(self.stages.items())
+                for stage_id, stage in self.stages.items()
             },
             "required_orchestration_ranges": list(self.required_orchestration_ranges),
             "global_capture_rules": dict(self.global_capture_rules),
             "accepted_tuples": {
                 tuple_id: dict(payload)
-                for tuple_id, payload in sorted(self.accepted_tuples.items())
+                for tuple_id, payload in self.accepted_tuples.items()
             },
             "authority_revisions": dict(self.authority_revisions),
         }
@@ -222,12 +222,25 @@ def validate_acceptance_tuple_stage_requirements(
     resolved_registry = registry
     if resolved_registry is None:
         resolved_registry = build_graph_stage_registry(bundle)
+    accepted_execution_modes = tuple(
+        bundle.acceptance.raw["coverage_rules"]["accepted_execution_modes"]
+    )
+    backend_restrictions = bundle.acceptance.raw["coverage_rules"]["backend_restrictions"]
+    amgx_admitted_case_ids = set(backend_restrictions["amgx_admitted_case_ids"])
+    amgx_admitted_execution_modes = set(backend_restrictions["amgx_admitted_execution_modes"])
+    tuple_stage_ids: dict[str, tuple[str, ...]] = {}
+    for tuple_id, accepted_tuple in bundle.acceptance.tuples_by_id.items():
+        _validate_acceptance_tuple_contract(
+            accepted_tuple,
+            registry=resolved_registry,
+            accepted_execution_modes=accepted_execution_modes,
+            amgx_admitted_case_ids=amgx_admitted_case_ids,
+            amgx_admitted_execution_modes=amgx_admitted_execution_modes,
+        )
+        tuple_stage_ids[tuple_id] = accepted_tuple.required_stage_ids
     report = validate_tuple_stage_requirements(
         resolved_registry,
-        {
-            tuple_id: accepted_tuple.required_stage_ids
-            for tuple_id, accepted_tuple in bundle.acceptance.tuples_by_id.items()
-        },
+        tuple_stage_ids,
     )
     acceptance_orchestration_ranges = tuple(
         bundle.acceptance.raw["nvtx_contract_defaults"]["required_orchestration_ranges"]
@@ -242,6 +255,67 @@ def validate_acceptance_tuple_stage_requirements(
             "acceptance NVTX orchestration ranges do not match the canonical graph registry"
         )
     return report
+
+
+def _validate_acceptance_tuple_contract(
+    accepted_tuple: AcceptedTuple,
+    *,
+    registry: GraphStageRegistry,
+    accepted_execution_modes: tuple[str, ...],
+    amgx_admitted_case_ids: set[str],
+    amgx_admitted_execution_modes: set[str],
+) -> None:
+    tuple_id = accepted_tuple.tuple_id
+    execution_mode = accepted_tuple.execution_mode
+    if execution_mode not in accepted_execution_modes:
+        raise GraphRegistryValidationError(
+            f"{tuple_id} uses non-accepted execution mode {execution_mode!r}"
+        )
+    if not registry.run_mode(execution_mode).production_accepted:
+        raise GraphRegistryValidationError(
+            f"{tuple_id} uses non-production run mode {execution_mode!r}"
+        )
+
+    stage_ids = accepted_tuple.required_stage_ids
+    if "write_stage" in stage_ids:
+        raise GraphRegistryValidationError(
+            f"{tuple_id} may not require 'write_stage' in the current acceptance manifest"
+        )
+
+    expected_pressure_stage_by_backend = {
+        "native": "pressure_solve_native",
+        "amgx": "pressure_solve_amgx",
+    }
+    try:
+        expected_pressure_stage = expected_pressure_stage_by_backend[accepted_tuple.backend]
+    except KeyError as exc:
+        raise GraphRegistryValidationError(
+            f"{tuple_id} uses unknown backend {accepted_tuple.backend!r}"
+        ) from exc
+    unexpected_pressure_stages = sorted(
+        set(expected_pressure_stage_by_backend.values()) - {expected_pressure_stage}
+    )
+    if expected_pressure_stage not in stage_ids:
+        raise GraphRegistryValidationError(
+            f"{tuple_id} backend {accepted_tuple.backend!r} requires stage {expected_pressure_stage!r}"
+        )
+    present_unexpected_stages = [
+        stage_id for stage_id in unexpected_pressure_stages if stage_id in stage_ids
+    ]
+    if present_unexpected_stages:
+        raise GraphRegistryValidationError(
+            f"{tuple_id} backend {accepted_tuple.backend!r} may not require stages {', '.join(repr(stage_id) for stage_id in present_unexpected_stages)}"
+        )
+
+    if accepted_tuple.backend == "amgx":
+        if accepted_tuple.case_id not in amgx_admitted_case_ids:
+            raise GraphRegistryValidationError(
+                f"{tuple_id} backend 'amgx' is not admitted for case {accepted_tuple.case_id!r}"
+            )
+        if execution_mode not in amgx_admitted_execution_modes:
+            raise GraphRegistryValidationError(
+                f"{tuple_id} backend 'amgx' is not admitted for execution mode {execution_mode!r}"
+            )
 
 
 def validate_tuple_stage_requirements(

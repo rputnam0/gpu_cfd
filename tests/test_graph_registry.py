@@ -14,7 +14,7 @@ from scripts.authority import (
     validate_acceptance_tuple_stage_requirements,
     validate_tuple_stage_requirements,
 )
-from scripts.authority.bundle import GraphCaptureMatrix, GraphStage
+from scripts.authority.bundle import AcceptanceManifest, AcceptedTuple, GraphCaptureMatrix, GraphStage
 
 
 def repo_root() -> pathlib.Path:
@@ -75,6 +75,10 @@ class GraphStageRegistryTests(unittest.TestCase):
         payload = report.as_dict()
         self.assertEqual(payload["schema_version"], "1.0.0")
         self.assertEqual(payload["run_modes"]["async_no_graph"]["production_accepted"], True)
+        self.assertEqual(
+            list(payload["stages"])[:4],
+            ["warmup", "pre_solve", "outer_iter_body", "momentum_predictor"],
+        )
         self.assertEqual(
             payload["accepted_tuples"]["P8_R1_NATIVE_GRAPH_BASELINE"]["required_stage_ids"][-3:],
             ["pressure_solve_native", "pressure_post", "nozzle_bc_update"],
@@ -154,6 +158,57 @@ class GraphStageRegistryTests(unittest.TestCase):
         ):
             build_graph_stage_registry(invalid_bundle)
 
+    def test_native_tuple_may_not_require_amgx_pressure_stage(self) -> None:
+        bundle = load_authority_bundle(repo_root())
+        mutated_bundle = self._mutate_acceptance_tuple(
+            bundle,
+            "P8_R1CORE_NATIVE_GRAPH_BASELINE",
+            required_stage_ids=tuple(
+                "pressure_solve_amgx" if stage_id == "pressure_solve_native" else stage_id
+                for stage_id in bundle.acceptance.tuples_by_id[
+                    "P8_R1CORE_NATIVE_GRAPH_BASELINE"
+                ].required_stage_ids
+            ),
+        )
+
+        with self.assertRaisesRegex(
+            GraphRegistryValidationError,
+            "P8_R1CORE_NATIVE_GRAPH_BASELINE backend 'native' requires stage 'pressure_solve_native'",
+        ):
+            validate_acceptance_tuple_stage_requirements(mutated_bundle)
+
+    def test_sync_debug_execution_mode_is_rejected_for_accepted_tuple(self) -> None:
+        bundle = load_authority_bundle(repo_root())
+        mutated_bundle = self._mutate_acceptance_tuple(
+            bundle,
+            "P8_R1CORE_NATIVE_GRAPH_BASELINE",
+            execution_mode="sync_debug",
+        )
+
+        with self.assertRaisesRegex(
+            GraphRegistryValidationError,
+            "P8_R1CORE_NATIVE_GRAPH_BASELINE uses non-accepted execution mode 'sync_debug'",
+        ):
+            validate_acceptance_tuple_stage_requirements(mutated_bundle)
+
+    def test_write_stage_is_rejected_for_current_accepted_tuples(self) -> None:
+        bundle = load_authority_bundle(repo_root())
+        tuple_id = "P8_R1CORE_NATIVE_GRAPH_BASELINE"
+        mutated_bundle = self._mutate_acceptance_tuple(
+            bundle,
+            tuple_id,
+            required_stage_ids=(
+                *bundle.acceptance.tuples_by_id[tuple_id].required_stage_ids,
+                "write_stage",
+            ),
+        )
+
+        with self.assertRaisesRegex(
+            GraphRegistryValidationError,
+            "P8_R1CORE_NATIVE_GRAPH_BASELINE may not require 'write_stage' in the current acceptance manifest",
+        ):
+            validate_acceptance_tuple_stage_requirements(mutated_bundle)
+
     def _copy_tree(self, source: pathlib.Path, destination: pathlib.Path) -> None:
         for path in source.rglob("*"):
             relative = path.relative_to(source)
@@ -163,6 +218,39 @@ class GraphStageRegistryTests(unittest.TestCase):
                 continue
             target.parent.mkdir(parents=True, exist_ok=True)
             target.write_bytes(path.read_bytes())
+
+    def _mutate_acceptance_tuple(
+        self,
+        bundle,
+        tuple_id: str,
+        *,
+        execution_mode: str | None = None,
+        required_stage_ids: tuple[str, ...] | None = None,
+    ):
+        original = bundle.acceptance.tuples_by_id[tuple_id]
+        updated_tuple = AcceptedTuple(
+            tuple_id=original.tuple_id,
+            case_id=original.case_id,
+            backend=original.backend,
+            execution_mode=execution_mode or original.execution_mode,
+            required_stage_ids=required_stage_ids or original.required_stage_ids,
+            raw={
+                **original.raw,
+                "execution_mode": execution_mode or original.execution_mode,
+                "required_stage_ids": list(required_stage_ids or original.required_stage_ids),
+            },
+        )
+        updated_manifest = AcceptanceManifest(
+            tuples_by_id={**bundle.acceptance.tuples_by_id, tuple_id: updated_tuple},
+            raw={
+                **bundle.acceptance.raw,
+                "accepted_tuples": [
+                    updated_tuple.raw if item["tuple_id"] == tuple_id else dict(item)
+                    for item in bundle.acceptance.raw["accepted_tuples"]
+                ],
+            },
+        )
+        return replace(bundle, acceptance=updated_manifest)
 
 if __name__ == "__main__":
     unittest.main()
