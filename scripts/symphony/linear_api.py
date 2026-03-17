@@ -45,6 +45,7 @@ query($teamKey: String!, $number: Float!) {
       identifier
       title
       description
+      gitBranchName
       url
       labels {
         nodes {
