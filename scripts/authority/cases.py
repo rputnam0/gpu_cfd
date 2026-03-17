@@ -821,7 +821,14 @@ def emit_case_bundle(
 ) -> EmittedCaseArtifacts:
     validated_case_meta = validate_case_meta(bundle, dict(case_meta))
     validated_stage_plan = validate_stage_plan(bundle, dict(stage_plan))
-    for field_name in ("case_id", "case_role", "baseline"):
+    for field_name in (
+        "case_id",
+        "case_role",
+        "baseline",
+        "runtime_base",
+        "reviewed_source_tuple_id",
+        "provenance",
+    ):
         if validated_case_meta[field_name] != validated_stage_plan[field_name]:
             raise AuthoritySelectionError(
                 f"case bundle {field_name} mismatch between {CANONICAL_CASE_META_NAME} "
@@ -1134,13 +1141,17 @@ def _build_provenance_payload(
     *,
     extra: Mapping[str, Any] | None = None,
 ) -> dict[str, Any]:
-    payload = {
+    context_owned_payload = {
         "probe_payload": context.probe_payload_path.as_posix(),
         "host_env": context.host_env_path.as_posix(),
         "manifest_refs": context.manifest_refs_path.as_posix(),
     }
+    payload = dict(context_owned_payload)
     if extra:
-        payload.update(dict(extra))
+        for key, value in extra.items():
+            if key in REQUIRED_PROVENANCE_FIELDS:
+                continue
+            payload[key] = value
     return payload
 
 
