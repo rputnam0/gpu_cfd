@@ -107,6 +107,7 @@ Execution contract:
 - When the handoff helper succeeds cleanly, it opens or updates the GitHub PR, enables auto-merge, moves the issue to `In Review`, returns `stop_worker=true`, and the run should stop after you update the workpad with the PR URL.
 - `In Review` is a dormant automated-review state. Do not wait, poll, or sleep for Devin.
 - GitHub automation owns the `In Review -> Rework` transition when Devin leaves actionable feedback on the current head. Actionable Devin threads are not auto-cleared just because a newer commit exists.
+- `Rework` is terminal with respect to local review. After actionable Devin findings are fixed, rerun targeted validation, push, rerun `scripts/symphony/pr_handoff.py`, and return directly to GitHub auto-merge without another local Codex review cycle.
 - GitHub auto-merge owns the final merge once `review-loop-harness` and `devin-review-gate` are green.
 - GitHub post-merge automation owns `In Review -> Done` and dependent release from `Backlog -> Todo`.
 - `Backlog` means parked or blocked work and is out of scope for this run.
@@ -118,4 +119,4 @@ Completion bar:
 - Repo changes are limited to the assigned PR card.
 - Validation evidence is recorded in the Linear workpad.
 - The PR has completed the finite local Codex review cycle and progressed into GitHub review.
-- The PR has completed one Devin review cycle, all actionable findings have been fixed or resolved, and it merged through GitHub auto-merge.
+- The PR has completed one Devin review cycle, all actionable findings have been fixed or resolved, and it merged through GitHub auto-merge without reopening the local-review loop.

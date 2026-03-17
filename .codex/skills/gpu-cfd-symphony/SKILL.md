@@ -82,6 +82,8 @@ repository's authority docs, backlog dependencies, and PR-card scope.
     Linear workpad. Do not rely on memory alone.
 14. Treat valid actionable Devin feedback as mandatory fix work. Fix those findings first, rerun
     targeted validation, push, and rerun the handoff helper before returning to `In Review`.
+    Do not reopen the local Codex review loop during `Rework`; after Devin findings are fixed,
+    the branch returns directly to GitHub auto-merge.
     This workflow requires one Devin review round; after those actionable findings are resolved,
     GitHub may merge without waiting for a second Devin pass on the new head.
 15. Use the `gh api` PR comment/review endpoints described in `AGENTS.md` when you need the full
@@ -93,7 +95,8 @@ repository's authority docs, backlog dependencies, and PR-card scope.
 - Treat worker-local Linear access as mandatory. If neither `linear_graphql` nor the configured
   Linear MCP is available, stop and leave a concise blocker note.
 - Move the issue to `In Review` only through `scripts/symphony/pr_handoff.py` after validation is
-  complete and the local Codex review gate has completed successfully for external review.
+  complete and the local Codex review gate has completed successfully for external review, or
+  after a `Rework` pass has fixed actionable Devin findings and returned directly to auto-merge.
 - Treat `In Review` as a dormant queue controlled by GitHub automation, not as a worker sleep loop.
 - If blocked by missing auth, missing secrets, or missing external tools, leave a concise blocker
   note instead of guessing.

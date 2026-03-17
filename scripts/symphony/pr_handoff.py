@@ -728,6 +728,107 @@ def main() -> int:
 
     is_rework_run = issue_state == REWORK_STATE
 
+    if is_rework_run:
+        if workspace_branch in {"", "main"}:
+            raise HandoffError("refusing PR handoff from the default branch")
+        ensure_branch_pushed(workspace, workspace_branch)
+        pr_ref = ensure_pr(workspace, issue_identifier, issue_title, workspace_branch)
+        enable_auto_merge(workspace, pr_ref.number)
+        resolved_thread_ids = resolve_actionable_devin_threads(pr_ref.number)
+        linear_update = linear_api.update_issue_state(issue_identifier, IN_REVIEW_STATE)
+        reset_local_review_rounds(workspace, workspace_branch)
+        result: dict[str, Any] = {
+            "issue_identifier": issue_identifier,
+            "issue_title": issue_title,
+            "branch": workspace_branch,
+            "handoff_status": "rework_complete",
+            "review_cycle_phase": "rework_complete",
+            "stop_worker": True,
+            "continue_same_worker": False,
+            "residual_followups": [],
+            "resolved_devin_threads": resolved_thread_ids,
+            "review": {
+                "status": "skipped",
+                "message": (
+                    "Rework handoff bypassed local Codex review. After Devin findings are "
+                    "fixed, the branch returns directly to GitHub auto-merge."
+                ),
+                "manifest": None,
+            },
+            "pull_request": {
+                "number": pr_ref.number,
+                "url": pr_ref.url,
+                "auto_merge_enabled": True,
+            },
+            "linear_update": {
+                "previous_state": linear_update["previous_state"],
+                "current_state": linear_update["current_state"],
+                "changed": linear_update["changed"],
+            },
+        }
+        review_handoff_notes = [
+            "Rework fixes were pushed without rerunning local Codex review.",
+            "Post-Devin handoff is terminal: after actionable Devin findings are fixed, return directly to GitHub auto-merge.",
+            f"PR opened or updated: {pr_ref.url}",
+            (
+                f"Linear moved to {linear_update['current_state']} from "
+                f"{linear_update['previous_state']}."
+            ),
+            "Review cycle phase: rework_complete",
+            "Stop worker: true",
+        ]
+        if resolved_thread_ids:
+            review_handoff_notes.append(
+                "Resolved actionable Devin review threads for this Rework pass: "
+                + ", ".join(resolved_thread_ids)
+            )
+        workpad_warning = sync_workpad_best_effort(
+            issue_identifier=issue_identifier,
+            issue_title=issue_title,
+            current_status="in_review",
+            validation=[
+                "Actionable Devin findings were fixed on this Rework pass.",
+                "Rework bypassed local Codex review and returned directly to GitHub auto-merge.",
+                "GitHub auto-merge enabled for the current pull request.",
+            ],
+            review_handoff_notes=review_handoff_notes,
+        )
+        if workpad_warning:
+            result["workpad_sync_warning"] = workpad_warning
+            print(workpad_warning, file=sys.stderr)
+        if trace.is_enabled():
+            run_manifest = trace.ensure_run(
+                issue_id=issue_identifier,
+                run_kind="implementation",
+                branch=workspace_branch,
+                pr_number=pr_ref.number,
+            )
+            artifact = trace.capture_json_artifact(
+                issue_id=issue_identifier,
+                run_id=run_manifest["run_id"],
+                artifact_type="pr_handoff_result",
+                label="PR Handoff Result",
+                payload=result,
+                filename="pr_handoff_result.json",
+            )
+            trace.capture_event(
+                issue_id=issue_identifier,
+                run_id=run_manifest["run_id"],
+                actor="GitHub",
+                stage="rework_handoff_complete",
+                summary="Rework fixes returned directly to GitHub auto-merge",
+                decision="in_review",
+                decision_rationale=(
+                    "After Devin-triggered Rework, the branch bypasses local review, "
+                    "resolves actionable Devin threads, and returns directly to "
+                    "GitHub auto-merge."
+                ),
+                artifact_refs=[artifact["artifact_id"]],
+                metadata={"pr_url": pr_ref.url, "pr_number": pr_ref.number},
+            )
+        print(json.dumps(result, indent=2))
+        return 0
+
     with prepared_review_workspace(workspace) as (
         review_workspace,
         review_workspace_note,

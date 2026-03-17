@@ -56,6 +56,7 @@ class ProgressiveDisclosureContractTests(unittest.TestCase):
         self.assertIn("same implementation worker", workflow_text)
         self.assertIn("moves the issue to `In Review`", workflow_text)
         self.assertIn("The finite local-review cycle is 3 total passes", workflow_text)
+        self.assertIn("Rework` is terminal with respect to local review", workflow_text)
         self.assertIn("returns `stop_worker=true`", workflow_text)
         self.assertNotIn("README_FIRST", workflow_text)
         self.assertIn("1. Open `AGENTS.md`.", skill_text)
@@ -68,6 +69,7 @@ class ProgressiveDisclosureContractTests(unittest.TestCase):
         self.assertIn("do not delegate code edits", skill_text)
         self.assertIn("same implementation worker", skill_text)
         self.assertIn("`Backlog` issue per residual finding", skill_text)
+        self.assertIn("Do not reopen the local Codex review loop during `Rework`", skill_text)
         self.assertIn("returns `stop_worker=true`", skill_text)
         self.assertNotIn("README_FIRST", skill_text)
 
