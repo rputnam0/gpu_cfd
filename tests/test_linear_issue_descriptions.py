@@ -32,6 +32,7 @@ class LinearIssueDescriptionsTests(unittest.TestCase):
         self.assertIn("The local-review cycle is finite", description)
         self.assertIn("child `Backlog` issue per residual finding", description)
         self.assertIn("moves the parent issue to `In Review` for Devin", description)
+        self.assertIn("`Rework` does not reopen local Codex review", description)
         self.assertIn("docs/authority/README.md", description)
         self.assertIn("## Task card", description)
         self.assertNotIn("README_FIRST", description)

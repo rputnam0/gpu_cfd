@@ -147,6 +147,7 @@ def render_issue_description(
         "* If pre-PR local review findings remain on remediation pass 1 or 2, `scripts/symphony/pr_handoff.py` keeps the issue in `In Progress` so the same implementation worker can remediate them in-place from the latest review artifact.\n"
         "* The local-review cycle is finite: remediation pass 1, remediation pass 2, then one final local review pass.\n"
         "* If the third and final local review pass still reports findings, `scripts/symphony/pr_handoff.py` creates one child `Backlog` issue per residual finding, opens or updates the PR, enables auto-merge, and moves the parent issue to `In Review` for Devin instead of looping locally forever.\n"
+        "* `Rework` does not reopen local Codex review. After actionable Devin findings are fixed, `scripts/symphony/pr_handoff.py` returns the PR directly to auto-merge.\n"
         f"* Section: {metadata.section_label}\n"
         f"* Canonical backlog dependencies: {format_dependencies(metadata.depends_on)}\n"
         f"* Linear issue identifier: `{issue_identifier}`\n\n"

@@ -112,6 +112,9 @@ Review loop:
 - A `Rework` worker is expected to pull the latest Devin review comments directly from GitHub with
   `gh api` before editing, record the actionable thread IDs / URLs in the workpad, then fix every
   valid actionable finding.
+- A `Rework` pass is terminal with respect to local review. Once Devin findings are fixed, the
+  worker reruns `pr_handoff.py`, which resolves actionable Devin threads, re-enables auto-merge,
+  and returns directly to `In Review` without another local Codex review cycle.
 - Once that first Devin review round has no remaining actionable feedback, `devin-review-gate`
   turns green and the PR can merge.
 - GitHub auto-merge lands the PR only after both `review-loop-harness` and
