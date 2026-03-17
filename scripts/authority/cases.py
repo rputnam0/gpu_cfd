@@ -55,7 +55,19 @@ def validate_frozen_ladder(
     return normalized
 
 
-def allowed_phase_gate_case_roles(bundle: AuthorityBundle, *, phase_gate: str) -> tuple[str, ...]:
+def allowed_phase_gate_case_roles(
+    bundle: AuthorityBundle, *, phase_gate: str, include_conditional: bool = False
+) -> tuple[str, ...]:
+    return _allowed_phase_gate_case_roles(
+        bundle,
+        phase_gate=phase_gate,
+        include_conditional=include_conditional,
+    )
+
+
+def _allowed_phase_gate_case_roles(
+    bundle: AuthorityBundle, *, phase_gate: str, include_conditional: bool
+) -> tuple[str, ...]:
     phase_gate_mapping = bundle.cases.phase_gate_mapping.get(phase_gate)
     if phase_gate_mapping is None:
         raise AuthoritySelectionError(f"unknown phase gate {phase_gate!r}")
@@ -64,10 +76,13 @@ def allowed_phase_gate_case_roles(bundle: AuthorityBundle, *, phase_gate: str) -
     for key in (
         "ordered_case_ladder",
         "default_cases",
-        "conditional_cases",
         "hard_gate_cases",
     ):
         ordered_roles.extend(str(case_role) for case_role in phase_gate_mapping.get(key, ()))
+    if include_conditional:
+        ordered_roles.extend(
+            str(case_role) for case_role in phase_gate_mapping.get("conditional_cases", ())
+        )
     for key in (
         "accepted_case",
         "routine_architecture_baseline_case",
@@ -85,10 +100,26 @@ def allowed_phase_gate_case_roles(bundle: AuthorityBundle, *, phase_gate: str) -
 
 
 def resolve_phase_gate_case(
-    bundle: AuthorityBundle, *, phase_gate: str, case_role: str
+    bundle: AuthorityBundle, *, phase_gate: str, case_role: str, allow_conditional: bool = False
 ) -> ResolvedReferenceCase:
-    allowed_case_roles = allowed_phase_gate_case_roles(bundle, phase_gate=phase_gate)
+    allowed_case_roles = _allowed_phase_gate_case_roles(
+        bundle,
+        phase_gate=phase_gate,
+        include_conditional=allow_conditional,
+    )
     if case_role not in allowed_case_roles:
+        conditional_case_roles = set(
+            _allowed_phase_gate_case_roles(bundle, phase_gate=phase_gate, include_conditional=True)
+        ) - set(allowed_phase_gate_case_roles(bundle, phase_gate=phase_gate))
+        if not allow_conditional and case_role in conditional_case_roles:
+            conditional_rule = bundle.cases.phase_gate_mapping[phase_gate].get(
+                "conditional_case_rule",
+                "authority-defined conditional rule",
+            )
+            raise AuthoritySelectionError(
+                f"phase gate {phase_gate!r} allows case role {case_role!r} only conditionally: "
+                f"{conditional_rule}"
+            )
         raise AuthoritySelectionError(
             f"phase gate {phase_gate!r} does not allow case role {case_role!r}"
         )
@@ -103,13 +134,15 @@ def case_meta_schema(bundle: AuthorityBundle) -> dict[str, Any]:
         "required": [
             "schema_version",
             "case_id",
+            "frozen_id",
             "case_role",
             "ladder_position",
             "phase_gates",
         ],
         "properties": {
             "schema_version": {"const": MANIFEST_SCHEMA_VERSION},
-            "case_id": {
+            "case_id": {"enum": ordered_case_roles},
+            "frozen_id": {
                 "enum": [
                     bundle.cases.by_case_id[case_role].frozen_id for case_role in ordered_case_roles
                 ]
@@ -132,17 +165,31 @@ def case_meta_schema(bundle: AuthorityBundle) -> dict[str, Any]:
 def validate_case_meta(bundle: AuthorityBundle, payload: dict[str, Any]) -> dict[str, Any]:
     _validate_required_fields(
         payload,
-        required_fields=("schema_version", "case_id", "case_role", "ladder_position", "phase_gates"),
+        required_fields=(
+            "schema_version",
+            "case_id",
+            "frozen_id",
+            "case_role",
+            "ladder_position",
+            "phase_gates",
+        ),
         artifact_name=CANONICAL_CASE_META_NAME,
     )
     _validate_schema_version(payload, artifact_name=CANONICAL_CASE_META_NAME)
 
     resolved_case = resolve_reference_case(bundle, case_role=str(payload["case_role"]))
     case_id = str(payload["case_id"])
-    if case_id != resolved_case.frozen_id:
+    if case_id != resolved_case.case_role:
         raise AuthoritySelectionError(
             f"{CANONICAL_CASE_META_NAME} case_role {resolved_case.case_role!r} "
-            f"must resolve to case_id {resolved_case.frozen_id!r}"
+            f"must resolve to case_id {resolved_case.case_role!r}"
+        )
+
+    frozen_id = str(payload["frozen_id"])
+    if frozen_id != resolved_case.frozen_id:
+        raise AuthoritySelectionError(
+            f"{CANONICAL_CASE_META_NAME} case_role {resolved_case.case_role!r} "
+            f"must resolve to frozen_id {resolved_case.frozen_id!r}"
         )
 
     ladder_position = payload["ladder_position"]
@@ -187,6 +234,7 @@ def stage_plan_schema(bundle: AuthorityBundle) -> dict[str, Any]:
         "required": [
             "schema_version",
             "case_id",
+            "frozen_id",
             "case_role",
             "phase_gate",
             "phase_gate_selection",
@@ -194,7 +242,8 @@ def stage_plan_schema(bundle: AuthorityBundle) -> dict[str, Any]:
         ],
         "properties": {
             "schema_version": {"const": MANIFEST_SCHEMA_VERSION},
-            "case_id": {
+            "case_id": {"enum": ordered_case_roles},
+            "frozen_id": {
                 "enum": [
                     bundle.cases.by_case_id[case_role].frozen_id for case_role in ordered_case_roles
                 ]
@@ -236,6 +285,7 @@ def validate_stage_plan(bundle: AuthorityBundle, payload: dict[str, Any]) -> dic
         required_fields=(
             "schema_version",
             "case_id",
+            "frozen_id",
             "case_role",
             "phase_gate",
             "phase_gate_selection",
@@ -247,10 +297,17 @@ def validate_stage_plan(bundle: AuthorityBundle, payload: dict[str, Any]) -> dic
 
     resolved_case = resolve_reference_case(bundle, case_role=str(payload["case_role"]))
     case_id = str(payload["case_id"])
-    if case_id != resolved_case.frozen_id:
+    if case_id != resolved_case.case_role:
         raise AuthoritySelectionError(
             f"{CANONICAL_STAGE_PLAN_NAME} case_role {resolved_case.case_role!r} "
-            f"must resolve to case_id {resolved_case.frozen_id!r}"
+            f"must resolve to case_id {resolved_case.case_role!r}"
+        )
+
+    frozen_id = str(payload["frozen_id"])
+    if frozen_id != resolved_case.frozen_id:
+        raise AuthoritySelectionError(
+            f"{CANONICAL_STAGE_PLAN_NAME} case_role {resolved_case.case_role!r} "
+            f"must resolve to frozen_id {resolved_case.frozen_id!r}"
         )
 
     phase_gate = str(payload["phase_gate"])

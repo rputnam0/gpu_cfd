@@ -72,6 +72,10 @@ class ReferenceCaseResolutionTests(unittest.TestCase):
         )
         self.assertEqual(
             allowed_phase_gate_case_roles(bundle, phase_gate="Phase 2"),
+            ("R2", "R1-core"),
+        )
+        self.assertEqual(
+            allowed_phase_gate_case_roles(bundle, phase_gate="Phase 2", include_conditional=True),
             ("R2", "R1-core", "R1"),
         )
         self.assertEqual(
@@ -96,22 +100,40 @@ class ReferenceCaseResolutionTests(unittest.TestCase):
         ):
             resolve_phase_gate_case(bundle, phase_gate="Phase 5", case_role="R0")
 
+    def test_phase_gate_conditional_selection_requires_explicit_opt_in(self) -> None:
+        bundle = load_authority_bundle(repo_root())
+
+        with self.assertRaisesRegex(
+            AuthoritySelectionError,
+            "phase gate 'Phase 2' allows case role 'R1' only conditionally",
+        ):
+            resolve_phase_gate_case(bundle, phase_gate="Phase 2", case_role="R1")
+
+        resolved = resolve_phase_gate_case(
+            bundle,
+            phase_gate="Phase 2",
+            case_role="R1",
+            allow_conditional=True,
+        )
+        self.assertEqual(resolved.case_role, "R1")
+
     def test_case_meta_schema_and_validation_use_authority_owned_roles(self) -> None:
         bundle = load_authority_bundle(repo_root())
         schema = case_meta_schema(bundle)
 
         self.assertEqual(schema["canonical_name"], "case_meta.json")
         self.assertEqual(
-            schema["properties"]["case_role"]["enum"],
+            schema["properties"]["case_id"]["enum"],
             ["R2", "R1-core", "R1", "R0"],
         )
-        self.assertIn("case_id", schema["required"])
+        self.assertIn("frozen_id", schema["required"])
 
         validate_case_meta(
             bundle,
             {
                 "schema_version": "1.0.0",
-                "case_id": "phase0_r1_core_57_28_1000_internal_generic_v1",
+                "case_id": "R1-core",
+                "frozen_id": "phase0_r1_core_57_28_1000_internal_generic_v1",
                 "case_role": "R1-core",
                 "ladder_position": 2,
                 "phase_gates": ["Phase 0", "Phase 2", "Phase 5", "Phase 8"],
@@ -123,13 +145,14 @@ class ReferenceCaseResolutionTests(unittest.TestCase):
 
         with self.assertRaisesRegex(
             AuthoritySelectionError,
-            "case_meta.json case_role 'R1' must resolve to case_id 'phase0_r1_57_28_1000_internal_v1'",
+            "case_meta.json case_role 'R1' must resolve to frozen_id 'phase0_r1_57_28_1000_internal_v1'",
         ):
             validate_case_meta(
                 bundle,
                 {
                     "schema_version": "1.0.0",
-                    "case_id": "phase0_r1_core_57_28_1000_internal_generic_v1",
+                    "case_id": "R1",
+                    "frozen_id": "phase0_r1_core_57_28_1000_internal_generic_v1",
                     "case_role": "R1",
                     "ladder_position": 3,
                     "phase_gates": ["Phase 0", "Phase 2", "Phase 6", "Phase 7", "Phase 8"],
@@ -147,7 +170,8 @@ class ReferenceCaseResolutionTests(unittest.TestCase):
                 bundle,
                 {
                     "schema_version": "1.0.0",
-                    "case_id": "phase0_r1_core_57_28_1000_internal_generic_v1",
+                    "case_id": "R1-core",
+                    "frozen_id": "phase0_r1_core_57_28_1000_internal_generic_v1",
                     "case_role": "R1-core",
                     "ladder_position": "2",
                     "phase_gates": ["Phase 0", "Phase 2", "Phase 5", "Phase 8"],
@@ -161,7 +185,8 @@ class ReferenceCaseResolutionTests(unittest.TestCase):
             bundle,
             {
                 "schema_version": "1.0.0",
-                "case_id": "phase0_r1_core_57_28_1000_internal_generic_v1",
+                "case_id": "R1-core",
+                "frozen_id": "phase0_r1_core_57_28_1000_internal_generic_v1",
                 "case_role": "R1-core",
                 "ladder_position": 2,
                 "phase_gates": ["Phase 8", "Phase 5", "Phase 2", "Phase 0"],
@@ -176,7 +201,8 @@ class ReferenceCaseResolutionTests(unittest.TestCase):
                 bundle,
                 {
                     "schema_version": "1.0.0",
-                    "case_id": "phase0_r1_core_57_28_1000_internal_generic_v1",
+                    "case_id": "R1-core",
+                    "frozen_id": "phase0_r1_core_57_28_1000_internal_generic_v1",
                     "case_role": "R1-core",
                     "ladder_position": 2,
                     "phase_gates": {"Phase 0": True},
@@ -197,7 +223,8 @@ class ReferenceCaseResolutionTests(unittest.TestCase):
             bundle,
             {
                 "schema_version": "1.0.0",
-                "case_id": "phase0_r1_core_57_28_1000_internal_generic_v1",
+                "case_id": "R1-core",
+                "frozen_id": "phase0_r1_core_57_28_1000_internal_generic_v1",
                 "case_role": "R1-core",
                 "phase_gate": "Phase 5",
                 "phase_gate_selection": {
@@ -225,7 +252,8 @@ class ReferenceCaseResolutionTests(unittest.TestCase):
                 bundle,
                 {
                     "schema_version": "1.0.0",
-                    "case_id": "phase0_r1_core_57_28_1000_internal_generic_v1",
+                    "case_id": "R1-core",
+                    "frozen_id": "phase0_r1_core_57_28_1000_internal_generic_v1",
                     "case_role": "R1-core",
                     "phase_gate": "Phase 5",
                     "phase_gate_selection": {
@@ -248,7 +276,8 @@ class ReferenceCaseResolutionTests(unittest.TestCase):
                 bundle,
                 {
                     "schema_version": "1.0.0",
-                    "case_id": "phase0_r1_core_57_28_1000_internal_generic_v1",
+                    "case_id": "R1-core",
+                    "frozen_id": "phase0_r1_core_57_28_1000_internal_generic_v1",
                     "case_role": "R1-core",
                     "phase_gate": "Phase 5",
                     "phase_gate_selection": {
@@ -268,7 +297,8 @@ class ReferenceCaseResolutionTests(unittest.TestCase):
                 bundle,
                 {
                     "schema_version": "1.0.0",
-                    "case_id": "phase0_r1_core_57_28_1000_internal_generic_v1",
+                    "case_id": "R1-core",
+                    "frozen_id": "phase0_r1_core_57_28_1000_internal_generic_v1",
                     "case_role": "R1-core",
                     "phase_gate": "Phase 5",
                     "phase_gate_selection": {
@@ -288,7 +318,8 @@ class ReferenceCaseResolutionTests(unittest.TestCase):
                 bundle,
                 {
                     "schema_version": "1.0.0",
-                    "case_id": "phase0_r1_core_57_28_1000_internal_generic_v1",
+                    "case_id": "R1-core",
+                    "frozen_id": "phase0_r1_core_57_28_1000_internal_generic_v1",
                     "case_role": "R1-core",
                     "phase_gate": "Phase 5",
                     "phase_gate_selection": {
@@ -308,7 +339,8 @@ class ReferenceCaseResolutionTests(unittest.TestCase):
                 bundle,
                 {
                     "schema_version": "1.0.0",
-                    "case_id": "phase0_r1_core_57_28_1000_internal_generic_v1",
+                    "case_id": "R1-core",
+                    "frozen_id": "phase0_r1_core_57_28_1000_internal_generic_v1",
                     "case_role": "R1-core",
                     "phase_gate": "Phase 5",
                     "phase_gate_selection": {
@@ -327,7 +359,8 @@ class ReferenceCaseResolutionTests(unittest.TestCase):
             bundle,
             {
                 "schema_version": "1.0.0",
-                "case_id": "phase0_r1_core_57_28_1000_internal_generic_v1",
+                "case_id": "R1-core",
+                "frozen_id": "phase0_r1_core_57_28_1000_internal_generic_v1",
                 "case_role": "R1-core",
                 "phase_gate": "Phase 5",
                 "phase_gate_selection": {
