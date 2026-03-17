@@ -1,5 +1,15 @@
 """Shared authority loader for gpu_cfd foundation tooling."""
 
+from .acceptance import (
+    AcceptanceClassResult,
+    AcceptanceEvaluationContext,
+    AcceptanceVerdict,
+    AcceptanceWaiver,
+    AcceptanceWaiverHook,
+    AcceptedTupleResolution,
+    evaluate_acceptance,
+    resolve_accepted_tuple,
+)
 from .bundle import (
     AuthorityBundle,
     AuthorityConflictError,
@@ -8,6 +18,7 @@ from .bundle import (
     AuthoritySchemaError,
     load_authority_bundle,
     main,
+    repo_root,
 )
 from .cases import (
     AuthoritySelectionError,
@@ -28,8 +39,34 @@ from .pins import (
     emit_environment_manifests,
     resolve_consumer_pin_manifest,
 )
+from .source_audit import (
+    ResolvedSourceAuditSurface,
+    SOURCE_AUDIT_OWNERSHIP_SCOPE_PLACEHOLDER,
+    render_source_audit_note,
+    resolve_source_audit_surfaces,
+    validate_source_audit_note,
+)
+from .support_scanner import (
+    SupportBoundaryCondition,
+    SupportFunctionObject,
+    SupportScanIssue,
+    SupportScanRejected,
+    SupportScanRequest,
+    SupportScanReport,
+    SupportStartupSeedFieldValue,
+    SupportStartupSeedRegion,
+    SupportStartupSeedSpec,
+    enforce_support_scan,
+    scan_support_matrix,
+)
 
 __all__ = [
+    "AcceptanceClassResult",
+    "AcceptanceEvaluationContext",
+    "AcceptanceVerdict",
+    "AcceptanceWaiver",
+    "AcceptanceWaiverHook",
+    "AcceptedTupleResolution",
     "AuthorityBundle",
     "AuthorityConflictError",
     "AuthorityLoadError",
@@ -39,17 +76,36 @@ __all__ = [
     "ConsumerPinResolution",
     "EmittedEnvironmentManifests",
     "ResolvedReferenceCase",
+    "ResolvedSourceAuditSurface",
+    "SOURCE_AUDIT_OWNERSHIP_SCOPE_PLACEHOLDER",
+    "SupportBoundaryCondition",
+    "SupportFunctionObject",
+    "SupportScanIssue",
+    "SupportScanRejected",
+    "SupportScanRequest",
+    "SupportScanReport",
+    "SupportStartupSeedFieldValue",
+    "SupportStartupSeedRegion",
+    "SupportStartupSeedSpec",
     "allowed_phase_gate_case_roles",
     "case_meta_schema",
     "emit_environment_manifests",
+    "enforce_support_scan",
+    "evaluate_acceptance",
     "load_authority_bundle",
     "main",
+    "render_source_audit_note",
+    "repo_root",
+    "resolve_accepted_tuple",
+    "resolve_consumer_pin_manifest",
     "resolve_phase_gate_case",
     "resolve_reference_case",
     "resolve_reference_case_by_frozen_id",
-    "resolve_consumer_pin_manifest",
+    "resolve_source_audit_surfaces",
+    "scan_support_matrix",
     "stage_plan_schema",
     "validate_case_meta",
     "validate_frozen_ladder",
+    "validate_source_audit_note",
     "validate_stage_plan",
 ]
