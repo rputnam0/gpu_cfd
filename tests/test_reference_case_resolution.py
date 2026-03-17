@@ -122,6 +122,7 @@ class ReferenceCaseResolutionTests(unittest.TestCase):
         schema = case_meta_schema(bundle)
 
         self.assertEqual(schema["canonical_name"], "case_meta.json")
+        self.assertEqual(schema["type"], "object")
         self.assertEqual(
             schema["properties"]["case_role"]["enum"],
             ["R2", "R1-core", "R1", "R0"],
@@ -220,10 +221,12 @@ class ReferenceCaseResolutionTests(unittest.TestCase):
         schema = stage_plan_schema(bundle)
 
         self.assertEqual(schema["canonical_name"], "stage_plan.json")
+        self.assertEqual(schema["type"], "object")
         self.assertEqual(
             schema["properties"]["phase_gate_selection"]["properties"]["ordered_ladder"]["const"],
             ["R2", "R1-core", "R1", "R0"],
         )
+        self.assertEqual(schema["properties"]["stages"]["minItems"], 1)
 
         validate_stage_plan(
             bundle,

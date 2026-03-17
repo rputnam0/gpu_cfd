@@ -131,6 +131,7 @@ def case_meta_schema(bundle: AuthorityBundle) -> dict[str, Any]:
     return {
         "schema_version": MANIFEST_SCHEMA_VERSION,
         "canonical_name": CANONICAL_CASE_META_NAME,
+        "type": "object",
         "required": [
             "schema_version",
             "case_id",
@@ -221,6 +222,7 @@ def stage_plan_schema(bundle: AuthorityBundle) -> dict[str, Any]:
     return {
         "schema_version": MANIFEST_SCHEMA_VERSION,
         "canonical_name": CANONICAL_STAGE_PLAN_NAME,
+        "type": "object",
         "required": [
             "schema_version",
             "case_id",
@@ -260,6 +262,7 @@ def stage_plan_schema(bundle: AuthorityBundle) -> dict[str, Any]:
             },
             "stages": {
                 "type": "array",
+                "minItems": 1,
                 "items": {
                     "type": "object",
                     "required": ["name", "cmd"],
