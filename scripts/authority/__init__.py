@@ -38,6 +38,13 @@ from .env_probe import (
     OpenFOAMBaselineProbeReport,
     probe_openfoam_baselines,
 )
+from .stage_runner import (
+    StageRunnerContext,
+    StageRunnerResolutionError,
+    render_stage_runner_log_context,
+    resolve_stage_runner_context,
+    wrap_stage_command,
+)
 from .graph_registry import (
     GraphRegistryValidationError,
     GraphStageRegistry,
@@ -107,6 +114,8 @@ __all__ = [
     "SupportStartupSeedFieldValue",
     "SupportStartupSeedRegion",
     "SupportStartupSeedSpec",
+    "StageRunnerContext",
+    "StageRunnerResolutionError",
     "TupleStageValidationReport",
     "build_graph_stage_registry",
     "allowed_phase_gate_case_roles",
@@ -120,11 +129,13 @@ __all__ = [
     "probe_openfoam_baselines",
     "render_source_audit_note",
     "repo_root",
+    "render_stage_runner_log_context",
     "resolve_accepted_tuple",
     "resolve_consumer_pin_manifest",
     "resolve_phase_gate_case",
     "resolve_reference_case",
     "resolve_reference_case_by_frozen_id",
+    "resolve_stage_runner_context",
     "resolve_source_audit_surfaces",
     "scan_support_matrix",
     "validate_acceptance_tuple_stage_requirements",
@@ -134,4 +145,5 @@ __all__ = [
     "stage_plan_schema",
     "validate_case_meta",
     "validate_frozen_ladder",
+    "wrap_stage_command",
 ]
