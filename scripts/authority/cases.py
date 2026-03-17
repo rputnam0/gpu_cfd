@@ -311,7 +311,11 @@ def validate_stage_plan(bundle: AuthorityBundle, payload: dict[str, Any]) -> dic
         )
 
     phase_gate = str(payload["phase_gate"])
-    allowed_case_roles = allowed_phase_gate_case_roles(bundle, phase_gate=phase_gate)
+    allowed_case_roles = allowed_phase_gate_case_roles(
+        bundle,
+        phase_gate=phase_gate,
+        include_conditional=True,
+    )
 
     phase_gate_selection = payload["phase_gate_selection"]
     if not isinstance(phase_gate_selection, dict):
@@ -330,7 +334,12 @@ def validate_stage_plan(bundle: AuthorityBundle, payload: dict[str, Any]) -> dic
             f"{CANONICAL_STAGE_PLAN_NAME} selected_case_role {selected_case_role!r} "
             f"must match case_role {resolved_case.case_role!r}"
         )
-    resolve_phase_gate_case(bundle, phase_gate=phase_gate, case_role=selected_case_role)
+    resolve_phase_gate_case(
+        bundle,
+        phase_gate=phase_gate,
+        case_role=selected_case_role,
+        allow_conditional=True,
+    )
 
     available_case_roles_value = phase_gate_selection["available_case_roles"]
     if not isinstance(available_case_roles_value, list):
@@ -408,7 +417,11 @@ def _build_resolved_case(
 def _phase_gates_for_case_role(bundle: AuthorityBundle, *, case_role: str) -> tuple[str, ...]:
     phase_gates = []
     for phase_gate in bundle.cases.phase_gate_mapping:
-        if case_role in allowed_phase_gate_case_roles(bundle, phase_gate=phase_gate):
+        if case_role in allowed_phase_gate_case_roles(
+            bundle,
+            phase_gate=phase_gate,
+            include_conditional=True,
+        ):
             phase_gates.append(phase_gate)
     return tuple(phase_gates)
 

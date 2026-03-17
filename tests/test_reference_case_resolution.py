@@ -193,6 +193,18 @@ class ReferenceCaseResolutionTests(unittest.TestCase):
             },
         )
 
+        validate_case_meta(
+            bundle,
+            {
+                "schema_version": "1.0.0",
+                "case_id": "R1",
+                "frozen_id": "phase0_r1_57_28_1000_internal_v1",
+                "case_role": "R1",
+                "ladder_position": 3,
+                "phase_gates": ["Phase 0", "Phase 2", "Phase 6", "Phase 7", "Phase 8"],
+            },
+        )
+
         with self.assertRaisesRegex(
             AuthoritySelectionError,
             "case_meta.json phase_gates must be a list of phase-gate names",
@@ -366,6 +378,26 @@ class ReferenceCaseResolutionTests(unittest.TestCase):
                 "phase_gate_selection": {
                     "selected_case_role": "R1-core",
                     "available_case_roles": ["R1-core", "R2"],
+                    "ordered_ladder": ["R2", "R1-core", "R1", "R0"],
+                },
+                "stages": [{"name": "transient_run", "cmd": "foamRun"}],
+            },
+        )
+
+    def test_stage_plan_validation_allows_documented_conditional_phase2_selection(self) -> None:
+        bundle = load_authority_bundle(repo_root())
+
+        validate_stage_plan(
+            bundle,
+            {
+                "schema_version": "1.0.0",
+                "case_id": "R1",
+                "frozen_id": "phase0_r1_57_28_1000_internal_v1",
+                "case_role": "R1",
+                "phase_gate": "Phase 2",
+                "phase_gate_selection": {
+                    "selected_case_role": "R1",
+                    "available_case_roles": ["R2", "R1-core", "R1"],
                     "ordered_ladder": ["R2", "R1-core", "R1", "R0"],
                 },
                 "stages": [{"name": "transient_run", "cmd": "foamRun"}],
