@@ -1222,7 +1222,7 @@ def _extract_available_commands(probe_payload: Mapping[str, Any]) -> dict[str, s
     for raw_name, raw_path in commands.items():
         name = str(raw_name).strip()
         if isinstance(raw_path, Mapping):
-            path = str(raw_path.get("path", "")).strip()
+            path = str(raw_path.get("path") or "").strip()
         else:
             path = str(raw_path).strip()
         if name and path:
