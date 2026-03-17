@@ -98,31 +98,37 @@ class SupportScannerTests(unittest.TestCase):
                 ),
                 SupportBoundaryCondition(
                     patch_role="Wall",
+                    patch_name="nozzleWall",
                     field="U",
                     kind="noSlip",
                 ),
                 SupportBoundaryCondition(
                     patch_role="Wall",
+                    patch_name="nozzleWall",
                     field="p_rgh",
                     kind="fixedFluxPressure",
                 ),
                 SupportBoundaryCondition(
                     patch_role="Wall",
+                    patch_name="nozzleWall",
                     field="alpha.water",
                     kind="zeroGradient",
                 ),
                 SupportBoundaryCondition(
                     patch_role="Ambient/open",
+                    patch_name="atmosphere",
                     field="U",
                     kind="pressureInletOutletVelocity",
                 ),
                 SupportBoundaryCondition(
                     patch_role="Ambient/open",
+                    patch_name="atmosphere",
                     field="p_rgh",
                     kind="prghPressure",
                 ),
                 SupportBoundaryCondition(
                     patch_role="Ambient/open",
+                    patch_name="atmosphere",
                     field="alpha.water",
                     kind="inletOutlet",
                 ),
@@ -322,6 +328,39 @@ class SupportScannerTests(unittest.TestCase):
         self.assertTrue(report.startup_allowed)
         self.assertEqual(report.reject_reasons, ())
 
+    def test_generic_phase5_inference_ignores_real_patch_names(self) -> None:
+        request = SupportScanRequest(
+            **{
+                **self.make_supported_request().__dict__,
+                "boundary_scope": "infer",
+                "boundary_conditions": (
+                    SupportBoundaryCondition(
+                        patch_role="wall",
+                        patch_name="wall1",
+                        field="U",
+                        kind="slip",
+                    ),
+                    SupportBoundaryCondition(
+                        patch_role="patch",
+                        patch_name="inlet",
+                        field="alpha.water",
+                        kind="fixedValue",
+                    ),
+                    SupportBoundaryCondition(
+                        patch_role="symmetryPlane",
+                        patch_name="symPlane1",
+                        field="U",
+                        kind="symmetryPlane",
+                    ),
+                ),
+            }
+        )
+
+        report = enforce_support_scan(self.bundle, request)
+
+        self.assertTrue(report.startup_allowed)
+        self.assertEqual(report.reject_reasons, ())
+
     def test_startup_seed_rejects_malformed_scalar_and_vector_values(self) -> None:
         request = SupportScanRequest(
             **{
@@ -486,6 +525,29 @@ class SupportScannerTests(unittest.TestCase):
         self.assertTrue(report.startup_allowed)
         self.assertEqual(report.reject_reasons, ())
 
+    def test_generic_phase5_boundary_rejections_point_to_generic_authority(self) -> None:
+        request = SupportScanRequest(
+            **{
+                **self.make_supported_request().__dict__,
+                "boundary_scope": "phase5_generic_vof",
+                "boundary_conditions": (
+                    SupportBoundaryCondition(
+                        patch_role="patch",
+                        field="U",
+                        kind="pressureInletOutletVelocity",
+                    ),
+                ),
+            }
+        )
+
+        with self.assertRaises(SupportScanRejected) as context:
+            enforce_support_scan(self.bundle, request)
+
+        self.assertEqual(
+            context.exception.report.reject_reasons[0]["citations"],
+            ["docs/authority/support_matrix.json#phase5_generic_vof_envelope"],
+        )
+
     def test_duplicate_alpha_alias_scheme_entries_are_rejected(self) -> None:
         request = SupportScanRequest(
             **{
@@ -530,6 +592,35 @@ class SupportScannerTests(unittest.TestCase):
         self.assertEqual(
             tuple(reason["code"] for reason in context.exception.report.reject_reasons),
             ("missing_boundary_condition",),
+        )
+
+    def test_restart_startup_seed_requires_force_reseed(self) -> None:
+        request = SupportScanRequest(
+            **{
+                **self.make_supported_request().__dict__,
+                "startup_seed": SupportStartupSeedSpec(
+                    enabled=True,
+                    force_reseed=False,
+                    is_restart=True,
+                    precedence="lastWins",
+                    default_field_values=(
+                        SupportStartupSeedFieldValue(
+                            value_class="volScalarFieldValue",
+                            field="alpha.water",
+                            value=1.0,
+                        ),
+                    ),
+                    regions=(),
+                ),
+            }
+        )
+
+        with self.assertRaises(SupportScanRejected) as context:
+            enforce_support_scan(self.bundle, request)
+
+        self.assertEqual(
+            tuple(reason["code"] for reason in context.exception.report.reject_reasons),
+            ("startup_seed_restart_requires_force_reseed",),
         )
 
 

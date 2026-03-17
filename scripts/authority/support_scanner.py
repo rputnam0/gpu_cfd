@@ -14,6 +14,7 @@ GLOBAL_POLICY_CITATION = "docs/authority/support_matrix.json#global_policy"
 SCHEME_CITATION = "docs/authority/support_matrix.json#exact_audited_scheme_tuple"
 FUNCTION_OBJECT_CITATION = "docs/authority/support_matrix.json#function_object_policy"
 BOUNDARY_CITATION = "docs/authority/support_matrix.json#phase6_nozzle_specific_envelope"
+GENERIC_BOUNDARY_CITATION = "docs/authority/support_matrix.json#phase5_generic_vof_envelope"
 STARTUP_SEED_CITATION = "docs/authority/support_matrix.json#startup_seed_dsl"
 BACKEND_CITATION = "docs/authority/support_matrix.json#backend_operational_policy"
 CONTINUITY_CITATION = "docs/authority/continuity_ledger.md#1-frozen-global-decisions"
@@ -63,6 +64,7 @@ class SupportStartupSeedSpec:
     enabled: bool
     force_reseed: bool
     precedence: str
+    is_restart: bool = False
     default_field_values: tuple[SupportStartupSeedFieldValue, ...] = ()
     regions: tuple[SupportStartupSeedRegion, ...] = ()
     extra_keys: tuple[str, ...] = ()
@@ -468,7 +470,7 @@ def _scan_phase5_generic_boundary_conditions(
                 SupportScanIssue(
                     code="unsupported_boundary_condition",
                     message="Boundary-condition patch family is not admitted for the frozen generic VOF envelope.",
-                    citations=(BOUNDARY_CITATION,),
+                    citations=(GENERIC_BOUNDARY_CITATION,),
                     detail={
                         "boundary_scope": "phase5_generic_vof",
                         "patch_role": condition.patch_role,
@@ -484,7 +486,7 @@ def _scan_phase5_generic_boundary_conditions(
                 SupportScanIssue(
                     code="unsupported_boundary_condition",
                     message="Boundary-condition kind is not admitted for the frozen generic VOF envelope.",
-                    citations=(BOUNDARY_CITATION,),
+                    citations=(GENERIC_BOUNDARY_CITATION,),
                     detail={
                         "boundary_scope": "phase5_generic_vof",
                         "patch_role": condition.patch_role,
@@ -588,6 +590,18 @@ def _scan_startup_seed(bundle: AuthorityBundle, request: SupportScanRequest) -> 
                 detail={"requested": spec.precedence},
             )
         )
+    if (
+        spec.is_restart
+        and seed_policy["application_policy"]["restart_reseed_requires_forceReseed"]
+        and not spec.force_reseed
+    ):
+        issues.append(
+            SupportScanIssue(
+                code="startup_seed_restart_requires_force_reseed",
+                message="Restart reseeding requires explicit forceReseed opt-in.",
+                citations=(STARTUP_SEED_CITATION,),
+            )
+        )
     for extra_key in spec.extra_keys:
         issues.append(
             SupportScanIssue(
@@ -688,7 +702,6 @@ def _resolve_boundary_scope(request: SupportScanRequest) -> str | None:
             "prghPressure",
             "inletOutlet",
         }
-        or condition.patch_name is not None
         for condition in request.boundary_conditions
     ):
         return "phase6_nozzle_specific"
@@ -700,7 +713,11 @@ def _required_phase6_boundary_rows(bundle: AuthorityBundle) -> set[tuple[str, st
     for row in bundle.support.raw["phase6_nozzle_specific_envelope"]:
         if row["patch_role"] == "Symmetry / empty":
             continue
-        for patch_name in _phase6_patch_names_for_role(row["patch_role"]):
+        patch_names = _phase6_patch_names_for_role(row["patch_role"])
+        if patch_names is None:
+            required_rows.add((row["patch_role"], "*", row["field"]))
+            continue
+        for patch_name in patch_names:
             required_rows.add((row["patch_role"], patch_name, row["field"]))
     return required_rows
 
@@ -710,6 +727,8 @@ def _phase6_boundary_coverage_key(
     row: dict[str, Any],
 ) -> tuple[str, str, str] | None:
     allowed_patch_names = _phase6_patch_names_for_role(row["patch_role"])
+    if allowed_patch_names is None:
+        return (row["patch_role"], "*", row["field"])
     patch_name = condition.patch_name
     if patch_name is None:
         if len(allowed_patch_names) == 1:
@@ -721,11 +740,10 @@ def _phase6_boundary_coverage_key(
     return (row["patch_role"], patch_name, row["field"])
 
 
-def _phase6_patch_names_for_role(patch_role: str) -> frozenset[str]:
+def _phase6_patch_names_for_role(patch_role: str) -> frozenset[str] | None:
     match = re.search(r"\(([^)]+)\)", patch_role)
     if not match:
-        normalized = patch_role.strip().replace("/", "_").replace(" ", "_").lower()
-        return frozenset({normalized})
+        return None
     raw_names = [name.strip() for name in match.group(1).split("/") if name.strip()]
     expanded_names: list[str] = []
     for index, raw_name in enumerate(raw_names):
