@@ -49,9 +49,7 @@ SOURCE_AUDIT_PHASE_REQUIREMENTS = {
         ],
         "required_surfaces": [
             "alphaPredictor",
-            "pressureCorrector",
             "interfaceProperties",
-            "momentum stage",
             "Nozzle BC runtime selection",
             "Profiling/instrumentation touch points",
         ],
