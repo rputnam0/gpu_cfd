@@ -20,6 +20,15 @@ SOURCE_AUDIT_TEMPLATE_PATH = pathlib.Path("docs/tasks/templates/source_audit_not
 SOURCE_AUDIT_AUTHORITY_PATH = "docs/authority/semantic_source_map.md"
 SOURCE_AUDIT_REVIEWED_STATUS = "reviewed"
 SOURCE_AUDIT_DEFAULT_RENDER_STATUS = "draft"
+SEMANTIC_SURFACE_ALIASES = {
+    "alphapredictor": "Alpha transport",
+    "alphatransport": "Alpha transport",
+    "momentumstage": "Momentum predictor",
+    "momentumpredictor": "Momentum predictor",
+    "pressurecorrector": "Pressure corrector",
+    "interfaceproperties": "Interface properties",
+    "surfacetensionmodel": "Interface properties",
+}
 
 
 @dataclass(frozen=True)
@@ -35,7 +44,7 @@ def resolve_source_audit_surfaces(
     bundle: AuthorityBundle,
     contract_surfaces: list[str] | tuple[str, ...],
 ) -> tuple[ResolvedSourceAuditSurface, ...]:
-    normalized_surfaces = _normalize_requested_surfaces(contract_surfaces)
+    normalized_surfaces = _normalize_requested_surfaces(bundle, contract_surfaces)
     available_surfaces = bundle.semantic_source_map.entries_by_surface
     unknown_surfaces = sorted(
         surface for surface in normalized_surfaces if surface not in available_surfaces
@@ -160,18 +169,32 @@ def validate_source_audit_note(
 
 
 def _normalize_requested_surfaces(
+    bundle: AuthorityBundle,
     contract_surfaces: list[str] | tuple[str, ...],
 ) -> tuple[str, ...]:
     normalized: list[str] = []
+    canonical_by_key = {
+        _normalize_surface_key(surface): surface
+        for surface in bundle.semantic_source_map.entries_by_surface
+    }
     for surface in contract_surfaces:
         cleaned = str(surface).strip()
         if not cleaned:
             continue
+        normalized_key = _normalize_surface_key(cleaned)
+        cleaned = canonical_by_key.get(
+            normalized_key,
+            SEMANTIC_SURFACE_ALIASES.get(normalized_key, cleaned),
+        )
         if cleaned not in normalized:
             normalized.append(cleaned)
     if not normalized:
         raise ValueError("at least one semantic contract surface is required")
     return tuple(normalized)
+
+
+def _normalize_surface_key(value: str) -> str:
+    return re.sub(r"[^a-z0-9]+", "", value.lower())
 
 
 def _extract_review_status(note_text: str) -> str | None:

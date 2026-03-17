@@ -179,6 +179,16 @@ class CodexDispatchTests(unittest.TestCase):
         )
         self.assertFalse(
             codex_dispatch.task_requires_source_audit_gate(
+                {"pr_id": "P4-01", "card_markdown": "No explicit marker repeated here."}
+            )
+        )
+        self.assertFalse(
+            codex_dispatch.task_requires_source_audit_gate(
+                {"pr_id": "P6-02", "card_markdown": "No explicit marker repeated here."}
+            )
+        )
+        self.assertFalse(
+            codex_dispatch.task_requires_source_audit_gate(
                 {"pr_id": "P5-01", "card_markdown": "Source-audit note producer."}
             )
         )

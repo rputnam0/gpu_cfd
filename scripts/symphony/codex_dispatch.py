@@ -468,7 +468,7 @@ def task_requires_source_audit_gate(pr_context: dict[str, Any] | None) -> bool:
     if pr_id in SOURCE_AUDIT_EXEMPT_TASK_IDS:
         return False
     phase_match = re.match(r"^P(?P<phase>\d+)-", pr_id)
-    if phase_match and int(phase_match.group("phase")) in {4, 5, 6, 7}:
+    if phase_match and int(phase_match.group("phase")) in {5, 7}:
         return True
     card_markdown = str(pr_context.get("card_markdown") or "")
     normalized_markdown = card_markdown.lower()

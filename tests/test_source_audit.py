@@ -35,6 +35,24 @@ class SourceAuditHelperTests(unittest.TestCase):
         self.assertEqual(resolved[0].ownership_scope, "alphaPredictor.C")
         self.assertEqual(resolved[1].ownership_scope, "pressureCorrector.C")
 
+    def test_resolve_source_audit_surfaces_accepts_phase_doc_aliases(self) -> None:
+        bundle = load_authority_bundle(repo_root())
+
+        resolved = resolve_source_audit_surfaces(
+            bundle,
+            ["alphaPredictor", "pressureCorrector", "interfaceProperties", "momentum stage"],
+        )
+
+        self.assertEqual(
+            [entry.contract_surface for entry in resolved],
+            [
+                "Alpha transport",
+                "Pressure corrector",
+                "Interface properties",
+                "Momentum predictor",
+            ],
+        )
+
     def test_render_source_audit_note_includes_reviewable_fields(self) -> None:
         bundle = load_authority_bundle(repo_root())
 
