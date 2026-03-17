@@ -93,8 +93,11 @@ Execution contract:
 - Use the issue branch name when available; otherwise create a `codex/` branch derived from the issue identifier.
 - Run the smallest relevant validation first, then broader checks when the scope requires it.
 - When the task is implementation-complete, commit and push the branch, record validation evidence in the workpad, then run `python3 scripts/symphony/pr_handoff.py --workspace "$PWD"`.
+- Run the handoff helper from the issue workspace directly. If the workspace still contains unrelated dirty control-plane files, the helper materializes its own clean committed clone for local review and PR automation; do not invent a manual clean-clone workflow.
 - The Symphony workflow configuration for this repo applies to the implementation worker only. The local pre-PR review pass uses the repo-owned review profile in `scripts/symphony/runtime_config.toml` (`gpt-5.4` with `xhigh`).
-- If the handoff helper reports findings, inspect the latest artifact under `.codex/review_artifacts/`, fix the valid findings in the same run, rerun the smallest relevant validation, and rerun the handoff helper once.
+- If the handoff helper reports findings, inspect the latest artifact under `.codex/review_artifacts/`, fix the valid findings in the same implementation run, rerun the smallest relevant validation, and rerun the handoff helper.
+- The handoff helper parks unresolved pre-PR local-review work in `Ready to Merge` so Symphony does not redispatch a fresh implementation worker while you are still fixing findings on the current branch.
+- Cap the local-review remediation loop at 3 handoff review rounds total. If the third round still reports findings, stop, leave the issue parked in `Ready to Merge`, and record the blocker clearly in the Linear workpad for operator follow-up.
 - When the handoff helper succeeds, it opens or updates the GitHub PR, enables auto-merge, moves the issue to `In Review`, and the run should stop after you update the workpad with the PR URL.
 - `In Review` is a dormant automated-review state. Do not wait, poll, or sleep for Devin.
 - GitHub automation owns the `In Review -> Rework` transition when Devin leaves actionable feedback on the current head.

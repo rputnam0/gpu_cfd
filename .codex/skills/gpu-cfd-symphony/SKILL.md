@@ -49,9 +49,16 @@ repository's authority docs, backlog dependencies, and PR-card scope.
 7. Run the smallest direct validation first, then any broader checks required by the card.
 8. When implementation or rework is ready for review, commit and push the branch, then run
    `python3 scripts/symphony/pr_handoff.py --workspace "$PWD"`.
+   Run that helper from the issue workspace directly. If the workspace still has unrelated dirty
+   control-plane files, the helper creates its own clean committed review clone; do not invent a
+   separate manual clean-clone workflow.
 9. If the handoff helper reports findings, inspect the latest artifact under
-   `.codex/review_artifacts/`, fix the valid findings in the same run, rerun targeted validation,
-   and rerun the handoff helper once.
+   `.codex/review_artifacts/`, fix the valid findings in the same implementation run, rerun
+   targeted validation, and rerun the handoff helper.
+   The helper parks unresolved local-review work in `Ready to Merge` so Symphony does not spawn a
+   fresh implementation worker while you are still fixing the branch.
+   Cap this local-review remediation loop at 3 review rounds total; if the third round still
+   reports findings, stop and leave the issue parked with clear blocker notes in the workpad.
 10. When the handoff helper succeeds, it opens or updates the PR, enables GitHub auto-merge, moves
    the issue to `In Review`, and you should stop after you update the workpad with the PR URL.
 11. `In Review` is a dormant automated-review queue. Do not wait or poll from the worker.

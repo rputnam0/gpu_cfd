@@ -48,10 +48,13 @@ class ProgressiveDisclosureContractTests(unittest.TestCase):
         self.assertNotIn("3. `docs/tasks/pr_inventory.md`", workflow_text)
         self.assertIn("use `docs/tasks/pr_inventory.md` as the fallback map", workflow_text)
         self.assertIn("Write or update the canonical Linear workpad", workflow_text)
+        self.assertIn("Ready to Merge", workflow_text)
+        self.assertIn("Cap the local-review remediation loop at 3", workflow_text)
         self.assertNotIn("README_FIRST", workflow_text)
         self.assertIn("1. Open `AGENTS.md`.", skill_text)
         self.assertNotIn("2. Open `docs/tasks/pr_inventory.md`.", skill_text)
         self.assertIn("use `docs/tasks/pr_inventory.md` as the fallback map", skill_text)
+        self.assertIn("Ready to Merge", skill_text)
         self.assertNotIn("README_FIRST", skill_text)
 
     def test_repo_docs_no_longer_reference_readme_first(self) -> None:

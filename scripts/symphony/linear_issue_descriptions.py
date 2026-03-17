@@ -143,6 +143,7 @@ def render_issue_description(
         "## Board gate\n\n"
         "* Keep this issue in `Backlog` until all Linear blockers are `Done`, then move it to `Todo`.\n"
         "* Move to `In Progress` only after implementation begins on a branch.\n"
+        "* If pre-PR local review findings remain, `scripts/symphony/pr_handoff.py` parks the issue in `Ready to Merge` while the current worker fixes them; Symphony must not redispatch a fresh implementation worker from that state.\n"
         f"* Section: {metadata.section_label}\n"
         f"* Canonical backlog dependencies: {format_dependencies(metadata.depends_on)}\n"
         f"* Linear issue identifier: `{issue_identifier}`\n\n"
