@@ -332,6 +332,30 @@ class ReferenceCaseResolutionTests(unittest.TestCase):
         ):
             validate_case_meta(bundle, payload)
 
+    def test_case_meta_validation_allows_r2_to_omit_nozzle_only_fields(self) -> None:
+        bundle = load_authority_bundle(repo_root())
+
+        validate_case_meta(
+            bundle,
+            sample_case_meta_payload(
+                bundle,
+                case_role="R2",
+                overrides={
+                    "resolved_direct_slot_numerics": None,
+                    "startup_fill_extension_d": None,
+                    "air_core_seed_radius_d_requested": None,
+                    "air_core_seed_radius_m_resolved": None,
+                    "air_core_seed_cap_applied": None,
+                    "fill_radius_m_resolved": None,
+                    "fill_z_start_m": None,
+                    "fill_z_stop_m": None,
+                    "DeltaP_Pa": None,
+                    "DeltaP_effective_Pa": None,
+                    "check_valve_loss_applied": None,
+                },
+            ),
+        )
+
     def test_stage_plan_schema_and_validation_enforce_phase_gate_selection(self) -> None:
         bundle = load_authority_bundle(repo_root())
         schema = stage_plan_schema(bundle)

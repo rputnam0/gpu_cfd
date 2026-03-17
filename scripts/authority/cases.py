@@ -232,17 +232,17 @@ def case_meta_schema(bundle: AuthorityBundle) -> dict[str, Any]:
             "end_time_s": {"type": "number"},
             "max_co": {"type": "number"},
             "max_alpha_co": {"type": "number"},
-            "resolved_direct_slot_numerics": {"type": "object", "minProperties": 1},
-            "startup_fill_extension_d": {"type": "number"},
-            "air_core_seed_radius_d_requested": {"type": "number"},
-            "air_core_seed_radius_m_resolved": {"type": "number"},
-            "air_core_seed_cap_applied": {"type": "boolean"},
-            "fill_radius_m_resolved": {"type": "number"},
-            "fill_z_start_m": {"type": "number"},
-            "fill_z_stop_m": {"type": "number"},
-            "DeltaP_Pa": {"type": "number"},
-            "DeltaP_effective_Pa": {"type": "number"},
-            "check_valve_loss_applied": {"type": "boolean"},
+            "resolved_direct_slot_numerics": {"type": ["object", "null"]},
+            "startup_fill_extension_d": {"type": ["number", "null"]},
+            "air_core_seed_radius_d_requested": {"type": ["number", "null"]},
+            "air_core_seed_radius_m_resolved": {"type": ["number", "null"]},
+            "air_core_seed_cap_applied": {"type": ["boolean", "null"]},
+            "fill_radius_m_resolved": {"type": ["number", "null"]},
+            "fill_z_start_m": {"type": ["number", "null"]},
+            "fill_z_stop_m": {"type": ["number", "null"]},
+            "DeltaP_Pa": {"type": ["number", "null"]},
+            "DeltaP_effective_Pa": {"type": ["number", "null"]},
+            "check_valve_loss_applied": {"type": ["boolean", "null"]},
             "provenance": {
                 "type": "object",
                 "required": list(REQUIRED_PROVENANCE_FIELDS),
@@ -378,14 +378,6 @@ def validate_case_meta(bundle: AuthorityBundle, payload: dict[str, Any]) -> dict
         "end_time_s",
         "max_co",
         "max_alpha_co",
-        "startup_fill_extension_d",
-        "air_core_seed_radius_d_requested",
-        "air_core_seed_radius_m_resolved",
-        "fill_radius_m_resolved",
-        "fill_z_start_m",
-        "fill_z_stop_m",
-        "DeltaP_Pa",
-        "DeltaP_effective_Pa",
     ):
         _validate_numeric_field(payload, field_name, artifact_name=CANONICAL_CASE_META_NAME)
     for field_name in ("near_field_radius_d", "near_field_length_d"):
@@ -394,13 +386,48 @@ def validate_case_meta(bundle: AuthorityBundle, payload: dict[str, Any]) -> dict
         _validate_optional_integer_field(payload, field_name, artifact_name=CANONICAL_CASE_META_NAME)
     for field_name in ("steady_turbulence_model", "vof_turbulence_model"):
         _validate_optional_string_field(payload, field_name, artifact_name=CANONICAL_CASE_META_NAME)
-    for field_name in ("air_core_seed_cap_applied", "check_valve_loss_applied"):
-        _validate_boolean_field(payload, field_name, artifact_name=CANONICAL_CASE_META_NAME)
-    _validate_mapping_field(
-        payload,
-        "resolved_direct_slot_numerics",
-        artifact_name=CANONICAL_CASE_META_NAME,
-    )
+    if resolved_case.case_role == "R2":
+        for field_name in (
+            "startup_fill_extension_d",
+            "air_core_seed_radius_d_requested",
+            "air_core_seed_radius_m_resolved",
+            "fill_radius_m_resolved",
+            "fill_z_start_m",
+            "fill_z_stop_m",
+            "DeltaP_Pa",
+            "DeltaP_effective_Pa",
+        ):
+            _validate_optional_numeric_field(payload, field_name, artifact_name=CANONICAL_CASE_META_NAME)
+        for field_name in ("air_core_seed_cap_applied", "check_valve_loss_applied"):
+            _validate_optional_boolean_field(
+                payload,
+                field_name,
+                artifact_name=CANONICAL_CASE_META_NAME,
+            )
+        _validate_optional_mapping_field(
+            payload,
+            "resolved_direct_slot_numerics",
+            artifact_name=CANONICAL_CASE_META_NAME,
+        )
+    else:
+        for field_name in (
+            "startup_fill_extension_d",
+            "air_core_seed_radius_d_requested",
+            "air_core_seed_radius_m_resolved",
+            "fill_radius_m_resolved",
+            "fill_z_start_m",
+            "fill_z_stop_m",
+            "DeltaP_Pa",
+            "DeltaP_effective_Pa",
+        ):
+            _validate_numeric_field(payload, field_name, artifact_name=CANONICAL_CASE_META_NAME)
+        for field_name in ("air_core_seed_cap_applied", "check_valve_loss_applied"):
+            _validate_boolean_field(payload, field_name, artifact_name=CANONICAL_CASE_META_NAME)
+        _validate_mapping_field(
+            payload,
+            "resolved_direct_slot_numerics",
+            artifact_name=CANONICAL_CASE_META_NAME,
+        )
     _validate_provenance_payload(payload, artifact_name=CANONICAL_CASE_META_NAME)
 
     return payload
@@ -827,12 +854,20 @@ def emit_case_bundle(
         "baseline",
         "runtime_base",
         "reviewed_source_tuple_id",
-        "provenance",
     ):
         if validated_case_meta[field_name] != validated_stage_plan[field_name]:
             raise AuthoritySelectionError(
                 f"case bundle {field_name} mismatch between {CANONICAL_CASE_META_NAME} "
                 f"and {CANONICAL_STAGE_PLAN_NAME}"
+            )
+    for field_name in REQUIRED_PROVENANCE_FIELDS:
+        if (
+            validated_case_meta["provenance"][field_name]
+            != validated_stage_plan["provenance"][field_name]
+        ):
+            raise AuthoritySelectionError(
+                f"case bundle provenance {field_name} mismatch between "
+                f"{CANONICAL_CASE_META_NAME} and {CANONICAL_STAGE_PLAN_NAME}"
             )
 
     target_dir = pathlib.Path(output_dir)
@@ -1074,6 +1109,18 @@ def _validate_boolean_field(
         raise AuthoritySelectionError(f"{artifact_name} {field_name} must be a boolean")
 
 
+def _validate_optional_boolean_field(
+    payload: Mapping[str, Any],
+    field_name: str,
+    *,
+    artifact_name: str,
+) -> None:
+    value = payload.get(field_name)
+    if value is None:
+        return
+    _validate_boolean_field(payload, field_name, artifact_name=artifact_name)
+
+
 def _validate_int_enum_field(
     payload: Mapping[str, Any],
     field_name: str,
@@ -1097,6 +1144,18 @@ def _validate_mapping_field(
     value = payload.get(field_name)
     if not isinstance(value, dict) or not value:
         raise AuthoritySelectionError(f"{artifact_name} {field_name} must be a non-empty object")
+
+
+def _validate_optional_mapping_field(
+    payload: Mapping[str, Any],
+    field_name: str,
+    *,
+    artifact_name: str,
+) -> None:
+    value = payload.get(field_name)
+    if value is None:
+        return
+    _validate_mapping_field(payload, field_name, artifact_name=artifact_name)
 
 
 def _validate_string_mapping_field(
