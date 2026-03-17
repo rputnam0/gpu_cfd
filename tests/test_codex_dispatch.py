@@ -98,30 +98,32 @@ class CodexDispatchTests(unittest.TestCase):
         self.assertEqual(snapshot["title"], "FND-04 override")
         self.assertEqual(snapshot["description"], "override payload")
 
-    def test_enforce_source_audit_gate_rejects_missing_workpad_metadata(self) -> None:
-        pr_context = {
-            "pr_id": "P5-02",
-            "card_markdown": "Cites docs/authority/semantic_source_map.md for implementation.",
-        }
-
+    def test_enforce_source_audit_gate_rejects_missing_required_note_file(self) -> None:
         with self.assertRaisesRegex(
             codex_dispatch.DispatchError,
-            "implementation planning requires a reviewed source-audit note",
+            "required reviewed source-audit note phase5_symbol_reconciliation.md was not found",
         ):
             codex_dispatch.enforce_source_audit_gate(
                 self.repo_root(),
-                pr_context,
-                None,
+                {
+                    "pr_id": "P5-02",
+                    "card_markdown": "Phase 5 consumer.",
+                },
             )
 
-    def test_enforce_source_audit_gate_accepts_reviewed_note_metadata(self) -> None:
+    def test_enforce_source_audit_gate_accepts_required_phase5_note(self) -> None:
         bundle = load_authority_bundle(self.repo_root())
         note_text = render_source_audit_note(
             bundle,
-            touched_surfaces=["Alpha transport"],
+            touched_surfaces=[
+                "alphaPredictor",
+                "pressureCorrector",
+                "interfaceProperties",
+                "momentum stage",
+            ],
             review_status="reviewed",
         )
-        note_path = self.repo_root() / "phase5_source_audit_note.md"
+        note_path = self.repo_root() / "phase5_symbol_reconciliation.md"
         note_path.write_text(note_text, encoding="utf-8")
         self.addCleanup(note_path.unlink)
 
@@ -129,39 +131,16 @@ class CodexDispatchTests(unittest.TestCase):
             self.repo_root(),
             {
                 "pr_id": "P5-02",
-                "card_markdown": "Prerequisites: patch-target reconciliation is frozen before implementation proceeds.",
-            },
-            {
-                "body": "\n".join(
-                    [
-                        "- Source audit note: phase5_source_audit_note.md",
-                        "- Touched semantic surfaces: Alpha transport",
-                    ]
-                )
+                "card_markdown": "Phase 5 consumer.",
             },
         )
 
-    def test_parse_source_audit_gate_inputs_prefers_latest_metadata_lines(self) -> None:
-        note_path, surfaces = codex_dispatch.parse_source_audit_gate_inputs(
-            "\n".join(
-                [
-                    "- Source audit note: old_note.md",
-                    "- Touched semantic surfaces: Alpha transport",
-                    "- Source audit note: new_note.md",
-                    "- Touched semantic surfaces: Pressure corrector; Pressure bridge",
-                ]
-            )
-        )
-
-        self.assertEqual(note_path, "new_note.md")
-        self.assertEqual(surfaces, ["Pressure corrector", "Pressure bridge"])
-
-    def test_task_requires_source_audit_gate_detects_reconciliation_prerequisites(self) -> None:
+    def test_task_requires_source_audit_gate_detects_phase_consumers(self) -> None:
         self.assertTrue(
             codex_dispatch.task_requires_source_audit_gate(
                 {
                     "pr_id": "P5-02",
-                    "card_markdown": "Prerequisites: patch-target reconciliation is frozen before implementation proceeds.",
+                    "card_markdown": "Phase 5 consumer.",
                 }
             )
         )
@@ -190,6 +169,11 @@ class CodexDispatchTests(unittest.TestCase):
         self.assertFalse(
             codex_dispatch.task_requires_source_audit_gate(
                 {"pr_id": "P5-01", "card_markdown": "Source-audit note producer."}
+            )
+        )
+        self.assertFalse(
+            codex_dispatch.task_requires_source_audit_gate(
+                {"pr_id": "P7-01", "card_markdown": "Source-audit note producer."}
             )
         )
 
@@ -329,7 +313,6 @@ class CodexDispatchTests(unittest.TestCase):
                     return_value={"identifier": "PRO-17", "title": "P4-08", "state": {"name": "Todo"}},
                 ) as mock_fetch_issue,
                 mock.patch.object(codex_dispatch, "resolve_pr_context", return_value=None),
-                mock.patch.object(codex_dispatch, "find_workpad_snapshot", return_value=None),
                 mock.patch.object(codex_dispatch, "enforce_source_audit_gate") as mock_gate,
                 mock.patch.object(
                     codex_dispatch.runtime_config,

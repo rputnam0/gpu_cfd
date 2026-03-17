@@ -30,14 +30,28 @@ INLINE_REPO_PATH_PATTERN = re.compile(
 ISSUE_SNAPSHOT_PATH_ENV = "GPU_CFD_TRACE_ISSUE_SNAPSHOT_PATH"
 WORKPAD_SNAPSHOT_PATH_ENV = "GPU_CFD_TRACE_WORKPAD_SNAPSHOT_PATH"
 SOURCE_AUDIT_EXEMPT_TASK_IDS = {"FND-07", "P5-01", "P7-01"}
-SOURCE_AUDIT_NOTE_PATTERN = re.compile(
-    r"^- Source audit note:\s*(?P<path>.+?)\s*$",
-    re.MULTILINE,
-)
-SOURCE_AUDIT_SURFACES_PATTERN = re.compile(
-    r"^- Touched semantic surfaces:\s*(?P<surfaces>.+?)\s*$",
-    re.MULTILINE,
-)
+SOURCE_AUDIT_PHASE_REQUIREMENTS = {
+    "P5": {
+        "note_filename": "phase5_symbol_reconciliation.md",
+        "required_surfaces": [
+            "alphaPredictor",
+            "pressureCorrector",
+            "interfaceProperties",
+            "momentum stage",
+        ],
+    },
+    "P7": {
+        "note_filename": "phase7_source_audit.md",
+        "required_surfaces": [
+            "alphaPredictor",
+            "pressureCorrector",
+            "interfaceProperties",
+            "momentum stage",
+            "Nozzle BC runtime selection",
+            "Profiling/instrumentation touch points",
+        ],
+    },
+}
 
 
 class DispatchError(RuntimeError):
@@ -468,70 +482,61 @@ def task_requires_source_audit_gate(pr_context: dict[str, Any] | None) -> bool:
     if pr_id in SOURCE_AUDIT_EXEMPT_TASK_IDS:
         return False
     phase_match = re.match(r"^P(?P<phase>\d+)-", pr_id)
-    if phase_match and int(phase_match.group("phase")) in {5, 7}:
-        return True
-    card_markdown = str(pr_context.get("card_markdown") or "")
-    normalized_markdown = card_markdown.lower()
-    required_markers = (
-        "semantic_source_map.md",
-        "fnd-07 semantic source-audit helper",
-        "source-audit helper outputs",
-        "source-audit note",
-        "patch-target reconciliation",
-        "symbol reconciliation",
+    if not phase_match:
+        return False
+    phase_prefix = f"P{phase_match.group('phase')}"
+    if phase_prefix not in SOURCE_AUDIT_PHASE_REQUIREMENTS:
+        return False
+    index_match = re.match(r"^P\d+-(?P<index>\d+)$", pr_id)
+    if not index_match:
+        return False
+    return int(index_match.group("index")) >= 2
+
+
+def resolve_source_audit_requirement(pr_context: dict[str, Any]) -> dict[str, Any]:
+    pr_id = str(pr_context.get("pr_id") or "").upper()
+    phase_match = re.match(r"^P(?P<phase>\d+)-", pr_id)
+    if not phase_match:
+        raise DispatchError(f"cannot infer source-audit requirement for task {pr_id}")
+    phase_prefix = f"P{phase_match.group('phase')}"
+    requirement = SOURCE_AUDIT_PHASE_REQUIREMENTS.get(phase_prefix)
+    if requirement is None:
+        raise DispatchError(f"no source-audit requirement configured for task {pr_id}")
+    return requirement
+
+
+def find_source_audit_note(repo: pathlib.Path, note_filename: str) -> pathlib.Path:
+    matches = sorted(
+        path
+        for path in repo.rglob(note_filename)
+        if ".git" not in path.parts
     )
-    return any(marker in normalized_markdown for marker in required_markers)
-
-
-def parse_source_audit_gate_inputs(workpad_body: str) -> tuple[str | None, list[str]]:
-    note_matches = list(SOURCE_AUDIT_NOTE_PATTERN.finditer(workpad_body))
-    surface_matches = list(SOURCE_AUDIT_SURFACES_PATTERN.finditer(workpad_body))
-    note_path = note_matches[-1].group("path").strip() if note_matches else None
-    if not surface_matches:
-        return note_path, []
-    surfaces_match = surface_matches[-1]
-    surfaces = [
-        item.strip()
-        for item in re.split(r",|;", surfaces_match.group("surfaces"))
-        if item.strip()
-    ]
-    return note_path, surfaces
+    if not matches:
+        raise DispatchError(
+            f"required reviewed source-audit note {note_filename} was not found in the repo"
+        )
+    if len(matches) > 1:
+        raise DispatchError(
+            f"required reviewed source-audit note {note_filename} is ambiguous: "
+            + ", ".join(path.as_posix() for path in matches)
+        )
+    return matches[0]
 
 
 def enforce_source_audit_gate(
     repo: pathlib.Path,
     pr_context: dict[str, Any] | None,
-    workpad_comment: dict[str, Any] | None,
 ) -> None:
     if not task_requires_source_audit_gate(pr_context):
         return
-    if workpad_comment is None:
-        raise DispatchError(
-            "implementation planning requires a reviewed source-audit note. "
-            "Update the canonical workpad with '- Source audit note: <repo path>' and "
-            "'- Touched semantic surfaces: <surface list>' before dispatch."
-        )
-
-    workpad_body = str(workpad_comment.get("body") or "")
-    note_path_raw, touched_surfaces = parse_source_audit_gate_inputs(workpad_body)
-    if not note_path_raw or not touched_surfaces:
-        raise DispatchError(
-            "implementation planning requires source-audit gate metadata in the canonical workpad. "
-            "Record both '- Source audit note: <repo path>' and "
-            "'- Touched semantic surfaces: <surface list>' before dispatch."
-        )
-
-    note_path = resolve_repo_path(repo, note_path_raw)
-    if note_path is None or not note_path.exists():
-        raise DispatchError(
-            f"source-audit note path must resolve inside the repo and exist: {note_path_raw}"
-        )
-
+    assert pr_context is not None
+    requirement = resolve_source_audit_requirement(pr_context)
+    note_path = find_source_audit_note(repo, str(requirement["note_filename"]))
     bundle = load_authority_bundle(repo)
     validate_source_audit_note(
         bundle,
         note_text=read_text(note_path),
-        touched_surfaces=touched_surfaces,
+        touched_surfaces=list(requirement["required_surfaces"]),
     )
 
 
@@ -708,7 +713,6 @@ def main() -> int:
     enforce_source_audit_gate(
         repo,
         resolve_pr_context(repo, issue_payload),
-        find_workpad_snapshot(issue_identifier),
     )
 
     codex_args = args.codex_args or ["app-server"]
