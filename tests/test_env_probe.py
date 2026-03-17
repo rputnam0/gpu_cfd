@@ -206,6 +206,113 @@ class OpenFOAMBaselineProbeTests(unittest.TestCase):
             probe_payload["commands"]["foamRun"]["path"],
             "/opt/openfoam-v2412/bin/foamRun",
         )
+        self.assertEqual(probe_payload["status"], "ok")
+
+    def test_probe_openfoam_baselines_reuses_foundation_host_validation(self) -> None:
+        bundle = load_authority_bundle(repo_root())
+        host_observations = sample_host_observations()
+        host_observations.pop("gpu_query")
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            report = probe_openfoam_baselines(
+                bundle,
+                output_dir=temp_dir,
+                baselines={
+                    "Baseline A": BaselineProbeRequest(
+                        lane="primary",
+                        runtime_base="OpenFOAM 12",
+                        bashrc_path="/envs/baseline-a/etc/bashrc",
+                        host_observations=host_observations,
+                        local_mirror_refs=sample_local_mirror_refs(),
+                        command_paths=sample_commands(),
+                        openfoam_env={
+                            "WM_PROJECT": "OpenFOAM",
+                            "WM_PROJECT_VERSION": "12",
+                            "WM_OPTIONS": "linux64GccDPInt32Opt",
+                        },
+                    ),
+                },
+            )
+
+        baseline_a = report.records["Baseline A"]
+        self.assertEqual(baseline_a["status"], "diagnostic")
+        self.assertTrue(
+            any("missing required host observation" in diagnostic for diagnostic in baseline_a["diagnostics"])
+        )
+        self.assertNotIn("host_env", baseline_a)
+        self.assertEqual(baseline_a["artifacts"], {})
+
+    def test_probe_openfoam_baselines_infers_frozen_tuple_without_runtime_base(self) -> None:
+        bundle = load_authority_bundle(repo_root())
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            report = probe_openfoam_baselines(
+                bundle,
+                output_dir=temp_dir,
+                baselines={
+                    "Baseline B": BaselineProbeRequest(
+                        lane="experimental",
+                        bashrc_path="/envs/baseline-b/etc/bashrc",
+                        host_observations=sample_host_observations(lane="experimental"),
+                        local_mirror_refs=sample_local_mirror_refs(),
+                        repo_commit="def456abc123",
+                        command_paths=sample_commands(),
+                        openfoam_env={
+                            "WM_PROJECT": "OpenFOAM",
+                            "WM_PROJECT_VERSION": "v2412",
+                            "WM_OPTIONS": "linux64ClangDPInt32Opt",
+                        },
+                    ),
+                },
+            )
+
+        baseline_b = report.records["Baseline B"]
+        self.assertEqual(
+            baseline_b["host_env"]["runtime_base"],
+            "exaFOAM/SPUMA 0.1-v2412",
+        )
+        self.assertEqual(
+            baseline_b["host_env"]["reviewed_source_tuple_id"],
+            "SRC_SPUMA_V2412_AD2A_FES_MAIN_AMGX_2_5_0",
+        )
+        self.assertEqual(
+            baseline_b["manifest_refs"]["required_revalidation"],
+            [
+                "Phase 1 smoke/build lane on the primary toolkit.",
+                "Phase 3 `async_no_graph` and `graph_fixed` smoke coverage.",
+                "Phase 5 `R1-core` native baseline.",
+                "Phase 8 baseline timeline acceptance on `R1` and `R0`.",
+            ],
+        )
+
+    def test_probe_openfoam_baselines_does_not_match_openfoam12_to_frozen_v2412(self) -> None:
+        bundle = load_authority_bundle(repo_root())
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            report = probe_openfoam_baselines(
+                bundle,
+                output_dir=temp_dir,
+                baselines={
+                    "Baseline A": BaselineProbeRequest(
+                        lane="primary",
+                        runtime_base="exaFOAM/SPUMA 0.1-v2412",
+                        bashrc_path="/envs/baseline-a/etc/bashrc",
+                        host_observations=sample_host_observations(),
+                        local_mirror_refs=sample_local_mirror_refs(),
+                        repo_commit="abc123def456",
+                        command_paths=sample_commands(),
+                        openfoam_env={
+                            "WM_PROJECT": "OpenFOAM",
+                            "WM_PROJECT_VERSION": "12",
+                            "WM_OPTIONS": "linux64GccDPInt32Opt",
+                        },
+                    ),
+                },
+            )
+
+        baseline_a = report.records["Baseline A"]
+        self.assertIsNone(baseline_a["host_env"]["reviewed_source_tuple_id"])
+        self.assertIsNone(baseline_a["manifest_refs"]["reviewed_source_tuple_id"])
 
     def test_probe_openfoam_baselines_records_missing_activation_diagnostic(self) -> None:
         bundle = load_authority_bundle(repo_root())

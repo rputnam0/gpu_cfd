@@ -10,6 +10,7 @@ from typing import Any, Mapping
 
 from .bundle import AuthorityBundle, AuthorityConflictError
 from .pins import (
+    _validate_host_observations,
     CANONICAL_HOST_ENV_NAME,
     CANONICAL_MANIFEST_REFS_NAME,
     COMPATIBILITY_ALIASES,
@@ -97,7 +98,13 @@ def _probe_baseline(
     commands = _normalize_commands(request.command_paths or {}, diagnostics)
     library_hints = _normalize_library_hints(request.library_hints or {})
     openfoam_env = _normalize_openfoam_env(request.openfoam_env or {}, diagnostics)
-    runtime_base = _resolve_runtime_base(request.runtime_base, openfoam_env)
+    local_mirror_refs = _normalize_local_mirror_refs(request.local_mirror_refs or {})
+    runtime_base = _resolve_runtime_base(
+        request.runtime_base,
+        openfoam_env,
+        pin_details=pin_details,
+        local_mirror_refs=local_mirror_refs,
+    )
     bashrc_path = _normalize_optional_string(request.bashrc_path)
 
     record: dict[str, Any] = {
@@ -131,9 +138,9 @@ def _probe_baseline(
 
     baseline_dir = output_root / _baseline_dir_name(baseline_name)
     baseline_dir.mkdir(parents=True, exist_ok=True)
-    local_mirror_refs = _normalize_local_mirror_refs(request.local_mirror_refs or {})
     try:
         host_observations = normalize_host_observations(dict(request.host_observations or {}))
+        _validate_host_observations(pin_details, host_observations, lane=request.lane)
         repo_git_commit = resolve_repo_git_commit(bundle.root, repo_commit=request.repo_commit)
         host_env_manifest = _build_host_env_manifest(
             bundle,
@@ -180,6 +187,7 @@ def _probe_baseline(
         runtime_base=runtime_base,
         openfoam_release=openfoam_env.get("WM_PROJECT_VERSION"),
     )
+    probe_payload["status"] = "ok" if not diagnostics else "diagnostic"
     probe_path = baseline_dir / PROBE_ARTIFACT_NAME
     write_json(probe_path, probe_payload)
 
@@ -197,7 +205,6 @@ def _probe_baseline(
         },
     }
     record["status"] = "ok" if not diagnostics else "diagnostic"
-    record["probe"]["status"] = record["status"]
     return record
 
 
@@ -354,17 +361,32 @@ def _release_matches_pin_details(
     normalized_frozen = _normalize_optional_string(frozen_release)
     if not normalized_observed or not normalized_frozen:
         return False
-    sanitized_observed = _sanitize_release_token(normalized_observed)
-    sanitized_frozen = _sanitize_release_token(normalized_frozen)
-    return (
-        sanitized_observed == sanitized_frozen
-        or sanitized_frozen.endswith(sanitized_observed)
-        or sanitized_observed.endswith(sanitized_frozen)
+    observed_version = _extract_release_version(normalized_observed)
+    frozen_version = _extract_release_version(normalized_frozen)
+    if observed_version and frozen_version:
+        return observed_version == frozen_version
+    return _sanitize_release_token(normalized_observed) == _sanitize_release_token(
+        normalized_frozen
     )
 
 
 def _sanitize_release_token(value: str) -> str:
     return re.sub(r"[^a-z0-9.]+", "", value.lower())
+
+
+def _extract_release_version(value: str) -> str | None:
+    match = re.search(r"v?\d+(?:\.\d+)*", value.lower())
+    return match.group(0) if match else None
+
+
+def _local_mirror_refs_match_frozen_tuple(
+    pin_details: Any,
+    local_mirror_refs: Mapping[str, str],
+) -> bool:
+    return all(
+        local_mirror_refs.get(component) == source.resolved_commit
+        for component, source in pin_details.source_components.items()
+    )
 
 
 def _build_source_component_refs(
@@ -452,10 +474,18 @@ def _normalize_openfoam_env(
 def _resolve_runtime_base(
     runtime_base: str | None,
     openfoam_env: Mapping[str, str | None],
+    *,
+    pin_details: Any,
+    local_mirror_refs: Mapping[str, str],
 ) -> str | None:
     normalized_runtime = _normalize_optional_string(runtime_base)
     if normalized_runtime:
         return normalized_runtime
+    if _release_matches_pin_details(openfoam_env.get("WM_PROJECT_VERSION"), pin_details.openfoam_release) and _local_mirror_refs_match_frozen_tuple(
+        pin_details,
+        local_mirror_refs,
+    ):
+        return pin_details.runtime_base
     project = _normalize_optional_string(openfoam_env.get("WM_PROJECT"))
     version = _normalize_optional_string(openfoam_env.get("WM_PROJECT_VERSION"))
     if project and version:
