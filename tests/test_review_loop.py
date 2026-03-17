@@ -1,5 +1,10 @@
 from __future__ import annotations
 
+import json
+import pathlib
+import subprocess
+import tempfile
+from unittest import mock
 import unittest
 
 from scripts.symphony import review_loop
@@ -347,6 +352,96 @@ class EvaluateReviewStateTests(unittest.TestCase):
             {"devin-ai-integration[bot]"},
         )
         self.assertEqual(summary.review_state, "action_required")
+
+
+class RunCodexReviewTests(unittest.TestCase):
+    def test_writes_running_manifest_before_review_subprocess_returns(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = pathlib.Path(temp_dir)
+            manifest_path = (
+                root
+                / ".codex"
+                / "review_artifacts"
+                / "codex-pro-7-example"
+                / "20260317T180000Z-codex-review.md"
+            )
+
+            def fake_run_command(
+                command: list[str],
+                *,
+                cwd: pathlib.Path | None = None,
+                stdin: str | None = None,
+                timeout_seconds: int | None = None,
+            ) -> subprocess.CompletedProcess[str]:
+                latest_manifest = (
+                    root
+                    / ".codex"
+                    / "review_artifacts"
+                    / "codex-pro-7-example"
+                    / "latest.json"
+                )
+                self.assertTrue(latest_manifest.exists())
+                payload = json.loads(latest_manifest.read_text(encoding="utf-8"))
+                self.assertEqual(payload["status"], "running")
+                self.assertEqual(payload["timeout_seconds"], 30)
+                return subprocess.CompletedProcess(
+                    command,
+                    0,
+                    stdout='{"type":"item.completed","item":{"type":"agent_message","text":"No findings"}}\n',
+                    stderr="",
+                )
+
+            with mock.patch.object(review_loop, "repo_root", return_value=root), mock.patch.object(
+                review_loop, "current_branch", return_value="codex/pro-7-example"
+            ), mock.patch.object(
+                review_loop, "current_commit", return_value="abc123"
+            ), mock.patch.object(
+                review_loop, "utc_timestamp", return_value="20260317T180000Z"
+            ), mock.patch.object(
+                review_loop.runtime_config,
+                "build_codex_command",
+                return_value=["codex", "exec", "review"],
+            ), mock.patch.object(
+                review_loop, "run_command", side_effect=fake_run_command
+            ):
+                returncode = review_loop.run_codex_review(
+                    "origin/main",
+                    ".codex/review_artifacts",
+                    review_loop.DEFAULT_REVIEW_PROMPT,
+                    "PRO-7",
+                    30,
+                )
+
+            self.assertEqual(returncode, 0)
+            latest_manifest = (
+                root
+                / ".codex"
+                / "review_artifacts"
+                / "codex-pro-7-example"
+                / "latest.json"
+            )
+            payload = json.loads(latest_manifest.read_text(encoding="utf-8"))
+            self.assertEqual(payload["status"], "completed")
+            self.assertEqual(payload["returncode"], 0)
+            self.assertTrue(
+                (
+                    root
+                    / ".codex"
+                    / "review_artifacts"
+                    / "codex-pro-7-example"
+                    / "20260317T180000Z-codex-review.jsonl"
+                ).exists()
+            )
+            self.assertEqual(
+                (
+                    root
+                    / ".codex"
+                    / "review_artifacts"
+                    / "codex-pro-7-example"
+                    / "20260317T180000Z-codex-review.md"
+                ).read_text(encoding="utf-8").strip(),
+                "No findings",
+            )
 
 
 class ActionableReviewCommentTests(unittest.TestCase):

@@ -479,6 +479,81 @@ class PrHandoffTests(unittest.TestCase):
             mock_run_host_review.assert_not_called()
             mock_sync_workpad.assert_called_once()
 
+    @mock.patch("builtins.print")
+    @mock.patch("scripts.symphony.pr_handoff.trace.is_enabled", return_value=False)
+    @mock.patch("scripts.symphony.pr_handoff.sync_workpad")
+    @mock.patch("scripts.symphony.pr_handoff.linear_api.update_issue_state")
+    @mock.patch("scripts.symphony.pr_handoff.resolve_actionable_devin_threads")
+    @mock.patch("scripts.symphony.pr_handoff.enable_auto_merge")
+    @mock.patch("scripts.symphony.pr_handoff.ensure_pr")
+    @mock.patch("scripts.symphony.pr_handoff.ensure_branch_pushed")
+    @mock.patch("scripts.symphony.pr_handoff.run_host_review")
+    @mock.patch("scripts.symphony.pr_handoff.linear_api.fetch_issue")
+    @mock.patch("scripts.symphony.pr_handoff.parse_args")
+    def test_main_rework_bypasses_local_review_and_returns_to_in_review(
+        self,
+        mock_parse_args: mock.Mock,
+        mock_fetch_issue: mock.Mock,
+        mock_run_host_review: mock.Mock,
+        mock_ensure_branch_pushed: mock.Mock,
+        mock_ensure_pr: mock.Mock,
+        mock_enable_auto_merge: mock.Mock,
+        mock_resolve_actionable_devin_threads: mock.Mock,
+        mock_update_issue_state: mock.Mock,
+        mock_sync_workpad: mock.Mock,
+        _mock_trace_is_enabled: mock.Mock,
+        _mock_print: mock.Mock,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            workspace = pathlib.Path(temp_dir) / "PRO-10"
+            workspace.mkdir()
+            pr_handoff.record_local_review_round(workspace, "codex/pro-10-example")
+
+            mock_parse_args.return_value = mock.Mock(workspace=str(workspace))
+            mock_fetch_issue.return_value = {
+                "title": "Example rework",
+                "state": {"name": "Rework"},
+            }
+            mock_ensure_pr.return_value = pr_handoff.PullRequestRef(
+                number=10,
+                url="https://github.com/example/pull/10",
+                is_draft=False,
+            )
+            mock_resolve_actionable_devin_threads.return_value = [
+                "thread-1",
+                "thread-2",
+            ]
+            mock_update_issue_state.return_value = {
+                "previous_state": "Rework",
+                "current_state": "In Review",
+                "changed": True,
+            }
+
+            with mock.patch(
+                "scripts.symphony.pr_handoff.current_branch",
+                return_value="codex/pro-10-example",
+            ):
+                result = pr_handoff.main()
+
+            self.assertEqual(result, 0)
+            mock_run_host_review.assert_not_called()
+            resolved_workspace = workspace.resolve()
+            mock_ensure_branch_pushed.assert_called_once_with(
+                resolved_workspace, "codex/pro-10-example"
+            )
+            mock_enable_auto_merge.assert_called_once_with(resolved_workspace, 10)
+            mock_resolve_actionable_devin_threads.assert_called_once_with(10)
+            mock_update_issue_state.assert_called_once_with("PRO-10", "In Review")
+            self.assertFalse(pr_handoff.local_review_state_path(workspace).exists())
+            self.assertIn(
+                "bypassed local codex review",
+                " ".join(mock_sync_workpad.call_args.kwargs["validation"]).lower(),
+            )
+            self.assertIn(
+                "directly to GitHub auto-merge".lower(),
+                " ".join(mock_sync_workpad.call_args.kwargs["review_handoff_notes"]).lower(),
+            )
+
     def test_parse_review_findings_extracts_structured_findings(self) -> None:
         findings = pr_handoff.parse_review_findings(
             "\n".join(

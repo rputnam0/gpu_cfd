@@ -524,6 +524,25 @@ def run_codex_review(
             ),
         ]
         stdin = None
+    running_manifest = {
+        "timestamp": timestamp,
+        "branch": branch,
+        "commit": commit_sha,
+        "base_branch": base_branch,
+        "prompt": prompt,
+        "profile": "review",
+        "review_driver": "generic_exec" if uses_generic_exec else "native_review",
+        "timeout_seconds": timeout_seconds,
+        "command": command,
+        "status": "running",
+        "jsonl_path": jsonl_path.relative_to(root).as_posix(),
+        "message_path": message_path.relative_to(root).as_posix(),
+        "stderr_path": stderr_path.relative_to(root).as_posix(),
+    }
+    manifest_path.write_text(
+        json.dumps(running_manifest, indent=2) + "\n",
+        encoding="utf-8",
+    )
     completed = run_command(
         command, cwd=root, stdin=stdin, timeout_seconds=timeout_seconds
     )
@@ -536,19 +555,9 @@ def run_codex_review(
             message_path.write_text(fallback_message + "\n", encoding="utf-8")
 
     manifest = {
-        "timestamp": timestamp,
-        "branch": branch,
-        "commit": commit_sha,
-        "base_branch": base_branch,
-        "prompt": prompt,
-        "profile": "review",
-        "review_driver": "generic_exec" if uses_generic_exec else "native_review",
-        "timeout_seconds": timeout_seconds,
-        "command": command,
+        **running_manifest,
+        "status": "completed",
         "returncode": completed.returncode,
-        "jsonl_path": jsonl_path.relative_to(root).as_posix(),
-        "message_path": message_path.relative_to(root).as_posix(),
-        "stderr_path": stderr_path.relative_to(root).as_posix(),
     }
     manifest_path.write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
     if issue and trace.is_enabled():

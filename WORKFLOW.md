@@ -82,6 +82,11 @@ Execution contract:
 - Write or update the canonical Linear workpad before code edits. Use it as durable working memory for the current plan, progress, decisions, rationale, gotchas, validation evidence, review context, and future-agent notes.
 - Keep the same canonical Linear workpad comment current during implementation and rework; do not fork the memory trail into multiple status comments.
 - Use a non-interactive planning pass before edits. Prefer the narrowest reversible implementation consistent with the PR card and cited docs, record assumptions and rationale in the workpad, and continue unless there is a real authority conflict, missing auth/secret, or an unsafe destructive action not covered by repo policy.
+- Use native Codex sub-agents as bounded recursive research helpers when context discovery is the bottleneck. The implementation worker profile explicitly enables multi-agent support and the project child-agent definitions. Prefer `gpt-5.4-mini` for those helper agents.
+- Good sub-agent tasks: locate exact doc sections, trace code paths, summarize adjacent tests or APIs, inspect review payloads, and compare nearby implementations. Ask each helper one narrow question and have it return short path/citation-focused findings.
+- Prefer the project-scoped helper agents in `.codex/agents/` when they match the task: `docs_scout`, `codepath_scout`, and `review_payload_scout`.
+- Keep the `gpt-5.4` implementation worker as the orchestrator. Do not delegate code edits, test authoring, branch management, Linear updates, PR handoff, or final technical judgment to `gpt-5.4-mini`.
+- Keep delegation small and supportive rather than parallel implementation: spawn at most a few focused helper agents when they materially sharpen the main worker's plan, then synthesize their findings in the workpad before editing.
 - Dev-only observability is available through the repo-owned dispatch wrapper. When `GPU_CFD_TRACE_ENABLE=1`, it captures immutable context packs, workpad diffs, handoff/review events, and app-server transcripts under `GPU_CFD_TRACE_ROOT` for the standalone Symphony Trace Viewer.
 - If the issue state is `Todo`, move it to `In Progress` before implementation work.
 - If the issue state is `Rework`, start by using the GitHub CLI API to pull the latest review comments and review state for the current PR head before making new edits, and record the actionable thread IDs / URLs in the Linear workpad.
@@ -102,6 +107,7 @@ Execution contract:
 - When the handoff helper succeeds cleanly, it opens or updates the GitHub PR, enables auto-merge, moves the issue to `In Review`, returns `stop_worker=true`, and the run should stop after you update the workpad with the PR URL.
 - `In Review` is a dormant automated-review state. Do not wait, poll, or sleep for Devin.
 - GitHub automation owns the `In Review -> Rework` transition when Devin leaves actionable feedback on the current head. Actionable Devin threads are not auto-cleared just because a newer commit exists.
+- `Rework` is terminal with respect to local review. After actionable Devin findings are fixed, rerun targeted validation, push, rerun `scripts/symphony/pr_handoff.py`, and return directly to GitHub auto-merge without another local Codex review cycle.
 - GitHub auto-merge owns the final merge once `review-loop-harness` and `devin-review-gate` are green.
 - GitHub post-merge automation owns `In Review -> Done` and dependent release from `Backlog -> Todo`.
 - `Backlog` means parked or blocked work and is out of scope for this run.
@@ -113,4 +119,4 @@ Completion bar:
 - Repo changes are limited to the assigned PR card.
 - Validation evidence is recorded in the Linear workpad.
 - The PR has completed the finite local Codex review cycle and progressed into GitHub review.
-- The PR has completed one Devin review cycle, all actionable findings have been fixed or resolved, and it merged through GitHub auto-merge.
+- The PR has completed one Devin review cycle, all actionable findings have been fixed or resolved, and it merged through GitHub auto-merge without reopening the local-review loop.
