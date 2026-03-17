@@ -44,8 +44,7 @@ repository's authority docs, backlog dependencies, and PR-card scope.
    by repo policy.
 4. Use native Codex sub-agents as bounded recursive research helpers when context discovery is the
    bottleneck. The implementation worker profile explicitly enables multi-agent support and the
-   project child-agent definitions. Prefer the Codex mini lane (`codex-mini-latest`) for those
-   helper agents.
+   project child-agent definitions. Prefer `gpt-5.4-mini` for those helper agents.
    Good helper tasks: locate exact doc sections, trace code paths, summarize nearby tests or APIs,
    inspect review payloads, and compare adjacent implementations.
    Prefer the project helper agents in `.codex/agents/` when they fit: `docs_scout`,
@@ -53,7 +52,7 @@ repository's authority docs, backlog dependencies, and PR-card scope.
    Keep each helper narrowly scoped and ask for short path/citation-focused findings.
    The main `gpt-5.4` worker remains the orchestrator: do not delegate code edits, test authoring,
    branch management, Linear updates, PR handoff, or final technical judgment to
-   `codex-mini-latest`.
+   `gpt-5.4-mini`.
 5. Confirm the branch state and reproduce the current behavior before editing.
 6. Implement with TDD where practical, following `AGENTS.md`.
 7. Keep the workpad current as plan, progress, decisions, rationale, validation, review findings,

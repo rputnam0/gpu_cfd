@@ -10,17 +10,17 @@ job_max_runtime_seconds = 900
 [agents.docs_scout]
 config_file = ".codex/agents/docs-scout.md"
 nickname_candidates = ["Atlas", "Index", "Scout"]
-model = "codex-mini-latest"
+model = "gpt-5.4-mini"
 model_reasoning_effort = "low"
 
 [agents.codepath_scout]
 config_file = ".codex/agents/codepath-scout.md"
 nickname_candidates = ["Trace", "Path", "Mapper"]
-model = "codex-mini-latest"
+model = "gpt-5.4-mini"
 model_reasoning_effort = "low"
 
 [agents.review_payload_scout]
 config_file = ".codex/agents/review-payload-scout.md"
 nickname_candidates = ["Thread", "Review", "Delta"]
-model = "codex-mini-latest"
+model = "gpt-5.4-mini"
 model_reasoning_effort = "low"
