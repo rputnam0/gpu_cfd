@@ -21,6 +21,7 @@ DEBUG_FALLBACK_POLICY = "debugOnlyFallback"
 FAIL_FAST_POLICY = "failFast"
 ALLOWED_EXECUTION_MODES = frozenset({"production", "debug"})
 ALLOWED_FALLBACK_POLICIES = frozenset({FAIL_FAST_POLICY, DEBUG_FALLBACK_POLICY})
+ALLOWED_BOUNDARY_SCOPES = frozenset({"infer", "phase5_generic_vof", "phase6_nozzle_specific"})
 _VECTOR_VALUE_PATTERN = re.compile(
     r"^\(\s*[-+]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][-+]?\d+)?"
     r"\s+[-+]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][-+]?\d+)?"
@@ -41,6 +42,7 @@ class SupportBoundaryCondition:
     field: str
     kind: str
     value: str | None = None
+    patch_name: str | None = None
 
 
 @dataclass(frozen=True)
@@ -69,6 +71,7 @@ class SupportStartupSeedSpec:
 @dataclass(frozen=True)
 class SupportScanRequest:
     execution_mode: str
+    boundary_scope: str = "infer"
     fallback_policy: str = FAIL_FAST_POLICY
     backend: str = "native"
     backend_pressure_mode: str | None = None
@@ -194,6 +197,15 @@ def _scan_issues(bundle: AuthorityBundle, request: SupportScanRequest) -> tuple[
                 message="Fallback policy must use one of the frozen support-scan policy labels.",
                 citations=(GLOBAL_POLICY_CITATION, CONTINUITY_CITATION),
                 detail={"requested": request.fallback_policy},
+            )
+        )
+    if request.boundary_scope not in ALLOWED_BOUNDARY_SCOPES:
+        issues.append(
+            SupportScanIssue(
+                code="boundary_scope_not_admitted",
+                message="Boundary scope must use one of the frozen support-scan scope labels.",
+                citations=(BOUNDARY_CITATION, CONTINUITY_CITATION),
+                detail={"requested": request.boundary_scope},
             )
         )
     if request.execution_mode == "production" and request.fallback_policy == DEBUG_FALLBACK_POLICY:
@@ -434,16 +446,65 @@ def _scan_function_objects(
 def _scan_boundary_conditions(
     bundle: AuthorityBundle, request: SupportScanRequest
 ) -> tuple[SupportScanIssue, ...]:
+    boundary_scope = _resolve_boundary_scope(request)
+    if boundary_scope == "phase5_generic_vof":
+        return _scan_phase5_generic_boundary_conditions(bundle, request)
+    if boundary_scope == "phase6_nozzle_specific":
+        return _scan_phase6_nozzle_boundary_conditions(bundle, request)
+    return ()
+
+
+def _scan_phase5_generic_boundary_conditions(
+    bundle: AuthorityBundle, request: SupportScanRequest
+) -> tuple[SupportScanIssue, ...]:
+    envelope = bundle.support.raw["phase5_generic_vof_envelope"]
+    scalar_kinds = set(envelope["scalar_boundary_kinds"])
+    vector_kinds = set(envelope["vector_boundary_kinds"])
+    patch_families = set(envelope["geometry_patch_families"])
+    issues: list[SupportScanIssue] = []
+    for condition in request.boundary_conditions:
+        if condition.patch_role not in patch_families:
+            issues.append(
+                SupportScanIssue(
+                    code="unsupported_boundary_condition",
+                    message="Boundary-condition patch family is not admitted for the frozen generic VOF envelope.",
+                    citations=(BOUNDARY_CITATION,),
+                    detail={
+                        "boundary_scope": "phase5_generic_vof",
+                        "patch_role": condition.patch_role,
+                        "field": condition.field,
+                        "kind": condition.kind,
+                    },
+                )
+            )
+            continue
+        allowed_kinds = vector_kinds if condition.field == "U" else scalar_kinds
+        if condition.kind not in allowed_kinds:
+            issues.append(
+                SupportScanIssue(
+                    code="unsupported_boundary_condition",
+                    message="Boundary-condition kind is not admitted for the frozen generic VOF envelope.",
+                    citations=(BOUNDARY_CITATION,),
+                    detail={
+                        "boundary_scope": "phase5_generic_vof",
+                        "patch_role": condition.patch_role,
+                        "field": condition.field,
+                        "kind": condition.kind,
+                    },
+                )
+            )
+    return tuple(issues)
+
+
+def _scan_phase6_nozzle_boundary_conditions(
+    bundle: AuthorityBundle, request: SupportScanRequest
+) -> tuple[SupportScanIssue, ...]:
     allowed_rows = {
         (row["patch_role"], row["field"]): row for row in bundle.support.raw["phase6_nozzle_specific_envelope"]
     }
-    required_rows = {
-        (row["patch_role"], row["field"])
-        for row in bundle.support.raw["phase6_nozzle_specific_envelope"]
-        if row["patch_role"] != "Symmetry / empty"
-    }
+    required_rows = _required_phase6_boundary_rows(bundle)
     issues: list[SupportScanIssue] = []
-    observed_rows: set[tuple[str, str]] = set()
+    observed_rows: set[tuple[str, str, str]] = set()
     for condition in request.boundary_conditions:
         row = allowed_rows.get((condition.patch_role, condition.field))
         if row is None and condition.patch_role == "Symmetry / empty":
@@ -462,7 +523,23 @@ def _scan_boundary_conditions(
                 )
             )
             continue
-        observed_rows.add((row["patch_role"], row["field"]))
+        coverage_key = _phase6_boundary_coverage_key(condition, row)
+        if coverage_key is None:
+            issues.append(
+                SupportScanIssue(
+                    code="unsupported_boundary_condition",
+                    message="Boundary-condition patch identity is not admitted for the frozen nozzle envelope.",
+                    citations=(BOUNDARY_CITATION,),
+                    detail={
+                        "patch_role": condition.patch_role,
+                        "patch_name": condition.patch_name,
+                        "field": condition.field,
+                        "kind": condition.kind,
+                    },
+                )
+            )
+            continue
+        observed_rows.add(coverage_key)
         normalized_kind = _normalize_boundary_kind(condition, row)
         if normalized_kind not in row["allowed_kinds"]:
             issues.append(
@@ -486,8 +563,8 @@ def _scan_boundary_conditions(
                 citations=(BOUNDARY_CITATION,),
                 detail={
                     "missing_rows": [
-                        {"patch_role": patch_role, "field": field}
-                        for patch_role, field in missing_rows
+                        {"patch_role": patch_role, "patch_name": patch_name, "field": field}
+                        for patch_role, patch_name, field in missing_rows
                     ]
                 },
             )
@@ -595,6 +672,69 @@ def _normalize_boundary_kind(condition: SupportBoundaryCondition, row: dict[str,
         ):
             return str(alias["normalizes_to"])
     return condition.kind
+
+
+def _resolve_boundary_scope(request: SupportScanRequest) -> str | None:
+    if request.boundary_scope != "infer":
+        return request.boundary_scope
+    nozzle_roles = {"Swirl inlet (swirlInletA/B)", "Wall", "Ambient/open", "Symmetry / empty"}
+    if any(
+        condition.patch_role in nozzle_roles
+        or condition.kind in {
+            "gpuPressureSwirlInletVelocity",
+            "prghTotalHydrostaticPressure",
+            "pressureInletOutletVelocity",
+            "fixedFluxPressure",
+            "prghPressure",
+            "inletOutlet",
+        }
+        or condition.patch_name is not None
+        for condition in request.boundary_conditions
+    ):
+        return "phase6_nozzle_specific"
+    return "phase5_generic_vof"
+
+
+def _required_phase6_boundary_rows(bundle: AuthorityBundle) -> set[tuple[str, str, str]]:
+    required_rows: set[tuple[str, str, str]] = set()
+    for row in bundle.support.raw["phase6_nozzle_specific_envelope"]:
+        if row["patch_role"] == "Symmetry / empty":
+            continue
+        for patch_name in _phase6_patch_names_for_role(row["patch_role"]):
+            required_rows.add((row["patch_role"], patch_name, row["field"]))
+    return required_rows
+
+
+def _phase6_boundary_coverage_key(
+    condition: SupportBoundaryCondition,
+    row: dict[str, Any],
+) -> tuple[str, str, str] | None:
+    allowed_patch_names = _phase6_patch_names_for_role(row["patch_role"])
+    patch_name = condition.patch_name
+    if patch_name is None:
+        if len(allowed_patch_names) == 1:
+            patch_name = next(iter(allowed_patch_names))
+        else:
+            return None
+    if patch_name not in allowed_patch_names:
+        return None
+    return (row["patch_role"], patch_name, row["field"])
+
+
+def _phase6_patch_names_for_role(patch_role: str) -> frozenset[str]:
+    match = re.search(r"\(([^)]+)\)", patch_role)
+    if not match:
+        normalized = patch_role.strip().replace("/", "_").replace(" ", "_").lower()
+        return frozenset({normalized})
+    raw_names = [name.strip() for name in match.group(1).split("/") if name.strip()]
+    expanded_names: list[str] = []
+    for index, raw_name in enumerate(raw_names):
+        if index == 0 or len(raw_name) >= len(raw_names[index - 1]):
+            expanded_names.append(raw_name)
+            continue
+        previous_name = expanded_names[-1]
+        expanded_names.append(previous_name[: -len(raw_name)] + raw_name)
+    return frozenset(expanded_names)
 
 
 def _scan_startup_seed_field_value_type(

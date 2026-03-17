@@ -25,6 +25,7 @@ class SupportScannerTests(unittest.TestCase):
     def make_supported_request(self) -> SupportScanRequest:
         return SupportScanRequest(
             execution_mode="production",
+            boundary_scope="phase6_nozzle_specific",
             fallback_policy="failFast",
             backend="native",
             mesh_mode="static",
@@ -61,16 +62,37 @@ class SupportScannerTests(unittest.TestCase):
             boundary_conditions=(
                 SupportBoundaryCondition(
                     patch_role="Swirl inlet (swirlInletA/B)",
+                    patch_name="swirlInletA",
                     field="U",
                     kind="gpuPressureSwirlInletVelocity",
                 ),
                 SupportBoundaryCondition(
                     patch_role="Swirl inlet (swirlInletA/B)",
+                    patch_name="swirlInletB",
+                    field="U",
+                    kind="gpuPressureSwirlInletVelocity",
+                ),
+                SupportBoundaryCondition(
+                    patch_role="Swirl inlet (swirlInletA/B)",
+                    patch_name="swirlInletA",
                     field="p_rgh",
                     kind="prghTotalHydrostaticPressure",
                 ),
                 SupportBoundaryCondition(
                     patch_role="Swirl inlet (swirlInletA/B)",
+                    patch_name="swirlInletB",
+                    field="p_rgh",
+                    kind="prghTotalHydrostaticPressure",
+                ),
+                SupportBoundaryCondition(
+                    patch_role="Swirl inlet (swirlInletA/B)",
+                    patch_name="swirlInletA",
+                    field="alpha.water",
+                    kind="fixedValue",
+                ),
+                SupportBoundaryCondition(
+                    patch_role="Swirl inlet (swirlInletA/B)",
+                    patch_name="swirlInletB",
                     field="alpha.water",
                     kind="fixedValue",
                 ),
@@ -429,6 +451,41 @@ class SupportScannerTests(unittest.TestCase):
             ("fallback_policy_not_admitted",),
         )
 
+    def test_generic_phase5_boundary_scope_accepts_supported_bc_subset(self) -> None:
+        request = SupportScanRequest(
+            **{
+                **self.make_supported_request().__dict__,
+                "boundary_scope": "phase5_generic_vof",
+                "boundary_conditions": (
+                    SupportBoundaryCondition(
+                        patch_role="wall",
+                        field="U",
+                        kind="slip",
+                    ),
+                    SupportBoundaryCondition(
+                        patch_role="patch",
+                        field="alpha.water",
+                        kind="fixedValue",
+                    ),
+                    SupportBoundaryCondition(
+                        patch_role="symmetryPlane",
+                        field="U",
+                        kind="symmetryPlane",
+                    ),
+                    SupportBoundaryCondition(
+                        patch_role="patch",
+                        field="p_rgh",
+                        kind="zeroGradient",
+                    ),
+                ),
+            }
+        )
+
+        report = enforce_support_scan(self.bundle, request)
+
+        self.assertTrue(report.startup_allowed)
+        self.assertEqual(report.reject_reasons, ())
+
     def test_duplicate_alpha_alias_scheme_entries_are_rejected(self) -> None:
         request = SupportScanRequest(
             **{
@@ -458,7 +515,11 @@ class SupportScannerTests(unittest.TestCase):
                 "boundary_conditions": tuple(
                     condition
                     for condition in self.make_supported_request().boundary_conditions
-                    if not (condition.patch_role == "Ambient/open" and condition.field == "alpha.water")
+                    if not (
+                        condition.patch_role == "Swirl inlet (swirlInletA/B)"
+                        and condition.patch_name == "swirlInletB"
+                        and condition.field == "alpha.water"
+                    )
                 ),
             }
         )
