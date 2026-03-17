@@ -9,6 +9,16 @@ from .bundle import (
     load_authority_bundle,
     main,
 )
+from .graph_registry import (
+    GraphRegistryValidationError,
+    GraphStageRegistry,
+    StageRegistryReport,
+    TupleStageValidationReport,
+    build_graph_stage_registry,
+    load_graph_stage_registry,
+    validate_acceptance_tuple_stage_requirements,
+    validate_tuple_stage_requirements,
+)
 from .pins import (
     ConsumerPinResolution,
     EmittedEnvironmentManifests,
@@ -24,8 +34,16 @@ __all__ = [
     "AuthoritySchemaError",
     "ConsumerPinResolution",
     "EmittedEnvironmentManifests",
+    "GraphRegistryValidationError",
+    "GraphStageRegistry",
+    "StageRegistryReport",
+    "TupleStageValidationReport",
+    "build_graph_stage_registry",
     "emit_environment_manifests",
+    "load_graph_stage_registry",
     "load_authority_bundle",
     "main",
     "resolve_consumer_pin_manifest",
+    "validate_acceptance_tuple_stage_requirements",
+    "validate_tuple_stage_requirements",
 ]
