@@ -15,18 +15,57 @@ from typing import Any
 
 try:
     from scripts.symphony import linear_api, runtime_config, trace
+    from scripts.authority import load_authority_bundle, validate_source_audit_note
 except ModuleNotFoundError:  # pragma: no cover - script execution fallback
     sys.path.append(str(pathlib.Path(__file__).resolve().parents[2]))
     from scripts.symphony import linear_api, runtime_config, trace
+    from scripts.authority import load_authority_bundle, validate_source_audit_note
 
 
 TASK_CARD_ID_PATTERN = re.compile(r"\b(?:FND-\d+|P\d+-\d+)\b", re.IGNORECASE)
+PRIMARY_TASK_CARD_PATTERNS = (
+    re.compile(
+        r"Execution task for backlog item\s+`?(?P<task_id>(?:FND-\d+|P\d+-\d+))`?",
+        re.IGNORECASE,
+    ),
+    re.compile(r"^##\s+(?P<task_id>(?:FND-\d+|P\d+-\d+))\b", re.IGNORECASE | re.MULTILINE),
+    re.compile(
+        r"^Identifier:\s*`?(?P<task_id>(?:FND-\d+|P\d+-\d+))`?\s*$",
+        re.IGNORECASE | re.MULTILINE,
+    ),
+)
 MARKDOWN_LINK_PATTERN = re.compile(r"\[[^\]]+\]\((?P<path>[^)]+)\)")
 INLINE_REPO_PATH_PATTERN = re.compile(
     r"`(?P<path>(?:AGENTS|WORKFLOW)\.md|(?:docs|scripts|\.codex)/[^`]+)`"
 )
 ISSUE_SNAPSHOT_PATH_ENV = "GPU_CFD_TRACE_ISSUE_SNAPSHOT_PATH"
 WORKPAD_SNAPSHOT_PATH_ENV = "GPU_CFD_TRACE_WORKPAD_SNAPSHOT_PATH"
+SOURCE_AUDIT_EXEMPT_TASK_IDS = {"FND-07", "P5-01", "P7-01"}
+SOURCE_AUDIT_PHASE_REQUIREMENTS = {
+    "P5": {
+        "note_filename": "phase5_symbol_reconciliation.md",
+        "required_artifacts": [],
+        "required_surfaces": [
+            "alphaPredictor",
+            "pressureCorrector",
+            "interfaceProperties",
+            "momentum stage",
+        ],
+    },
+    "P7": {
+        "note_filename": "phase7_source_audit.md",
+        "required_artifacts": [
+            "phase7_hotspot_ranking.md",
+            "phase7_hotspot_scope_freeze.json",
+        ],
+        "required_surfaces": [
+            "alphaPredictor",
+            "interfaceProperties",
+            "Nozzle BC runtime selection",
+            "Profiling/instrumentation touch points",
+        ],
+    },
+}
 
 
 class DispatchError(RuntimeError):
@@ -163,6 +202,15 @@ def extract_task_card_candidates(*texts: str) -> list[str]:
     return candidates
 
 
+def extract_primary_task_card_candidate(*texts: str) -> str | None:
+    for text in texts:
+        for pattern in PRIMARY_TASK_CARD_PATTERNS:
+            match = pattern.search(text or "")
+            if match:
+                return match.group("task_id").upper()
+    return None
+
+
 def parse_pr_inventory(repo: pathlib.Path) -> dict[str, pathlib.Path]:
     inventory_text = read_text(repo / "docs" / "tasks" / "pr_inventory.md")
     mapping: dict[str, pathlib.Path] = {}
@@ -231,18 +279,48 @@ def resolve_pr_context(
     issue_payload: dict[str, Any],
 ) -> dict[str, Any] | None:
     inventory = parse_pr_inventory(repo)
-    candidate_texts = [
+    prioritized_candidate_texts = [
         str(issue_payload.get("title") or ""),
-        str(issue_payload.get("description") or ""),
+        str(issue_payload.get("gitBranchName") or ""),
         str(issue_payload.get("branchName") or ""),
+    ]
+    fallback_candidate_texts = [
+        str(issue_payload.get("description") or ""),
     ]
     comments_payload = issue_payload.get("comments", {})
     if isinstance(comments_payload, dict):
         for comment in comments_payload.get("nodes", []):
             if isinstance(comment, dict):
-                candidate_texts.append(str(comment.get("body") or ""))
+                fallback_candidate_texts.append(str(comment.get("body") or ""))
 
-    for candidate in extract_task_card_candidates(*candidate_texts):
+    for candidate in extract_task_card_candidates(*prioritized_candidate_texts):
+        task_file = inventory.get(candidate)
+        if task_file is None or not task_file.exists():
+            continue
+        task_text = read_text(task_file)
+        card_markdown = extract_card_markdown(task_text, candidate)
+        if not card_markdown.strip():
+            continue
+        cited_paths = extract_repo_paths(repo, card_markdown)
+        return {
+            "pr_id": candidate,
+            "task_file": task_file.as_posix(),
+            "card_markdown": card_markdown,
+            "cited_paths": cited_paths,
+        }
+
+    anchored_fallback_candidate = extract_primary_task_card_candidate(*fallback_candidate_texts)
+    fallback_candidates = (
+        [anchored_fallback_candidate]
+        if anchored_fallback_candidate
+        else (
+            extract_task_card_candidates(*fallback_candidate_texts)
+            if len(extract_task_card_candidates(*fallback_candidate_texts)) == 1
+            else []
+        )
+    )
+
+    for candidate in fallback_candidates:
         task_file = inventory.get(candidate)
         if task_file is None or not task_file.exists():
             continue
@@ -450,6 +528,95 @@ def build_dispatch_context(
     }
 
 
+def pr_id_requires_source_audit_gate(pr_id: str) -> bool:
+    normalized_pr_id = str(pr_id or "").upper()
+    if normalized_pr_id in SOURCE_AUDIT_EXEMPT_TASK_IDS:
+        return False
+    phase_match = re.match(r"^P(?P<phase>\d+)-", normalized_pr_id)
+    if not phase_match:
+        return False
+    phase_prefix = f"P{phase_match.group('phase')}"
+    if phase_prefix not in SOURCE_AUDIT_PHASE_REQUIREMENTS:
+        return False
+    index_match = re.match(r"^P\d+-(?P<index>\d+)$", normalized_pr_id)
+    if not index_match:
+        return False
+    return int(index_match.group("index")) >= 2
+
+
+def task_requires_source_audit_gate(pr_context: dict[str, Any] | None) -> bool:
+    if pr_context is None:
+        return False
+    pr_id = str(pr_context.get("pr_id") or "").upper()
+    return pr_id_requires_source_audit_gate(pr_id)
+
+
+def resolve_source_audit_requirement(pr_context: dict[str, Any]) -> dict[str, Any]:
+    pr_id = str(pr_context.get("pr_id") or "").upper()
+    phase_match = re.match(r"^P(?P<phase>\d+)-", pr_id)
+    if not phase_match:
+        raise DispatchError(f"cannot infer source-audit requirement for task {pr_id}")
+    phase_prefix = f"P{phase_match.group('phase')}"
+    requirement = SOURCE_AUDIT_PHASE_REQUIREMENTS.get(phase_prefix)
+    if requirement is None:
+        raise DispatchError(f"no source-audit requirement configured for task {pr_id}")
+    return requirement
+
+
+def find_tracked_artifact(repo: pathlib.Path, filename: str) -> pathlib.Path:
+    completed = subprocess.run(
+        [
+            "git",
+            "ls-files",
+            "--",
+            filename,
+            f":(glob)**/{filename}",
+        ],
+        cwd=repo,
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+    if completed.returncode != 0:
+        raise DispatchError(
+            f"failed to resolve tracked artifact {filename}: {completed.stderr.strip()}"
+        )
+    matches = [
+        (repo / line.strip()).resolve()
+        for line in completed.stdout.splitlines()
+        if line.strip()
+    ]
+    if not matches:
+        raise DispatchError(
+            f"required tracked artifact {filename} was not found in tracked files"
+        )
+    if len(matches) > 1:
+        raise DispatchError(
+            f"required tracked artifact {filename} is ambiguous in tracked files: "
+            + ", ".join(path.as_posix() for path in matches)
+        )
+    return matches[0]
+
+
+def enforce_source_audit_gate(
+    repo: pathlib.Path,
+    pr_context: dict[str, Any] | None,
+) -> None:
+    if not task_requires_source_audit_gate(pr_context):
+        return
+    assert pr_context is not None
+    requirement = resolve_source_audit_requirement(pr_context)
+    note_path = find_tracked_artifact(repo, str(requirement["note_filename"]))
+    for artifact_name in requirement["required_artifacts"]:
+        find_tracked_artifact(repo, str(artifact_name))
+    bundle = load_authority_bundle(repo)
+    validate_source_audit_note(
+        bundle,
+        note_text=read_text(note_path),
+        touched_surfaces=list(requirement["required_surfaces"]),
+    )
+
+
 def _stream_copy(
     source,
     targets: list[Any],
@@ -614,15 +781,31 @@ def main() -> int:
     issue_identifier = issue_identifier_from_workspace(workspace)
     branch = current_branch(workspace)
     tracing_enabled = trace.is_enabled()
-    issue_payload: dict[str, Any] | None = None
+    issue_payload = fetch_issue_snapshot(issue_identifier)
+    issue_payload.setdefault("identifier", issue_identifier)
+    pr_context = resolve_pr_context(repo, issue_payload)
+    if pr_context is None:
+        gated_candidates = [
+            candidate
+            for candidate in extract_task_card_candidates(
+                str(issue_payload.get("title") or ""),
+                str(issue_payload.get("description") or ""),
+            )
+            if pr_id_requires_source_audit_gate(candidate)
+        ]
+        if gated_candidates:
+            raise DispatchError(
+                "could not resolve PR context for gated source-audit task(s): "
+                + ", ".join(sorted(gated_candidates))
+            )
     state_start: str | None = None
     run_kind = "implementation"
-
-    if tracing_enabled:
-        issue_payload = fetch_issue_snapshot(issue_identifier)
-        issue_payload.setdefault("identifier", issue_identifier)
-        state_start = issue_state_name(issue_payload) or None
-        run_kind = "rework" if state_start == "Rework" else "implementation"
+    state_start = issue_state_name(issue_payload) or None
+    run_kind = "rework" if state_start == "Rework" else "implementation"
+    enforce_source_audit_gate(
+        repo,
+        pr_context,
+    )
 
     codex_args = args.codex_args or ["app-server"]
     command = runtime_config.build_codex_command("implementation", codex_args)
@@ -631,7 +814,6 @@ def main() -> int:
     transcript_dir: pathlib.Path | None = None
     commit_before = current_commit(workspace)
     if tracing_enabled:
-        assert issue_payload is not None
         env_metadata = {
             "workspace_path": workspace.as_posix(),
             "repo_root": repo.as_posix(),

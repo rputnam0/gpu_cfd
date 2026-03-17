@@ -11,7 +11,7 @@ class RuntimeConfigTests(unittest.TestCase):
 
         self.assertEqual(sorted(config.codex), ["implementation", "review"])
         self.assertEqual(config.codex["implementation"].model, "gpt-5.4")
-        self.assertEqual(config.codex["implementation"].reasoning_effort, "medium")
+        self.assertEqual(config.codex["implementation"].reasoning_effort, "high")
         self.assertEqual(config.codex["review"].model, "gpt-5.4")
         self.assertEqual(config.codex["review"].reasoning_effort, "xhigh")
         self.assertEqual(config.codex["review"].timeout_seconds, 900)

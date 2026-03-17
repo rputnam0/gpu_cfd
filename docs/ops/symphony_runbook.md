@@ -15,6 +15,7 @@ Linear project.
 - `scripts/symphony/post_merge_bridge.py`: merged-PR bridge that moves issues to `Done` and releases
   newly unblocked dependents
 - `scripts/symphony/linear_api.py`: Linear GraphQL helper used by the bridges, handoff, and canonical workpad memory flow
+- `scripts/symphony/reconcile_review_state.py`: one-time reconciliation helper for open PRs, legacy workpads, and `In Review` / `Rework` drift
 - `scripts/symphony/trace.py`: dev-only immutable trace bundle collector for dispatch, workpad, review, handoff, bridge, and merge events
 - `scripts/symphony/apply_runtime_patch.sh`: applies the tracked Symphony runtime patch to the WSL
   Symphony checkout
@@ -83,23 +84,28 @@ Review loop:
 - If the issue workspace still has unrelated dirty control-plane files, the handoff helper creates
   its own clean committed clone for the local review/PR step so workers do not need to invent
   manual clean-clone workflows.
-- That helper runs one local Codex review pass. If findings remain before the cap, it keeps the
-  issue in `In Progress`, persists the latest review artifacts into the issue workspace, and
-  returns control to the same worker run so that worker can fix the branch immediately.
-- Local-review remediation is capped at 3 handoff review rounds per branch. If the third round
-  still reports findings, the helper opens or updates the PR, moves the issue to `In Review`,
-  and escalates the branch into the external Devin-review stage instead of continuing the local
-  remediation loop.
+- That helper runs a finite local Codex review cycle: remediation pass 1, remediation pass 2,
+  then one final local review pass.
+- If findings remain on remediation pass 1 or 2, the helper keeps the issue in `In Progress`,
+  persists the latest review artifacts into the issue workspace, and returns control to the same
+  worker run so that worker can fix the branch immediately.
+- If the third and final local review pass still reports findings, the helper creates one child
+  `Backlog` issue per residual finding, opens or updates the PR, enables GitHub auto-merge,
+  moves the parent issue to `In Review`, and stops the implementation worker instead of
+  continuing the local remediation loop.
 - If the local review is complete, the helper opens or updates the PR, enables GitHub auto-merge,
-  and moves the issue to `In Review`.
+  moves the issue to `In Review`, and stops the implementation worker.
 - The handoff helper also writes a hidden `gpu-cfd-linear-issue` marker into the PR body so the
   GitHub bridges can resolve the exact Linear issue without guessing from free-form PR text.
 - `In Review` is dormant. No repo-owned watcher or worker sleep loop stays alive.
 - The GitHub Actions workflow `.github/workflows/devin-review-gate.yml` sets the required
   `devin-review-gate` status for the PR review cycle.
 - Actionable Devin feedback moves the issue to `Rework`.
+- Actionable Devin threads are not auto-resolved just because a newer commit exists; only
+  non-actionable or outdated threads are auto-cleared by the bridge.
 - A `Rework` worker is expected to pull the latest Devin review comments directly from GitHub with
-  `gh api` before editing, then fix every valid actionable finding.
+  `gh api` before editing, record the actionable thread IDs / URLs in the workpad, then fix every
+  valid actionable finding.
 - Once that first Devin review round has no remaining actionable feedback, `devin-review-gate`
   turns green and the PR can merge.
 - GitHub auto-merge lands the PR only after both `review-loop-harness` and
@@ -121,7 +127,7 @@ These items still must exist on the worker host before Symphony can run end to e
 - GitHub push and PR auth on the worker host (`gh auth login` or SSH push access)
 - Symphony itself installed on the worker host
 - Repo secret `REVIEW_BRIDGE_GH_TOKEN` configured with a GitHub token that can resolve PR review
-  threads when stale or non-blocking Devin threads should be cleared automatically
+  threads when non-actionable or outdated Devin threads should be cleared automatically
 
 Fresh Symphony workspaces clone from Git, so workflow changes must be available on a pushed branch
 before the worker host can consume them.
@@ -138,7 +144,7 @@ codex --version
 
 The checked-in workflow uses direct Codex CLI flags for the implementation worker profile:
 
-- implementation app-server: `uv run python scripts/symphony/codex_dispatch.py app-server` which wraps the `gpt-5.4` / `medium` implementation profile from `scripts/symphony/runtime_config.toml`
+- implementation app-server: `uv run python scripts/symphony/codex_dispatch.py app-server` which wraps the `gpt-5.4` / `high` implementation profile from `scripts/symphony/runtime_config.toml`
 - local review gate: `gpt-5.4` with `xhigh`
 
 The checked-in workflow keeps issue workspaces on the supported `workspaceWrite` sandbox and enables

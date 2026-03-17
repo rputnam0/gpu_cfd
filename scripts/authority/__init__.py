@@ -1,5 +1,15 @@
 """Shared authority loader for gpu_cfd foundation tooling."""
 
+from .acceptance import (
+    AcceptanceClassResult,
+    AcceptanceEvaluationContext,
+    AcceptanceVerdict,
+    AcceptanceWaiver,
+    AcceptanceWaiverHook,
+    AcceptedTupleResolution,
+    evaluate_acceptance,
+    resolve_accepted_tuple,
+)
 from .bundle import (
     AuthorityBundle,
     AuthorityConflictError,
@@ -8,6 +18,7 @@ from .bundle import (
     AuthoritySchemaError,
     load_authority_bundle,
     main,
+    repo_root,
 )
 from .graph_registry import (
     GraphRegistryValidationError,
@@ -25,8 +36,34 @@ from .pins import (
     emit_environment_manifests,
     resolve_consumer_pin_manifest,
 )
+from .source_audit import (
+    ResolvedSourceAuditSurface,
+    SOURCE_AUDIT_OWNERSHIP_SCOPE_PLACEHOLDER,
+    render_source_audit_note,
+    resolve_source_audit_surfaces,
+    validate_source_audit_note,
+)
+from .support_scanner import (
+    SupportBoundaryCondition,
+    SupportFunctionObject,
+    SupportScanIssue,
+    SupportScanRejected,
+    SupportScanRequest,
+    SupportScanReport,
+    SupportStartupSeedFieldValue,
+    SupportStartupSeedRegion,
+    SupportStartupSeedSpec,
+    enforce_support_scan,
+    scan_support_matrix,
+)
 
 __all__ = [
+    "AcceptanceClassResult",
+    "AcceptanceEvaluationContext",
+    "AcceptanceVerdict",
+    "AcceptanceWaiver",
+    "AcceptanceWaiverHook",
+    "AcceptedTupleResolution",
     "AuthorityBundle",
     "AuthorityConflictError",
     "AuthorityLoadError",
@@ -36,14 +73,33 @@ __all__ = [
     "EmittedEnvironmentManifests",
     "GraphRegistryValidationError",
     "GraphStageRegistry",
+    "ResolvedSourceAuditSurface",
+    "SOURCE_AUDIT_OWNERSHIP_SCOPE_PLACEHOLDER",
     "StageRegistryReport",
+    "SupportBoundaryCondition",
+    "SupportFunctionObject",
+    "SupportScanIssue",
+    "SupportScanRejected",
+    "SupportScanRequest",
+    "SupportScanReport",
+    "SupportStartupSeedFieldValue",
+    "SupportStartupSeedRegion",
+    "SupportStartupSeedSpec",
     "TupleStageValidationReport",
     "build_graph_stage_registry",
     "emit_environment_manifests",
+    "enforce_support_scan",
+    "evaluate_acceptance",
     "load_authority_bundle",
     "load_graph_stage_registry",
     "main",
+    "render_source_audit_note",
+    "repo_root",
+    "resolve_accepted_tuple",
     "resolve_consumer_pin_manifest",
+    "resolve_source_audit_surfaces",
+    "scan_support_matrix",
     "validate_acceptance_tuple_stage_requirements",
+    "validate_source_audit_note",
     "validate_tuple_stage_requirements",
 ]

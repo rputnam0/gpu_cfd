@@ -148,6 +148,49 @@ class DevinReviewGateTests(unittest.TestCase):
             ["thread-stale"],
         )
 
+    def test_collect_resolvable_thread_ids_keeps_stale_actionable_threads_open(self) -> None:
+        actionable_thread = {
+            "id": "thread-current",
+            "is_resolved": False,
+            "is_outdated": False,
+            "comments": [
+                {
+                    "body": '<!-- devin-review-comment {"id": "BUG_pr-review-job_0001"} -->\nBug',
+                    "created_at": "2026-03-15T11:00:00Z",
+                }
+            ],
+        }
+        summary = self.make_summary(
+            review_state="action_required",
+            actionable_threads=[actionable_thread],
+            observed_threads=[actionable_thread],
+        )
+
+        self.assertEqual(devin_review_gate.collect_resolvable_thread_ids(summary), [])
+
+    def test_collect_resolvable_thread_ids_resolves_outdated_threads(self) -> None:
+        outdated_thread = {
+            "id": "thread-outdated",
+            "is_resolved": False,
+            "is_outdated": True,
+            "comments": [
+                {
+                    "body": '<!-- devin-review-comment {"id": "BUG_pr-review-job_0001"} -->\nBug',
+                    "created_at": "2026-03-15T11:00:00Z",
+                }
+            ],
+        }
+        summary = self.make_summary(
+            review_state="review_complete",
+            actionable_threads=[],
+            observed_threads=[outdated_thread],
+        )
+
+        self.assertEqual(
+            devin_review_gate.collect_resolvable_thread_ids(summary),
+            ["thread-outdated"],
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -233,7 +233,9 @@ class PrHandoffTests(unittest.TestCase):
     @mock.patch("scripts.symphony.pr_handoff.trace.is_enabled", return_value=False)
     @mock.patch("scripts.symphony.pr_handoff.prepared_review_workspace")
     @mock.patch("scripts.symphony.pr_handoff.sync_workpad")
+    @mock.patch("scripts.symphony.pr_handoff.ensure_residual_followup_issues")
     @mock.patch("scripts.symphony.pr_handoff.linear_api.update_issue_state")
+    @mock.patch("scripts.symphony.pr_handoff.enable_auto_merge")
     @mock.patch("scripts.symphony.pr_handoff.ensure_pr")
     @mock.patch("scripts.symphony.pr_handoff.ensure_branch_pushed")
     @mock.patch("scripts.symphony.pr_handoff.run_host_review")
@@ -246,7 +248,9 @@ class PrHandoffTests(unittest.TestCase):
         mock_run_host_review: mock.Mock,
         mock_ensure_branch_pushed: mock.Mock,
         mock_ensure_pr: mock.Mock,
+        mock_enable_auto_merge: mock.Mock,
         mock_update_issue_state: mock.Mock,
+        mock_ensure_residual_followup_issues: mock.Mock,
         mock_sync_workpad: mock.Mock,
         mock_prepared_review_workspace: mock.Mock,
         _mock_trace_is_enabled: mock.Mock,
@@ -276,6 +280,18 @@ class PrHandoffTests(unittest.TestCase):
                 url="https://github.com/example/pull/6",
                 is_draft=False,
             )
+            mock_ensure_residual_followup_issues.return_value = [
+                {
+                    "action": "created",
+                    "identifier": "PRO-61",
+                    "url": "https://linear.app/PRO-61",
+                    "priority_label": "P2",
+                    "title": "Residual finding",
+                    "source_path": "scripts/example.py",
+                    "start_line": 12,
+                    "end_line": 12,
+                }
+            ]
             mock_update_issue_state.return_value = {
                 "previous_state": "In Progress",
                 "current_state": "In Review",
@@ -284,16 +300,24 @@ class PrHandoffTests(unittest.TestCase):
             with mock.patch(
                 "scripts.symphony.pr_handoff.current_branch",
                 return_value="codex/pro-6-example",
+            ), mock.patch(
+                "scripts.symphony.pr_handoff.current_commit",
+                return_value="abc123",
             ):
                 result = pr_handoff.main()
 
             self.assertEqual(result, 0)
             mock_ensure_branch_pushed.assert_called_once()
             mock_ensure_pr.assert_called_once()
+            mock_enable_auto_merge.assert_called_once_with(mock.ANY, 6)
             mock_update_issue_state.assert_called_once_with("PRO-6", "In Review")
             self.assertIn(
                 "github / devin review",
                 " ".join(mock_sync_workpad.call_args.kwargs["validation"]).lower(),
+            )
+            self.assertIn(
+                "Residual follow-up: PRO-61",
+                " ".join(mock_sync_workpad.call_args.kwargs["review_handoff_notes"]),
             )
             self.assertFalse(tracker_path.exists())
 
@@ -412,6 +436,70 @@ class PrHandoffTests(unittest.TestCase):
                 "Used clean committed clone",
                 " ".join(mock_sync_workpad.call_args.kwargs["review_handoff_notes"]),
             )
+
+    @mock.patch("builtins.print")
+    @mock.patch("scripts.symphony.pr_handoff.trace.is_enabled", return_value=False)
+    @mock.patch("scripts.symphony.pr_handoff.sync_workpad")
+    @mock.patch("scripts.symphony.pr_handoff.find_existing_pr")
+    @mock.patch("scripts.symphony.pr_handoff.run_host_review")
+    @mock.patch("scripts.symphony.pr_handoff.linear_api.fetch_issue")
+    @mock.patch("scripts.symphony.pr_handoff.parse_args")
+    def test_main_short_circuits_when_issue_is_already_in_review(
+        self,
+        mock_parse_args: mock.Mock,
+        mock_fetch_issue: mock.Mock,
+        mock_run_host_review: mock.Mock,
+        mock_find_existing_pr: mock.Mock,
+        mock_sync_workpad: mock.Mock,
+        _mock_trace_is_enabled: mock.Mock,
+        _mock_print: mock.Mock,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            workspace = pathlib.Path(temp_dir) / "PRO-6"
+            workspace.mkdir()
+
+            mock_parse_args.return_value = mock.Mock(workspace=str(workspace))
+            mock_fetch_issue.return_value = {
+                "title": "Example change",
+                "state": {"name": "In Review"},
+            }
+            mock_find_existing_pr.return_value = pr_handoff.PullRequestRef(
+                number=6,
+                url="https://github.com/example/pull/6",
+                is_draft=False,
+            )
+
+            with mock.patch(
+                "scripts.symphony.pr_handoff.current_branch",
+                return_value="codex/pro-6-example",
+            ):
+                result = pr_handoff.main()
+
+            self.assertEqual(result, 0)
+            mock_run_host_review.assert_not_called()
+            mock_sync_workpad.assert_called_once()
+
+    def test_parse_review_findings_extracts_structured_findings(self) -> None:
+        findings = pr_handoff.parse_review_findings(
+            "\n".join(
+                [
+                    "- [P2] Missing guard in scanner — scripts/authority/support_scanner.py:57-61",
+                    "This needs an explicit range check.",
+                    "",
+                    "- [P3] Clarify authority citation",
+                    "Use the broader report citation for generic phase output.",
+                ]
+            )
+        )
+
+        self.assertEqual(len(findings), 2)
+        self.assertEqual(findings[0].priority_label, "P2")
+        self.assertEqual(findings[0].source_path, "scripts/authority/support_scanner.py")
+        self.assertEqual(findings[0].start_line, 57)
+        self.assertEqual(findings[0].end_line, 61)
+        self.assertIn("explicit range check", findings[0].body)
+        self.assertEqual(findings[1].priority_label, "P3")
+        self.assertIsNone(findings[1].source_path)
 
 
 if __name__ == "__main__":
