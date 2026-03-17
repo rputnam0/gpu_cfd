@@ -339,6 +339,76 @@ class AcceptanceEvaluatorTests(unittest.TestCase):
         self.assertFalse(verdict.release_eligible)
         self.assertFalse(verdict.baseline_lock_eligible)
 
+    def test_partial_context_override_preserves_production_scope_hard_gates(self) -> None:
+        bundle = load_authority_bundle(repo_root())
+        hard_gates = passing_hard_gates()
+        hard_gates["pinned_host_pressure_stage_events"] = 1
+
+        verdict = evaluate_acceptance(
+            bundle,
+            tuple_id="P8_R1_NATIVE_ASYNC_BASELINE",
+            hard_gate_observations=hard_gates,
+            soft_gate_observations=passing_soft_gates(),
+            class_results={
+                "TC_R1_NOZZLE": AcceptanceClassResult(
+                    class_id="TC_R1_NOZZLE",
+                    passed=True,
+                ),
+                "RP_STRICT": AcceptanceClassResult(
+                    class_id="RP_STRICT",
+                    passed=True,
+                ),
+            },
+            evaluation_context=AcceptanceEvaluationContext(
+                uses_accepted_startup_path=False,
+            ),
+        )
+
+        self.assertEqual(verdict.disposition, "fail")
+        self.assertEqual(
+            verdict.gate_results["hard"]["pinned_host_pressure_stage_events"]["applicable"],
+            True,
+        )
+
+    def test_non_admitted_bridge_mode_diagnostic_keeps_soft_gate_results(self) -> None:
+        bundle = load_authority_bundle(repo_root())
+        soft_gates = passing_soft_gates()
+        soft_gates["graph_launches_per_step"] = 5
+
+        verdict = evaluate_acceptance(
+            bundle,
+            tuple_id="P5_R1CORE_AMGX_ASYNC_BASELINE",
+            hard_gate_observations=passing_hard_gates(),
+            soft_gate_observations=soft_gates,
+            class_results={
+                "TC_R1CORE_GENERIC": AcceptanceClassResult(
+                    class_id="TC_R1CORE_GENERIC",
+                    passed=True,
+                ),
+                "RP_STRICT": AcceptanceClassResult(
+                    class_id="RP_STRICT",
+                    passed=True,
+                ),
+                "BP_AMGX_R1CORE": AcceptanceClassResult(
+                    class_id="BP_AMGX_R1CORE",
+                    passed=True,
+                ),
+            },
+            evaluation_context=AcceptanceEvaluationContext(
+                pressure_bridge_mode="PinnedHost",
+            ),
+        )
+
+        self.assertEqual(verdict.disposition, "non_admitted")
+        self.assertEqual(
+            verdict.gate_results["soft"]["graph_launches_per_step"]["observed"],
+            5,
+        )
+        self.assertEqual(
+            verdict.gate_results["soft"]["graph_launches_per_step"]["passed"],
+            False,
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

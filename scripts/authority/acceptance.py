@@ -34,10 +34,10 @@ class AcceptanceWaiver:
 
 @dataclass(frozen=True)
 class AcceptanceEvaluationContext:
-    is_production_acceptance_run: bool = False
-    uses_accepted_startup_path: bool = True
-    in_timed_steady_state_window: bool = True
-    in_steady_state_inner_ranges: bool = True
+    is_production_acceptance_run: bool | None = None
+    uses_accepted_startup_path: bool | None = None
+    in_timed_steady_state_window: bool | None = None
+    in_steady_state_inner_ranges: bool | None = None
     pressure_bridge_mode: str | None = None
 
 
@@ -194,8 +194,15 @@ def evaluate_acceptance(
             class_results={},
             waiver=None,
         )
-    context = evaluation_context or AcceptanceEvaluationContext(
-        is_production_acceptance_run=resolved.production_eligible,
+    context = _resolved_evaluation_context(
+        resolved=resolved,
+        provided=evaluation_context,
+    )
+
+    soft_results = _evaluate_gate_family(
+        bundle.acceptance.raw["soft_gates"],
+        soft_gate_observations,
+        context,
     )
 
     required_pressure_bridge_mode = resolved.raw.get("required_pressure_bridge_mode")
@@ -219,7 +226,7 @@ def evaluate_acceptance(
             required_orchestration_ranges=resolved.required_orchestration_ranges,
             required_stage_ids=resolved.required_stage_ids,
             production_defaults=resolved.production_defaults,
-            gate_results={"hard": {}, "soft": {}},
+            gate_results={"hard": {}, "soft": soft_results},
             thresholds_used=resolved.thresholds_used,
             class_results={},
             waiver=None,
@@ -228,11 +235,6 @@ def evaluate_acceptance(
     hard_results = _evaluate_gate_family(
         bundle.acceptance.raw["hard_gates"],
         hard_gate_observations,
-        context,
-    )
-    soft_results = _evaluate_gate_family(
-        bundle.acceptance.raw["soft_gates"],
-        soft_gate_observations,
         context,
     )
     class_evaluation = _evaluate_active_classes(resolved, class_results)
@@ -321,6 +323,44 @@ def _active_parity_class_ids(accepted_tuple: AcceptedTuple) -> tuple[str, ...]:
         if value:
             class_ids.append(str(value))
     return tuple(class_ids)
+
+
+def _resolved_evaluation_context(
+    *,
+    resolved: AcceptedTupleResolution,
+    provided: AcceptanceEvaluationContext | None,
+) -> AcceptanceEvaluationContext:
+    if provided is None:
+        return AcceptanceEvaluationContext(
+            is_production_acceptance_run=resolved.production_eligible,
+            uses_accepted_startup_path=True,
+            in_timed_steady_state_window=True,
+            in_steady_state_inner_ranges=True,
+            pressure_bridge_mode=None,
+        )
+    return AcceptanceEvaluationContext(
+        is_production_acceptance_run=(
+            resolved.production_eligible
+            if provided.is_production_acceptance_run is None
+            else provided.is_production_acceptance_run
+        ),
+        uses_accepted_startup_path=(
+            True
+            if provided.uses_accepted_startup_path is None
+            else provided.uses_accepted_startup_path
+        ),
+        in_timed_steady_state_window=(
+            True
+            if provided.in_timed_steady_state_window is None
+            else provided.in_timed_steady_state_window
+        ),
+        in_steady_state_inner_ranges=(
+            True
+            if provided.in_steady_state_inner_ranges is None
+            else provided.in_steady_state_inner_ranges
+        ),
+        pressure_bridge_mode=provided.pressure_bridge_mode,
+    )
 
 
 def _evaluate_gate_family(
