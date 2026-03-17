@@ -445,6 +445,29 @@ class ReferenceCaseResolutionTests(unittest.TestCase):
                 },
             )
 
+    def test_stage_plan_validation_requires_conditional_selection_field(self) -> None:
+        bundle = load_authority_bundle(repo_root())
+
+        with self.assertRaisesRegex(
+            AuthoritySelectionError,
+            "stage_plan.json phase_gate_selection is missing required fields: conditional_selection",
+        ):
+            validate_stage_plan(
+                bundle,
+                {
+                    "schema_version": "1.0.0",
+                    "case_id": "phase0_r1_core_57_28_1000_internal_generic_v1",
+                    "case_role": "R1-core",
+                    "phase_gate": "Phase 5",
+                    "phase_gate_selection": {
+                        "selected_case_role": "R1-core",
+                        "available_case_roles": ["R2", "R1-core"],
+                        "ordered_ladder": ["R2", "R1-core", "R1", "R0"],
+                    },
+                    "stages": [{"name": "transient_run", "cmd": "foamRun"}],
+                },
+            )
+
 
 if __name__ == "__main__":
     unittest.main()

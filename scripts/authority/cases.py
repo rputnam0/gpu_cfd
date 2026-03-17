@@ -316,7 +316,12 @@ def validate_stage_plan(bundle: AuthorityBundle, payload: dict[str, Any]) -> dic
         )
     _validate_required_fields(
         phase_gate_selection,
-        required_fields=("selected_case_role", "available_case_roles", "ordered_ladder"),
+        required_fields=(
+            "selected_case_role",
+            "available_case_roles",
+            "ordered_ladder",
+            "conditional_selection",
+        ),
         artifact_name=f"{CANONICAL_STAGE_PLAN_NAME} phase_gate_selection",
     )
 
