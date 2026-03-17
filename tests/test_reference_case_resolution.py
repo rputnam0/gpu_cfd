@@ -129,6 +129,19 @@ class ReferenceCaseResolutionTests(unittest.TestCase):
         )
         self.assertIn("case_id", schema["required"])
         self.assertEqual(schema["properties"]["phase_gates"]["minItems"], 1)
+        case_variants = schema["allOf"][0]["oneOf"]
+        self.assertEqual(len(case_variants), 4)
+        r1_core_variant = next(
+            variant
+            for variant in case_variants
+            if variant["properties"]["case_role"]["const"] == "R1-core"
+        )
+        self.assertEqual(
+            r1_core_variant["properties"]["case_id"]["const"],
+            "phase0_r1_core_57_28_1000_internal_generic_v1",
+        )
+        self.assertEqual(r1_core_variant["properties"]["ladder_position"]["const"], 2)
+        self.assertEqual(r1_core_variant["properties"]["phase_gates"]["minItems"], 4)
 
         validate_case_meta(
             bundle,
@@ -241,6 +254,52 @@ class ReferenceCaseResolutionTests(unittest.TestCase):
         )
         self.assertEqual(schema["properties"]["stages"]["minItems"], 1)
         self.assertIn("allOf", schema["properties"]["phase_gate_selection"])
+        stage_plan_variants = schema["allOf"][0]["oneOf"]
+        self.assertEqual(len(stage_plan_variants), 14)
+        phase5_r1_core_variant = next(
+            variant
+            for variant in stage_plan_variants
+            if variant["properties"]["phase_gate"]["const"] == "Phase 5"
+            and variant["properties"]["case_role"]["const"] == "R1-core"
+        )
+        self.assertEqual(
+            phase5_r1_core_variant["properties"]["case_id"]["const"],
+            "phase0_r1_core_57_28_1000_internal_generic_v1",
+        )
+        self.assertEqual(
+            phase5_r1_core_variant["properties"]["phase_gate_selection"]["properties"][
+                "selected_case_role"
+            ]["const"],
+            "R1-core",
+        )
+        self.assertEqual(
+            phase5_r1_core_variant["properties"]["phase_gate_selection"]["properties"][
+                "conditional_selection"
+            ]["const"],
+            False,
+        )
+        phase2_r1_variant = next(
+            variant
+            for variant in stage_plan_variants
+            if variant["properties"]["phase_gate"]["const"] == "Phase 2"
+            and variant["properties"]["case_role"]["const"] == "R1"
+        )
+        self.assertEqual(
+            phase2_r1_variant["properties"]["case_id"]["const"],
+            "phase0_r1_57_28_1000_internal_v1",
+        )
+        self.assertEqual(
+            phase2_r1_variant["properties"]["phase_gate_selection"]["properties"][
+                "selected_case_role"
+            ]["const"],
+            "R1",
+        )
+        self.assertEqual(
+            phase2_r1_variant["properties"]["phase_gate_selection"]["properties"][
+                "conditional_selection"
+            ]["const"],
+            True,
+        )
 
         validate_stage_plan(
             bundle,

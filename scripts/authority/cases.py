@@ -128,7 +128,7 @@ def resolve_phase_gate_case(
 
 def case_meta_schema(bundle: AuthorityBundle) -> dict[str, Any]:
     ordered_case_roles = list(bundle.ladder.ordered_case_ids)
-    return {
+    schema = {
         "schema_version": MANIFEST_SCHEMA_VERSION,
         "canonical_name": CANONICAL_CASE_META_NAME,
         "type": "object",
@@ -160,6 +160,8 @@ def case_meta_schema(bundle: AuthorityBundle) -> dict[str, Any]:
             },
         },
     }
+    schema["allOf"] = [{"oneOf": _case_meta_variants(bundle)}]
+    return schema
 
 
 def validate_case_meta(bundle: AuthorityBundle, payload: dict[str, Any]) -> dict[str, Any]:
@@ -220,7 +222,7 @@ def validate_case_meta(bundle: AuthorityBundle, payload: dict[str, Any]) -> dict
 
 def stage_plan_schema(bundle: AuthorityBundle) -> dict[str, Any]:
     ordered_case_roles = list(bundle.ladder.ordered_case_ids)
-    return {
+    schema = {
         "schema_version": MANIFEST_SCHEMA_VERSION,
         "canonical_name": CANONICAL_STAGE_PLAN_NAME,
         "type": "object",
@@ -285,6 +287,8 @@ def stage_plan_schema(bundle: AuthorityBundle) -> dict[str, Any]:
             },
         },
     }
+    schema["allOf"] = [{"oneOf": _stage_plan_variants(bundle)}]
+    return schema
 
 
 def validate_stage_plan(bundle: AuthorityBundle, payload: dict[str, Any]) -> dict[str, Any]:
@@ -465,6 +469,102 @@ def _phase_gates_for_case_role(bundle: AuthorityBundle, *, case_role: str) -> tu
         ):
             phase_gates.append(phase_gate)
     return tuple(phase_gates)
+
+
+def _case_meta_variants(bundle: AuthorityBundle) -> list[dict[str, Any]]:
+    variants = []
+    for case_role in bundle.ladder.ordered_case_ids:
+        resolved_case = resolve_reference_case(bundle, case_role=case_role)
+        variants.append(
+            {
+                "properties": {
+                    "case_role": {"const": resolved_case.case_role},
+                    "case_id": {"const": resolved_case.frozen_id},
+                    "ladder_position": {"const": resolved_case.ladder_position},
+                    "phase_gates": _exact_membership_array_schema(resolved_case.phase_gates),
+                }
+            }
+        )
+    return variants
+
+
+def _stage_plan_variants(bundle: AuthorityBundle) -> list[dict[str, Any]]:
+    variants = []
+    for phase_gate in bundle.cases.phase_gate_mapping:
+        unconditional_case_roles = allowed_phase_gate_case_roles(bundle, phase_gate=phase_gate)
+        for case_role in unconditional_case_roles:
+            resolved_case = resolve_phase_gate_case(bundle, phase_gate=phase_gate, case_role=case_role)
+            variants.append(
+                {
+                    "properties": {
+                        "phase_gate": {"const": phase_gate},
+                        "case_role": {"const": resolved_case.case_role},
+                        "case_id": {"const": resolved_case.frozen_id},
+                        "phase_gate_selection": {
+                            "properties": {
+                                "selected_case_role": {"const": resolved_case.case_role},
+                                "available_case_roles": _exact_membership_array_schema(
+                                    unconditional_case_roles
+                                ),
+                                "conditional_selection": {"const": False},
+                            }
+                        },
+                    }
+                }
+            )
+
+        conditional_case_roles = tuple(
+            case_role
+            for case_role in allowed_phase_gate_case_roles(
+                bundle,
+                phase_gate=phase_gate,
+                include_conditional=True,
+            )
+            if case_role not in unconditional_case_roles
+        )
+        allowed_with_conditionals = allowed_phase_gate_case_roles(
+            bundle,
+            phase_gate=phase_gate,
+            include_conditional=True,
+        )
+        for case_role in conditional_case_roles:
+            resolved_case = resolve_phase_gate_case(
+                bundle,
+                phase_gate=phase_gate,
+                case_role=case_role,
+                allow_conditional=True,
+            )
+            variants.append(
+                {
+                    "properties": {
+                        "phase_gate": {"const": phase_gate},
+                        "case_role": {"const": resolved_case.case_role},
+                        "case_id": {"const": resolved_case.frozen_id},
+                        "phase_gate_selection": {
+                            "properties": {
+                                "selected_case_role": {"const": resolved_case.case_role},
+                                "available_case_roles": _exact_membership_array_schema(
+                                    allowed_with_conditionals
+                                ),
+                                "conditional_selection": {"const": True},
+                            }
+                        },
+                    }
+                }
+            )
+    return variants
+
+
+def _exact_membership_array_schema(values: Sequence[str]) -> dict[str, Any]:
+    ordered_values = list(values)
+    return {
+        "type": "array",
+        "minItems": len(ordered_values),
+        "maxItems": len(ordered_values),
+        "uniqueItems": True,
+        "items": {"enum": ordered_values},
+        "allOf": [{"contains": {"const": value}} for value in ordered_values],
+    }
 
 
 def _validate_required_fields(
