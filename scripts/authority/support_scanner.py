@@ -169,6 +169,14 @@ def _scan_issues(bundle: AuthorityBundle, request: SupportScanRequest) -> tuple[
     issues: list[SupportScanIssue] = []
     global_policy = bundle.support.raw["global_policy"]
 
+    if request.execution_mode == "production" and request.fallback_policy == DEBUG_FALLBACK_POLICY:
+        issues.append(
+            SupportScanIssue(
+                code="production_debug_fallback_forbidden",
+                message="debugOnlyFallback is a non-production mode and cannot be carried on production requests.",
+                citations=(GLOBAL_POLICY_CITATION, CONTINUITY_CITATION),
+            )
+        )
     if request.mesh_mode != global_policy["mesh_mode"]:
         issues.append(
             SupportScanIssue(
@@ -247,8 +255,17 @@ def _scan_issues(bundle: AuthorityBundle, request: SupportScanRequest) -> tuple[
 
 
 def _scan_backend(request: SupportScanRequest) -> tuple[SupportScanIssue, ...]:
-    if request.backend != "amgx":
+    if request.backend == "native":
         return ()
+    if request.backend != "amgx":
+        return (
+            SupportScanIssue(
+                code="backend_not_admitted",
+                message="Backend eligibility is limited to the native baseline and the Phase 4 AmgX bridge.",
+                citations=(BACKEND_CITATION, CONTINUITY_CITATION),
+                detail={"backend": request.backend},
+            ),
+        )
     if request.execution_mode == "production" and request.backend_pressure_mode != "DeviceDirect":
         return (
             SupportScanIssue(
@@ -360,6 +377,8 @@ def _scan_boundary_conditions(
     issues: list[SupportScanIssue] = []
     for condition in request.boundary_conditions:
         row = allowed_rows.get((condition.patch_role, condition.field))
+        if row is None and condition.patch_role == "Symmetry / empty":
+            row = allowed_rows.get((condition.patch_role, "all relevant fields"))
         if row is None:
             issues.append(
                 SupportScanIssue(

@@ -239,6 +239,66 @@ class SupportScannerTests(unittest.TestCase):
             ("function_object_debug_only_enabled",),
         )
 
+    def test_unsupported_backend_names_fail_fast(self) -> None:
+        request = SupportScanRequest(
+            **{
+                **self.make_supported_request().__dict__,
+                "backend": "petsc",
+            }
+        )
+
+        with self.assertRaises(SupportScanRejected) as context:
+            enforce_support_scan(self.bundle, request)
+
+        self.assertEqual(
+            tuple(reason["code"] for reason in context.exception.report.reject_reasons),
+            ("backend_not_admitted",),
+        )
+
+    def test_production_debug_fallback_policy_is_not_production_eligible(self) -> None:
+        request = SupportScanRequest(
+            **{
+                **self.make_supported_request().__dict__,
+                "fallback_policy": "debugOnlyFallback",
+            }
+        )
+
+        with self.assertRaises(SupportScanRejected) as context:
+            enforce_support_scan(self.bundle, request)
+
+        report = context.exception.report
+        self.assertFalse(report.startup_allowed)
+        self.assertFalse(report.production_eligible)
+        self.assertEqual(
+            tuple(reason["code"] for reason in report.reject_reasons),
+            ("production_debug_fallback_forbidden",),
+        )
+
+    def test_symmetry_and_empty_boundaries_are_admitted(self) -> None:
+        request = SupportScanRequest(
+            **{
+                **self.make_supported_request().__dict__,
+                "boundary_conditions": self.make_supported_request().boundary_conditions
+                + (
+                    SupportBoundaryCondition(
+                        patch_role="Symmetry / empty",
+                        field="U",
+                        kind="pass-through",
+                    ),
+                    SupportBoundaryCondition(
+                        patch_role="Symmetry / empty",
+                        field="alpha.water",
+                        kind="no-op semantics",
+                    ),
+                ),
+            }
+        )
+
+        report = enforce_support_scan(self.bundle, request)
+
+        self.assertTrue(report.startup_allowed)
+        self.assertEqual(report.reject_reasons, ())
+
 
 if __name__ == "__main__":
     unittest.main()
