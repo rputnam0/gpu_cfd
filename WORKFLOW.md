@@ -84,7 +84,7 @@ Execution contract:
 - Use a non-interactive planning pass before edits. Prefer the narrowest reversible implementation consistent with the PR card and cited docs, record assumptions and rationale in the workpad, and continue unless there is a real authority conflict, missing auth/secret, or an unsafe destructive action not covered by repo policy.
 - Dev-only observability is available through the repo-owned dispatch wrapper. When `GPU_CFD_TRACE_ENABLE=1`, it captures immutable context packs, workpad diffs, handoff/review events, and app-server transcripts under `GPU_CFD_TRACE_ROOT` for the standalone Symphony Trace Viewer.
 - If the issue state is `Todo`, move it to `In Progress` before implementation work.
-- If the issue state is `Rework`, start by using the GitHub CLI API to pull the latest review comments and review state for the current PR head before making new edits.
+- If the issue state is `Rework`, start by using the GitHub CLI API to pull the latest review comments and review state for the current PR head before making new edits, and record the actionable thread IDs / URLs in the Linear workpad.
 - If the issue already has a PR attached, start with the same GitHub API review-feedback sweep before new edits.
 - Use `gh api` to inspect PR review comments and threads. Treat actionable Devin feedback on the current head as mandatory fix work, not as optional advice.
 - Do not rely on memory alone for `Rework`. Re-read the current PR feedback from GitHub, fix every valid actionable Devin finding, and record what changed in the Linear workpad.
@@ -93,11 +93,15 @@ Execution contract:
 - Use the issue branch name when available; otherwise create a `codex/` branch derived from the issue identifier.
 - Run the smallest relevant validation first, then broader checks when the scope requires it.
 - When the task is implementation-complete, commit and push the branch, record validation evidence in the workpad, then run `python3 scripts/symphony/pr_handoff.py --workspace "$PWD"`.
+- Run the handoff helper from the issue workspace directly. If the workspace still contains unrelated dirty control-plane files, the helper materializes its own clean committed clone for local review and PR automation; do not invent a manual clean-clone workflow.
 - The Symphony workflow configuration for this repo applies to the implementation worker only. The local pre-PR review pass uses the repo-owned review profile in `scripts/symphony/runtime_config.toml` (`gpt-5.4` with `xhigh`).
-- If the handoff helper reports findings, inspect the latest artifact under `.codex/review_artifacts/`, fix the valid findings in the same run, rerun the smallest relevant validation, and rerun the handoff helper once.
-- When the handoff helper succeeds, it opens or updates the GitHub PR, enables auto-merge, moves the issue to `In Review`, and the run should stop after you update the workpad with the PR URL.
+- If the handoff helper reports findings on remediation pass 1 or 2, inspect the latest artifact under `.codex/review_artifacts/`, fix the valid findings in the same implementation run, rerun the smallest relevant validation, and rerun the handoff helper.
+- Remediation passes 1 and 2 are continuation work for the same implementation worker. Keep the issue in `In Progress`; do not stop or expect Symphony to redispatch a fresh worker for those pre-PR fixes.
+- The finite local-review cycle is 3 total passes: remediation pass 1, remediation pass 2, then one final local review pass.
+- On the third and final local review pass, residual findings no longer block PR progression. The handoff helper creates one child `Backlog` issue per residual finding, opens or updates the PR, enables auto-merge, moves the parent issue to `In Review`, and returns `stop_worker=true`. Do not start another local review after that terminal pass.
+- When the handoff helper succeeds cleanly, it opens or updates the GitHub PR, enables auto-merge, moves the issue to `In Review`, returns `stop_worker=true`, and the run should stop after you update the workpad with the PR URL.
 - `In Review` is a dormant automated-review state. Do not wait, poll, or sleep for Devin.
-- GitHub automation owns the `In Review -> Rework` transition when Devin leaves actionable feedback on the current head.
+- GitHub automation owns the `In Review -> Rework` transition when Devin leaves actionable feedback on the current head. Actionable Devin threads are not auto-cleared just because a newer commit exists.
 - GitHub auto-merge owns the final merge once `review-loop-harness` and `devin-review-gate` are green.
 - GitHub post-merge automation owns `In Review -> Done` and dependent release from `Backlog -> Todo`.
 - `Backlog` means parked or blocked work and is out of scope for this run.
@@ -108,5 +112,5 @@ Completion bar:
 - The exact task card's objective, validation, and done criteria are satisfied.
 - Repo changes are limited to the assigned PR card.
 - Validation evidence is recorded in the Linear workpad.
-- The PR has passed one local Codex review loop.
+- The PR has completed the finite local Codex review cycle and progressed into GitHub review.
 - The PR has completed one Devin review cycle, all actionable findings have been fixed or resolved, and it merged through GitHub auto-merge.

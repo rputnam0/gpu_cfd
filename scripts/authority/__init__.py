@@ -1,5 +1,15 @@
 """Shared authority loader for gpu_cfd foundation tooling."""
 
+from .acceptance import (
+    AcceptanceClassResult,
+    AcceptanceEvaluationContext,
+    AcceptanceVerdict,
+    AcceptanceWaiver,
+    AcceptanceWaiverHook,
+    AcceptedTupleResolution,
+    evaluate_acceptance,
+    resolve_accepted_tuple,
+)
 from .bundle import (
     AuthorityBundle,
     AuthorityConflictError,
@@ -31,6 +41,12 @@ from .support_scanner import (
 )
 
 __all__ = [
+    "AcceptanceClassResult",
+    "AcceptanceEvaluationContext",
+    "AcceptanceVerdict",
+    "AcceptanceWaiver",
+    "AcceptanceWaiverHook",
+    "AcceptedTupleResolution",
     "AuthorityBundle",
     "AuthorityConflictError",
     "AuthorityLoadError",
@@ -49,9 +65,11 @@ __all__ = [
     "SupportStartupSeedSpec",
     "emit_environment_manifests",
     "enforce_support_scan",
+    "evaluate_acceptance",
     "load_authority_bundle",
     "main",
     "repo_root",
+    "resolve_accepted_tuple",
     "resolve_consumer_pin_manifest",
     "scan_support_matrix",
 ]
