@@ -333,10 +333,34 @@ def _scan_schemes(bundle: AuthorityBundle, request: SupportScanRequest) -> tuple
         for block, values in bundle.support.raw["exact_audited_scheme_tuple"].items()
         if isinstance(values, dict)
     }
-    observed = {
-        block: {_normalize_scheme_key(key): value for key, value in values.items()}
-        for block, values in request.schemes.items()
-    }
+    observed: dict[str, dict[str, str]] = {}
+    collisions: list[dict[str, Any]] = []
+    for block, values in request.schemes.items():
+        normalized_values: dict[str, str] = {}
+        raw_keys_by_normalized: dict[str, list[str]] = {}
+        for key, value in values.items():
+            normalized_key = _normalize_scheme_key(key)
+            raw_keys_by_normalized.setdefault(normalized_key, []).append(key)
+            if normalized_key in normalized_values:
+                collisions.append(
+                    {
+                        "block": block,
+                        "normalized_key": normalized_key,
+                        "raw_keys": raw_keys_by_normalized[normalized_key],
+                    }
+                )
+                continue
+            normalized_values[normalized_key] = value
+        observed[block] = normalized_values
+    if collisions:
+        return (
+            SupportScanIssue(
+                code="unsupported_scheme_tuple",
+                message="The startup scheme tuple must not collapse duplicate alpha aliases into one admitted key.",
+                citations=(SCHEME_CITATION,),
+                detail={"collisions": collisions},
+            ),
+        )
     if observed != expected:
         return (
             SupportScanIssue(
@@ -413,7 +437,13 @@ def _scan_boundary_conditions(
     allowed_rows = {
         (row["patch_role"], row["field"]): row for row in bundle.support.raw["phase6_nozzle_specific_envelope"]
     }
+    required_rows = {
+        (row["patch_role"], row["field"])
+        for row in bundle.support.raw["phase6_nozzle_specific_envelope"]
+        if row["patch_role"] != "Symmetry / empty"
+    }
     issues: list[SupportScanIssue] = []
+    observed_rows: set[tuple[str, str]] = set()
     for condition in request.boundary_conditions:
         row = allowed_rows.get((condition.patch_role, condition.field))
         if row is None and condition.patch_role == "Symmetry / empty":
@@ -432,6 +462,7 @@ def _scan_boundary_conditions(
                 )
             )
             continue
+        observed_rows.add((row["patch_role"], row["field"]))
         normalized_kind = _normalize_boundary_kind(condition, row)
         if normalized_kind not in row["allowed_kinds"]:
             issues.append(
@@ -446,6 +477,21 @@ def _scan_boundary_conditions(
                     },
                 )
             )
+    missing_rows = sorted(required_rows - observed_rows)
+    if missing_rows:
+        issues.append(
+            SupportScanIssue(
+                code="missing_boundary_condition",
+                message="Boundary-condition coverage must include the full frozen nozzle tuple before startup.",
+                citations=(BOUNDARY_CITATION,),
+                detail={
+                    "missing_rows": [
+                        {"patch_role": patch_role, "field": field}
+                        for patch_role, field in missing_rows
+                    ]
+                },
+            )
+        )
     return tuple(issues)
 
 

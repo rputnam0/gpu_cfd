@@ -194,6 +194,7 @@ class SupportScannerTests(unittest.TestCase):
             (
                 "backend_mode_not_admitted",
                 "function_object_debug_only_in_production",
+                "missing_boundary_condition",
                 "startup_seed_precedence_not_admitted",
                 "startup_seed_unknown_key",
                 "turbulence_scope_violation",
@@ -426,6 +427,48 @@ class SupportScannerTests(unittest.TestCase):
         self.assertEqual(
             tuple(reason["code"] for reason in fallback_context.exception.report.reject_reasons),
             ("fallback_policy_not_admitted",),
+        )
+
+    def test_duplicate_alpha_alias_scheme_entries_are_rejected(self) -> None:
+        request = SupportScanRequest(
+            **{
+                **self.make_supported_request().__dict__,
+                "schemes": {
+                    **self.make_supported_request().schemes,
+                    "gradSchemes": {
+                        **self.make_supported_request().schemes["gradSchemes"],
+                        "grad(alpha1)": "Gauss linear",
+                    },
+                },
+            }
+        )
+
+        with self.assertRaises(SupportScanRejected) as context:
+            enforce_support_scan(self.bundle, request)
+
+        self.assertEqual(
+            tuple(reason["code"] for reason in context.exception.report.reject_reasons),
+            ("unsupported_scheme_tuple",),
+        )
+
+    def test_missing_required_nozzle_boundary_rows_are_rejected(self) -> None:
+        request = SupportScanRequest(
+            **{
+                **self.make_supported_request().__dict__,
+                "boundary_conditions": tuple(
+                    condition
+                    for condition in self.make_supported_request().boundary_conditions
+                    if not (condition.patch_role == "Ambient/open" and condition.field == "alpha.water")
+                ),
+            }
+        )
+
+        with self.assertRaises(SupportScanRejected) as context:
+            enforce_support_scan(self.bundle, request)
+
+        self.assertEqual(
+            tuple(reason["code"] for reason in context.exception.report.reject_reasons),
+            ("missing_boundary_condition",),
         )
 
 
