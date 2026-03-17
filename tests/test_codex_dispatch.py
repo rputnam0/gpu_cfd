@@ -21,6 +21,13 @@ class CodexDispatchTests(unittest.TestCase):
     def repo_root(self) -> pathlib.Path:
         return pathlib.Path(__file__).resolve().parents[1]
 
+    @staticmethod
+    def with_reviewed_ownership(note_text: str) -> str:
+        return note_text.replace(
+            "REQUIRED: replace with the reviewed ownership boundary for this semantic surface.",
+            "ownership-reviewed scope boundary for this semantic surface",
+        )
+
     def test_render_workflow_prompt_inlines_issue_context(self) -> None:
         workflow_text = (self.repo_root() / "WORKFLOW.md").read_text(encoding="utf-8")
         rendered = codex_dispatch.render_workflow_prompt(
@@ -77,6 +84,35 @@ class CodexDispatchTests(unittest.TestCase):
         self.assertIsNotNone(context)
         assert context is not None
         self.assertEqual(context["pr_id"], "P5-02")
+
+    def test_resolve_pr_context_uses_anchored_backlog_item_before_dependency_mentions(self) -> None:
+        context = codex_dispatch.resolve_pr_context(
+            self.repo_root(),
+            {
+                "identifier": "PRO-17",
+                "title": "Runtime gate follow-up",
+                "description": (
+                    "Execution task for backlog item `P5-02`.\n"
+                    "Blocked on `P5-01` before implementation starts."
+                ),
+            },
+        )
+
+        self.assertIsNotNone(context)
+        assert context is not None
+        self.assertEqual(context["pr_id"], "P5-02")
+
+    def test_resolve_pr_context_fails_closed_for_ambiguous_fallback_mentions(self) -> None:
+        context = codex_dispatch.resolve_pr_context(
+            self.repo_root(),
+            {
+                "identifier": "PRO-17",
+                "title": "Runtime gate follow-up",
+                "description": "Blocked on P5-01 before starting P5-02.",
+            },
+        )
+
+        self.assertIsNone(context)
 
     @mock.patch("scripts.symphony.codex_dispatch.linear_api.fetch_issue")
     def test_fetch_issue_snapshot_raises_when_linear_issue_lookup_fails(
@@ -138,6 +174,7 @@ class CodexDispatchTests(unittest.TestCase):
             ],
             review_status="reviewed",
         )
+        note_text = self.with_reviewed_ownership(note_text)
         note_path = self.repo_root() / "phase5_symbol_reconciliation.md"
         note_path.write_text(note_text, encoding="utf-8")
         self.addCleanup(note_path.unlink)

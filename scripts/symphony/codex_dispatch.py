@@ -23,6 +23,17 @@ except ModuleNotFoundError:  # pragma: no cover - script execution fallback
 
 
 TASK_CARD_ID_PATTERN = re.compile(r"\b(?:FND-\d+|P\d+-\d+)\b", re.IGNORECASE)
+PRIMARY_TASK_CARD_PATTERNS = (
+    re.compile(
+        r"Execution task for backlog item\s+`?(?P<task_id>(?:FND-\d+|P\d+-\d+))`?",
+        re.IGNORECASE,
+    ),
+    re.compile(r"^##\s+(?P<task_id>(?:FND-\d+|P\d+-\d+))\b", re.IGNORECASE | re.MULTILINE),
+    re.compile(
+        r"^Identifier:\s*`?(?P<task_id>(?:FND-\d+|P\d+-\d+))`?\s*$",
+        re.IGNORECASE | re.MULTILINE,
+    ),
+)
 MARKDOWN_LINK_PATTERN = re.compile(r"\[[^\]]+\]\((?P<path>[^)]+)\)")
 INLINE_REPO_PATH_PATTERN = re.compile(
     r"`(?P<path>(?:AGENTS|WORKFLOW)\.md|(?:docs|scripts|\.codex)/[^`]+)`"
@@ -191,6 +202,15 @@ def extract_task_card_candidates(*texts: str) -> list[str]:
     return candidates
 
 
+def extract_primary_task_card_candidate(*texts: str) -> str | None:
+    for text in texts:
+        for pattern in PRIMARY_TASK_CARD_PATTERNS:
+            match = pattern.search(text or "")
+            if match:
+                return match.group("task_id").upper()
+    return None
+
+
 def parse_pr_inventory(repo: pathlib.Path) -> dict[str, pathlib.Path]:
     inventory_text = read_text(repo / "docs" / "tasks" / "pr_inventory.md")
     mapping: dict[str, pathlib.Path] = {}
@@ -289,7 +309,18 @@ def resolve_pr_context(
             "cited_paths": cited_paths,
         }
 
-    for candidate in extract_task_card_candidates(*fallback_candidate_texts):
+    anchored_fallback_candidate = extract_primary_task_card_candidate(*fallback_candidate_texts)
+    fallback_candidates = (
+        [anchored_fallback_candidate]
+        if anchored_fallback_candidate
+        else (
+            extract_task_card_candidates(*fallback_candidate_texts)
+            if len(extract_task_card_candidates(*fallback_candidate_texts)) == 1
+            else []
+        )
+    )
+
+    for candidate in fallback_candidates:
         task_file = inventory.get(candidate)
         if task_file is None or not task_file.exists():
             continue

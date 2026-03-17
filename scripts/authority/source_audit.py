@@ -20,6 +20,9 @@ SOURCE_AUDIT_TEMPLATE_PATH = pathlib.Path("docs/tasks/templates/source_audit_not
 SOURCE_AUDIT_AUTHORITY_PATH = "docs/authority/semantic_source_map.md"
 SOURCE_AUDIT_REVIEWED_STATUS = "reviewed"
 SOURCE_AUDIT_DEFAULT_RENDER_STATUS = "draft"
+SOURCE_AUDIT_OWNERSHIP_SCOPE_PLACEHOLDER = (
+    "REQUIRED: replace with the reviewed ownership boundary for this semantic surface."
+)
 SEMANTIC_SURFACE_ALIASES = {
     "alphapredictor": "Alpha transport",
     "alphatransport": "Alpha transport",
@@ -59,7 +62,7 @@ def resolve_source_audit_surfaces(
             contract_surface=surface,
             semantic_reference=available_surfaces[surface].semantic_reference,
             local_target_family=available_surfaces[surface].local_target_family,
-            ownership_scope=available_surfaces[surface].local_target_family,
+            ownership_scope=SOURCE_AUDIT_OWNERSHIP_SCOPE_PLACEHOLDER,
             notes=available_surfaces[surface].notes,
         )
         for surface in normalized_surfaces
@@ -167,6 +170,14 @@ def validate_source_audit_note(
             raise ValueError(
                 "source-audit note row for "
                 f"{resolved_surface.contract_surface!r} is missing ownership scope"
+            )
+        if observed_row["ownership_scope"].strip() in {
+            SOURCE_AUDIT_OWNERSHIP_SCOPE_PLACEHOLDER,
+            resolved_surface.local_target_family,
+        }:
+            raise ValueError(
+                "source-audit note row for "
+                f"{resolved_surface.contract_surface!r} must record a reviewed ownership boundary"
             )
     return resolved_surfaces
 

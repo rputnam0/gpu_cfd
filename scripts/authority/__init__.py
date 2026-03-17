@@ -17,6 +17,7 @@ from .pins import (
 )
 from .source_audit import (
     ResolvedSourceAuditSurface,
+    SOURCE_AUDIT_OWNERSHIP_SCOPE_PLACEHOLDER,
     render_source_audit_note,
     resolve_source_audit_surfaces,
     validate_source_audit_note,
@@ -31,6 +32,7 @@ __all__ = [
     "ConsumerPinResolution",
     "EmittedEnvironmentManifests",
     "ResolvedSourceAuditSurface",
+    "SOURCE_AUDIT_OWNERSHIP_SCOPE_PLACEHOLDER",
     "emit_environment_manifests",
     "load_authority_bundle",
     "main",
