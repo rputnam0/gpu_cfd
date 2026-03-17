@@ -62,6 +62,7 @@ def sample_commands() -> dict[str, str]:
 
 
 def write_bashrc(root: pathlib.Path, *, name: str = "baseline.sh") -> pathlib.Path:
+    root.mkdir(parents=True, exist_ok=True)
     path = root / name
     path.write_text("# reference artifact test bashrc\n", encoding="utf-8")
     return path
@@ -207,8 +208,14 @@ boundaryField
 """,
     )
 
-
-def build_case_bundle(temp_root: pathlib.Path) -> tuple[pathlib.Path, pathlib.Path]:
+def build_case_bundle(
+    temp_root: pathlib.Path,
+    *,
+    case_role: str = "R1",
+    phase_gate: str = "Phase 2",
+    conditional_reason: str | None = "patch-manifest coverage under test",
+    reference_artifacts: dict[str, object] | None = None,
+):
     bundle = load_authority_bundle(repo_root())
     bashrc_path = write_bashrc(temp_root, name="baseline_b_reference.sh")
     report = probe_openfoam_baselines(
@@ -239,7 +246,7 @@ def build_case_bundle(temp_root: pathlib.Path) -> tuple[pathlib.Path, pathlib.Pa
     case_meta = build_case_meta_payload(
         bundle,
         context=context,
-        case_role="R1",
+        case_role=case_role,
         requested_vof_solver_mode="vof_transient_preconditioned",
         resolved_vof_solver_exec="incompressibleVoF",
         resolved_pressure_backend="amgx",
@@ -283,9 +290,9 @@ def build_case_bundle(temp_root: pathlib.Path) -> tuple[pathlib.Path, pathlib.Pa
     stage_plan = build_stage_plan_payload(
         bundle,
         context=context,
-        case_role="R1",
-        phase_gate="Phase 2",
-        conditional_reason="patch-manifest coverage under test",
+        case_role=case_role,
+        phase_gate=phase_gate,
+        conditional_reason=conditional_reason,
         stages=[
             {"name": "checkMesh_build", "cmd": "checkMesh"},
             {"name": "transient_run", "cmd": "foamRun -solver incompressibleVoF"},
@@ -296,17 +303,15 @@ def build_case_bundle(temp_root: pathlib.Path) -> tuple[pathlib.Path, pathlib.Pa
         output_dir=temp_root / "case_bundle",
         case_meta=case_meta,
         stage_plan=stage_plan,
+        reference_artifacts=reference_artifacts,
     )
-    return emitted.case_meta_path, emitted.stage_plan_path
+    return emitted
 
 
 class ReferenceProblemArtifactTests(unittest.TestCase):
     def test_emit_reference_problem_artifacts_writes_comparison_ready_json(self) -> None:
-        bundle = load_authority_bundle(repo_root())
-
         with tempfile.TemporaryDirectory() as temp_dir:
             temp_root = pathlib.Path(temp_dir)
-            case_meta_path, stage_plan_path = build_case_bundle(temp_root)
             case_dir = temp_root / "case"
             write_poly_mesh(case_dir)
             steady_root = temp_root / "normalized" / "steady" / "20"
@@ -334,39 +339,39 @@ class ReferenceProblemArtifactTests(unittest.TestCase):
                 temp_root / "run_meta.json",
                 json.dumps({"solver_log": "logs/solver.log"}, indent=2, sort_keys=True) + "\n",
             )
-
-            emitted = emit_reference_problem_artifacts(
-                bundle,
-                case_dir=case_dir,
-                artifact_root=temp_root / "artifacts",
-                case_meta_path=case_meta_path,
-                stage_plan_path=stage_plan_path,
-                normalized_steady_root=temp_root / "normalized" / "steady",
-                normalized_transient_root=temp_root / "normalized" / "transient",
-                run_meta_path=temp_root / "run_meta.json",
-                metrics={
-                    "water_flow_cfd_gph": 54.2,
-                    "mass_imbalance_pct": 0.1,
-                    "spray_angle_cfd_deg": 31.5,
+            emitted = build_case_bundle(
+                temp_root,
+                reference_artifacts={
+                    "case_dir": case_dir,
+                    "artifact_root": temp_root / "artifacts",
+                    "normalized_steady_root": temp_root / "normalized" / "steady",
+                    "normalized_transient_root": temp_root / "normalized" / "transient",
+                    "run_meta_path": temp_root / "run_meta.json",
+                    "metrics": {
+                        "water_flow_cfd_gph": 54.2,
+                        "mass_imbalance_pct": 0.1,
+                        "spray_angle_cfd_deg": 31.5,
+                    },
+                    "metric_sources": {
+                        "water_flow_cfd_gph": "continuity_integral",
+                        "mass_imbalance_pct": "continuity_log",
+                        "spray_angle_cfd_deg": "geometric_fit",
+                    },
+                    "time_windows": {
+                        "transient_latest": {
+                            "start_time": "0.0",
+                            "end_time": "0.5",
+                            "latest_time": "0.5",
+                        }
+                    },
+                    "angle_source": "geometric_a",
                 },
-                metric_sources={
-                    "water_flow_cfd_gph": "continuity_integral",
-                    "mass_imbalance_pct": "continuity_log",
-                    "spray_angle_cfd_deg": "geometric_fit",
-                },
-                time_windows={
-                    "transient_latest": {
-                        "start_time": "0.0",
-                        "end_time": "0.5",
-                        "latest_time": "0.5",
-                    }
-                },
-                angle_source="geometric_a",
             )
 
             build_fingerprint = json.loads(emitted.build_fingerprint_path.read_text(encoding="utf-8"))
             field_signatures = json.loads(emitted.field_signatures_path.read_text(encoding="utf-8"))
             metrics_payload = json.loads(emitted.metrics_path.read_text(encoding="utf-8"))
+            case_meta_path = emitted.case_meta_path
 
         self.assertEqual(build_fingerprint["canonical_name"], "build_fingerprint.json")
         self.assertEqual(build_fingerprint["case_id"], "phase0_r1_57_28_1000_internal_v1")
@@ -433,11 +438,8 @@ class ReferenceProblemArtifactTests(unittest.TestCase):
         )
 
     def test_emit_reference_problem_artifacts_fails_when_required_field_is_missing(self) -> None:
-        bundle = load_authority_bundle(repo_root())
-
         with tempfile.TemporaryDirectory() as temp_dir:
             temp_root = pathlib.Path(temp_dir)
-            case_meta_path, stage_plan_path = build_case_bundle(temp_root)
             case_dir = temp_root / "case"
             write_poly_mesh(case_dir)
             steady_root = temp_root / "normalized" / "steady" / "20"
@@ -454,15 +456,85 @@ class ReferenceProblemArtifactTests(unittest.TestCase):
                 ValueError,
                 "missing required transient field\\(s\\): p_rgh",
             ):
+                build_case_bundle(
+                    temp_root,
+                    reference_artifacts={
+                        "case_dir": case_dir,
+                        "artifact_root": temp_root / "artifacts",
+                        "normalized_steady_root": temp_root / "normalized" / "steady",
+                        "normalized_transient_root": temp_root / "normalized" / "transient",
+                    },
+                )
+
+    def test_emit_reference_problem_artifacts_allows_transient_only_r2(self) -> None:
+        bundle = load_authority_bundle(repo_root())
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_root = pathlib.Path(temp_dir)
+            emitted_bundle = build_case_bundle(
+                temp_root,
+                case_role="R2",
+                phase_gate="Phase 0",
+                conditional_reason=None,
+            )
+            case_dir = temp_root / "case"
+            write_poly_mesh(case_dir)
+            transient_root = temp_root / "normalized" / "transient" / "0.5"
+            write_vector_field(transient_root / "U", "U", [(2.0, 0.0, 0.0)])
+            write_scalar_field(transient_root / "alpha.water", "alpha.water", [0.25])
+            write_scalar_field(transient_root / "p_rgh", "p_rgh", [10.0])
+
+            emitted = emit_reference_problem_artifacts(
+                bundle,
+                case_dir=case_dir,
+                artifact_root=temp_root / "artifacts",
+                case_meta_path=emitted_bundle.case_meta_path,
+                stage_plan_path=emitted_bundle.stage_plan_path,
+                normalized_steady_root=temp_root / "normalized" / "steady",
+                normalized_transient_root=temp_root / "normalized" / "transient",
+            )
+            field_signatures = json.loads(emitted.field_signatures_path.read_text(encoding="utf-8"))
+
+        self.assertFalse(field_signatures["steady_precondition"]["available"])
+        self.assertIsNone(field_signatures["steady_precondition"]["latest_time"])
+        self.assertEqual(field_signatures["transient_latest"]["latest_time"], "0.5")
+        self.assertEqual(field_signatures["case_role"], "R2")
+
+    def test_emit_reference_problem_artifacts_fails_before_writing_on_mismatched_bundle(self) -> None:
+        bundle = load_authority_bundle(repo_root())
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_root = pathlib.Path(temp_dir)
+            r1_bundle = build_case_bundle(temp_root / "r1")
+            r2_bundle = build_case_bundle(
+                temp_root / "r2",
+                case_role="R2",
+                phase_gate="Phase 0",
+                conditional_reason=None,
+            )
+            case_dir = temp_root / "case"
+            write_poly_mesh(case_dir)
+            transient_root = temp_root / "normalized" / "transient" / "0.5"
+            write_vector_field(transient_root / "U", "U", [(2.0, 0.0, 0.0)])
+            write_scalar_field(transient_root / "alpha.water", "alpha.water", [0.25])
+            write_scalar_field(transient_root / "p_rgh", "p_rgh", [10.0])
+            artifact_root = temp_root / "artifacts"
+
+            with self.assertRaisesRegex(
+                ValueError,
+                "matching case_id values",
+            ):
                 emit_reference_problem_artifacts(
                     bundle,
                     case_dir=case_dir,
-                    artifact_root=temp_root / "artifacts",
-                    case_meta_path=case_meta_path,
-                    stage_plan_path=stage_plan_path,
+                    artifact_root=artifact_root,
+                    case_meta_path=r1_bundle.case_meta_path,
+                    stage_plan_path=r2_bundle.stage_plan_path,
                     normalized_steady_root=temp_root / "normalized" / "steady",
                     normalized_transient_root=temp_root / "normalized" / "transient",
                 )
+
+        self.assertFalse(artifact_root.exists())
 
 
 if __name__ == "__main__":

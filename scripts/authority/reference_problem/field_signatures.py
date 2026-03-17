@@ -23,14 +23,27 @@ def compute_field_signatures(
     case_identity: Mapping[str, Any],
     provenance: Mapping[str, Any] | None = None,
 ) -> dict[str, Any]:
+    case_role = str(case_identity.get("case_role", "")).strip()
     steady_time_dir = _resolve_latest_time_dir(pathlib.Path(normalized_steady_root))
     transient_time_dir = _resolve_latest_time_dir(pathlib.Path(normalized_transient_root))
-    steady_payload = _build_time_window_payload(
-        steady_time_dir,
-        label="steady",
-        required_fields=STEADY_REQUIRED_FIELDS,
-        optional_fields=STEADY_OPTIONAL_FIELDS,
-    )
+    if steady_time_dir is None:
+        if case_role != "R2":
+            raise ValueError(
+                f"no OpenFOAM time directories found under {pathlib.Path(normalized_steady_root).as_posix()}"
+            )
+        steady_payload = {
+            "available": False,
+            "latest_time": None,
+            "fields": {},
+            "missing_optional_fields": list(STEADY_OPTIONAL_FIELDS),
+        }
+    else:
+        steady_payload = _build_time_window_payload(
+            steady_time_dir,
+            label="steady",
+            required_fields=STEADY_REQUIRED_FIELDS,
+            optional_fields=STEADY_OPTIONAL_FIELDS,
+        )
     transient_payload = _build_time_window_payload(
         transient_time_dir,
         label="transient",
@@ -47,7 +60,9 @@ def compute_field_signatures(
     }
 
 
-def _resolve_latest_time_dir(root: pathlib.Path) -> pathlib.Path:
+def _resolve_latest_time_dir(root: pathlib.Path) -> pathlib.Path | None:
+    if not root.exists() or not root.is_dir():
+        return None
     candidates = []
     for path in root.iterdir():
         if not path.is_dir():
@@ -58,7 +73,7 @@ def _resolve_latest_time_dir(root: pathlib.Path) -> pathlib.Path:
             continue
         candidates.append((order_key, path.name, path))
     if not candidates:
-        raise ValueError(f"no OpenFOAM time directories found under {root.as_posix()}")
+        return None
     candidates.sort()
     return candidates[-1][2]
 
@@ -87,6 +102,7 @@ def _build_time_window_payload(
         field_name for field_name in optional_fields if not (time_dir / field_name).is_file()
     ]
     return {
+        "available": True,
         "latest_time": time_dir.name,
         "fields": fields,
         "missing_optional_fields": missing_optional,

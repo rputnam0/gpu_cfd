@@ -34,6 +34,7 @@ def emit_reference_problem_artifacts(
 ) -> ReferenceProblemArtifacts:
     case_meta = validate_case_meta(bundle, _read_json_dict(pathlib.Path(case_meta_path)))
     stage_plan = validate_stage_plan(bundle, _read_json_dict(pathlib.Path(stage_plan_path)))
+    _validate_identity_alignment(case_meta, stage_plan)
     case_identity = _build_case_identity(case_meta)
     shared_provenance = {
         "case_meta": pathlib.Path(case_meta_path).as_posix(),
@@ -77,7 +78,6 @@ def emit_reference_problem_artifacts(
         metrics_path = artifact_root_path / METRICS_ARTIFACT_NAME
         _write_json(metrics_path, metrics_payload)
 
-    _validate_identity_alignment(case_meta, stage_plan)
     return ReferenceProblemArtifacts(
         build_fingerprint_path=build_fingerprint_path,
         field_signatures_path=field_signatures_path,
