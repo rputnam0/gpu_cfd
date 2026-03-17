@@ -9,6 +9,7 @@ import json
 import os
 import pathlib
 import re
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -23,6 +24,7 @@ except ModuleNotFoundError:  # pragma: no cover - script execution fallback
 
 
 IN_REVIEW_STATE = "In Review"
+LOCAL_REMEDIATION_STATE = "In Progress"
 LOCAL_REVIEW_PARKED_STATE = "Ready to Merge"
 MAX_LOCAL_REVIEW_FIX_ROUNDS = 3
 NO_FINDINGS_MARKERS = (
@@ -207,6 +209,25 @@ def artifact_dir_for_branch(workspace: pathlib.Path, branch: str) -> pathlib.Pat
         / ".codex"
         / "review_artifacts"
         / review_loop.sanitize_path_component(branch)
+    )
+
+
+def persist_review_artifacts(
+    source_workspace: pathlib.Path,
+    destination_workspace: pathlib.Path,
+    branch: str,
+) -> str | None:
+    if source_workspace == destination_workspace:
+        return None
+    source_dir = artifact_dir_for_branch(source_workspace, branch)
+    if not source_dir.exists():
+        return None
+    destination_dir = artifact_dir_for_branch(destination_workspace, branch)
+    destination_dir.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copytree(source_dir, destination_dir, dirs_exist_ok=True)
+    return (
+        "Copied the latest local review artifacts from the clean review clone into "
+        f"`{destination_dir.relative_to(destination_workspace).as_posix()}`."
     )
 
 
@@ -464,6 +485,11 @@ def main() -> int:
     ):
         review_result = run_host_review(review_workspace, issue_identifier)
         branch = current_branch(review_workspace)
+        artifact_copy_note = persist_review_artifacts(
+            review_workspace,
+            workspace,
+            branch,
+        )
         result: dict[str, Any] = {
             "issue_identifier": issue_identifier,
             "issue_title": issue_title,
@@ -476,56 +502,153 @@ def main() -> int:
         }
         if review_workspace_note:
             result["review_workspace_note"] = review_workspace_note
+        if artifact_copy_note:
+            result["review_artifact_note"] = artifact_copy_note
 
         if review_result.status == "findings":
             round_info = record_local_review_round(workspace, branch)
             round_count = int(round_info["count"])
             cap_reached = round_count >= MAX_LOCAL_REVIEW_FIX_ROUNDS
+            if not cap_reached:
+                review_handoff_notes = [
+                    (
+                        f"Local review round {round_count}/"
+                        f"{MAX_LOCAL_REVIEW_FIX_ROUNDS} reported findings. "
+                        "Stay in the same implementation run, inspect the latest "
+                        "artifact under `.codex/review_artifacts/`, fix the valid "
+                        "findings, rerun targeted validation, and rerun the handoff helper."
+                    ),
+                    (
+                        "The issue remains in `In Progress` so the same implementation "
+                        "worker owns local-review remediation on this branch."
+                    ),
+                ]
+                if review_workspace_note:
+                    review_handoff_notes.append(review_workspace_note)
+                if artifact_copy_note:
+                    review_handoff_notes.append(artifact_copy_note)
+                linear_update = linear_api.update_issue_state(
+                    issue_identifier,
+                    LOCAL_REMEDIATION_STATE,
+                )
+                result["handoff_status"] = "local_review_findings"
+                result["next_action"] = (
+                    "inspect_latest_local_review_artifact_and_continue_same_run"
+                )
+                result["continue_same_worker"] = True
+                result["local_review_round"] = round_count
+                result["local_review_round_cap"] = MAX_LOCAL_REVIEW_FIX_ROUNDS
+                result["linear_update"] = {
+                    "previous_state": linear_update["previous_state"],
+                    "current_state": linear_update["current_state"],
+                    "changed": linear_update["changed"],
+                }
+                workpad_warning = sync_workpad_best_effort(
+                    issue_identifier=issue_identifier,
+                    issue_title=issue_title,
+                    current_status="local_review_findings",
+                    validation=[
+                        (
+                            f"Local Codex review round {round_count}/"
+                            f"{MAX_LOCAL_REVIEW_FIX_ROUNDS} reported findings; "
+                            "the same implementation worker must continue remediation "
+                            "from the latest artifact before rerunning handoff."
+                        ),
+                    ],
+                    review_handoff_notes=review_handoff_notes,
+                )
+                if workpad_warning:
+                    result["workpad_sync_warning"] = workpad_warning
+                    print(workpad_warning, file=sys.stderr)
+                if trace.is_enabled():
+                    run_manifest = trace.ensure_run(
+                        issue_id=issue_identifier,
+                        run_kind="implementation",
+                        branch=branch,
+                    )
+                    artifact = trace.capture_json_artifact(
+                        issue_id=issue_identifier,
+                        run_id=run_manifest["run_id"],
+                        artifact_type="pr_handoff_result",
+                        label="PR Handoff Result",
+                        payload=result,
+                        filename="pr_handoff_result.json",
+                    )
+                    trace.capture_event(
+                        issue_id=issue_identifier,
+                        run_id=run_manifest["run_id"],
+                        actor="Symphony",
+                        stage="pr_handoff_findings",
+                        summary="Local review findings remain; same worker should continue remediation",
+                        decision="continue_same_worker",
+                        decision_rationale=(
+                            "Pre-PR local review findings are a continuation signal for "
+                            "the active worker, not a terminal handoff state."
+                        ),
+                        artifact_refs=[artifact["artifact_id"]],
+                        metadata={
+                            "local_review_round": round_count,
+                            "local_review_round_cap": MAX_LOCAL_REVIEW_FIX_ROUNDS,
+                            "active_state": LOCAL_REMEDIATION_STATE,
+                        },
+                    )
+                print(json.dumps(result, indent=2))
+                return 0
+
+            if branch in {"", "main"}:
+                raise HandoffError("refusing PR handoff from the default branch")
+            ensure_branch_pushed(review_workspace, branch)
+            pr_ref = ensure_pr(review_workspace, issue_identifier, issue_title, branch)
+            linear_update = linear_api.update_issue_state(issue_identifier, IN_REVIEW_STATE)
+            reset_local_review_rounds(workspace, branch)
+            result["handoff_status"] = "local_review_cap_escalated"
+            result["local_review_round"] = round_count
+            result["local_review_round_cap"] = MAX_LOCAL_REVIEW_FIX_ROUNDS
+            result["pull_request"] = {
+                "number": pr_ref.number,
+                "url": pr_ref.url,
+                "auto_merge_enabled": False,
+            }
+            result["linear_update"] = {
+                "previous_state": linear_update["previous_state"],
+                "current_state": linear_update["current_state"],
+                "changed": linear_update["changed"],
+            }
             review_handoff_notes = [
                 (
-                    f"Handoff paused after local review round {round_count}/"
-                    f"{MAX_LOCAL_REVIEW_FIX_ROUNDS}; issue parked in "
-                    f"{LOCAL_REVIEW_PARKED_STATE} to prevent Symphony redispatch "
-                    "while the current worker fixes findings."
+                    f"Local review cap reached after {MAX_LOCAL_REVIEW_FIX_ROUNDS} "
+                    "rounds. The PR was opened for external Devin review with the latest "
+                    "local review findings still attached."
                 ),
-                "Same implementation worker owns local-review remediation on this branch.",
+                f"PR opened or updated: {pr_ref.url}",
+                (
+                    f"Linear moved to {linear_update['current_state']} from "
+                    f"{linear_update['previous_state']}."
+                ),
             ]
             if review_workspace_note:
                 review_handoff_notes.append(review_workspace_note)
-            parking_result = park_issue_for_local_review(
+            if artifact_copy_note:
+                review_handoff_notes.append(artifact_copy_note)
+            workpad_warning = sync_workpad_best_effort(
                 issue_identifier=issue_identifier,
                 issue_title=issue_title,
-                current_status=(
-                    "local_review_cap_reached"
-                    if cap_reached
-                    else "awaiting_local_review"
-                ),
+                current_status="in_review",
                 validation=[
                     (
-                        f"Local Codex review round {round_count}/"
-                        f"{MAX_LOCAL_REVIEW_FIX_ROUNDS} reported findings; "
-                        "inspect the latest artifact before rerunning handoff."
+                        f"Local review cap reached after {MAX_LOCAL_REVIEW_FIX_ROUNDS} "
+                        "rounds; the branch was escalated to GitHub / Devin review."
                     ),
+                    "Latest local review findings remain available under `.codex/review_artifacts/`.",
                 ],
-                risks_blockers=(
-                    [
-                        (
-                            f"Local review cap reached after {MAX_LOCAL_REVIEW_FIX_ROUNDS} "
-                            "rounds. Stop here and leave the issue parked for operator attention."
-                        )
-                    ]
-                    if cap_reached
-                    else None
-                ),
+                risks_blockers=[
+                    (
+                        "Known local review findings remained when the PR was escalated "
+                        "to external review after the remediation cap."
+                    )
+                ],
                 review_handoff_notes=review_handoff_notes,
             )
-            result["handoff_status"] = (
-                "local_review_cap_reached" if cap_reached else "local_review_findings"
-            )
-            result["local_review_round"] = round_count
-            result["local_review_round_cap"] = MAX_LOCAL_REVIEW_FIX_ROUNDS
-            result["linear_update"] = parking_result["linear_update"]
-            workpad_warning = parking_result["workpad_warning"]
             if workpad_warning:
                 result["workpad_sync_warning"] = workpad_warning
                 print(workpad_warning, file=sys.stderr)
@@ -534,6 +657,7 @@ def main() -> int:
                     issue_id=issue_identifier,
                     run_kind="implementation",
                     branch=branch,
+                    pr_number=pr_ref.number,
                 )
                 artifact = trace.capture_json_artifact(
                     issue_id=issue_identifier,
@@ -546,31 +670,23 @@ def main() -> int:
                 trace.capture_event(
                     issue_id=issue_identifier,
                     run_id=run_manifest["run_id"],
-                    actor="Symphony",
-                    stage="pr_handoff_blocked",
-                    summary=(
-                        "PR handoff paused because local review findings remain"
-                        if not cap_reached
-                        else "PR handoff paused after local review cap was reached"
-                    ),
-                    decision=(
-                        "local_review_cap_reached"
-                        if cap_reached
-                        else "awaiting_local_review"
-                    ),
+                    actor="GitHub",
+                    stage="pr_handoff_escalated",
+                    summary="PR opened for external review after the local review cap was reached",
+                    decision="in_review",
                     decision_rationale=(
-                        "Handoff requires a clean local review before opening or updating the PR, "
-                        "and the issue is parked to prevent immediate redispatch."
+                        "The local review remediation cap was exhausted, so the branch "
+                        "was escalated into the external Devin review stage."
                     ),
                     artifact_refs=[artifact["artifact_id"]],
                     metadata={
-                        "local_review_round": round_count,
+                        "pr_url": pr_ref.url,
+                        "pr_number": pr_ref.number,
                         "local_review_round_cap": MAX_LOCAL_REVIEW_FIX_ROUNDS,
-                        "parked_state": LOCAL_REVIEW_PARKED_STATE,
                     },
                 )
             print(json.dumps(result, indent=2))
-            return 2
+            return 0
         if review_result.status != "local_review_complete":
             review_handoff_notes = [
                 (
@@ -626,6 +742,8 @@ def main() -> int:
         ]
         if review_workspace_note:
             review_handoff_notes.append(review_workspace_note)
+        if artifact_copy_note:
+            review_handoff_notes.append(artifact_copy_note)
         workpad_warning = sync_workpad_best_effort(
             issue_identifier=issue_identifier,
             issue_title=issue_title,

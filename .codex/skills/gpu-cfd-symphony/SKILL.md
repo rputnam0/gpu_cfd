@@ -55,10 +55,11 @@ repository's authority docs, backlog dependencies, and PR-card scope.
 9. If the handoff helper reports findings, inspect the latest artifact under
    `.codex/review_artifacts/`, fix the valid findings in the same implementation run, rerun
    targeted validation, and rerun the handoff helper.
-   The helper parks unresolved local-review work in `Ready to Merge` so Symphony does not spawn a
-   fresh implementation worker while you are still fixing the branch.
+   Findings before the cap are continuation work for the same implementation worker; stay in
+   `In Progress` and keep going on the same branch.
    Cap this local-review remediation loop at 3 review rounds total; if the third round still
-   reports findings, stop and leave the issue parked with clear blocker notes in the workpad.
+   reports findings, the helper opens or updates the PR, moves the issue to `In Review`, and
+   escalates the branch to Devin instead of parking it for more local review.
 10. When the handoff helper succeeds, it opens or updates the PR, enables GitHub auto-merge, moves
    the issue to `In Review`, and you should stop after you update the workpad with the PR URL.
 11. `In Review` is a dormant automated-review queue. Do not wait or poll from the worker.

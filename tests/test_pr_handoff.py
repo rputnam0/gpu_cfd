@@ -84,6 +84,43 @@ class PrHandoffTests(unittest.TestCase):
         self.assertIn("Implement PRO-6: Example change", body)
         self.assertIn("Closes PRO-6", body)
 
+    def test_persist_review_artifacts_copies_clean_clone_outputs(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_root = pathlib.Path(temp_dir)
+            workspace = temp_root / "workspace"
+            clean_workspace = temp_root / "clean"
+            workspace.mkdir()
+            clean_workspace.mkdir()
+            artifact_dir = (
+                clean_workspace
+                / ".codex"
+                / "review_artifacts"
+                / "codex-pro-6-example"
+            )
+            artifact_dir.mkdir(parents=True)
+            (artifact_dir / "latest.json").write_text(
+                json.dumps({"message_path": ".codex/review_artifacts/codex-pro-6-example/latest.md"}),
+                encoding="utf-8",
+            )
+            (artifact_dir / "latest.md").write_text("review findings\n", encoding="utf-8")
+
+            note = pr_handoff.persist_review_artifacts(
+                clean_workspace,
+                workspace,
+                "codex/pro-6-example",
+            )
+
+            copied_artifact = (
+                workspace
+                / ".codex"
+                / "review_artifacts"
+                / "codex-pro-6-example"
+                / "latest.md"
+            )
+            self.assertIsNotNone(note)
+            self.assertTrue(copied_artifact.exists())
+            self.assertEqual(copied_artifact.read_text(encoding="utf-8"), "review findings\n")
+
     @mock.patch("scripts.symphony.pr_handoff.linear_api.upsert_workpad_comment")
     @mock.patch("scripts.symphony.pr_handoff.linear_api.merge_workpad_body")
     @mock.patch("scripts.symphony.pr_handoff.linear_api.find_workpad_comment")
@@ -142,7 +179,7 @@ class PrHandoffTests(unittest.TestCase):
     @mock.patch("scripts.symphony.pr_handoff.run_host_review")
     @mock.patch("scripts.symphony.pr_handoff.linear_api.fetch_issue")
     @mock.patch("scripts.symphony.pr_handoff.parse_args")
-    def test_main_parks_issue_when_local_review_findings_remain(
+    def test_main_keeps_issue_in_progress_when_local_review_findings_remain(
         self,
         mock_parse_args: mock.Mock,
         mock_fetch_issue: mock.Mock,
@@ -167,7 +204,7 @@ class PrHandoffTests(unittest.TestCase):
             )
             mock_update_issue_state.return_value = {
                 "previous_state": "In Progress",
-                "current_state": "Ready to Merge",
+                "current_state": "In Progress",
                 "changed": True,
             }
             with mock.patch(
@@ -176,15 +213,15 @@ class PrHandoffTests(unittest.TestCase):
             ):
                 result = pr_handoff.main()
 
-            self.assertEqual(result, 2)
-            mock_update_issue_state.assert_called_once_with("PRO-6", "Ready to Merge")
+            self.assertEqual(result, 0)
+            mock_update_issue_state.assert_called_once_with("PRO-6", "In Progress")
             mock_sync_workpad.assert_called_once()
             self.assertIn(
                 "1/3",
                 str(mock_sync_workpad.call_args.kwargs["validation"][0]),
             )
             self.assertIn(
-                "Ready to Merge",
+                "same implementation worker",
                 " ".join(mock_sync_workpad.call_args.kwargs["review_handoff_notes"]),
             )
             tracker = json.loads(
@@ -197,14 +234,18 @@ class PrHandoffTests(unittest.TestCase):
     @mock.patch("scripts.symphony.pr_handoff.prepared_review_workspace")
     @mock.patch("scripts.symphony.pr_handoff.sync_workpad")
     @mock.patch("scripts.symphony.pr_handoff.linear_api.update_issue_state")
+    @mock.patch("scripts.symphony.pr_handoff.ensure_pr")
+    @mock.patch("scripts.symphony.pr_handoff.ensure_branch_pushed")
     @mock.patch("scripts.symphony.pr_handoff.run_host_review")
     @mock.patch("scripts.symphony.pr_handoff.linear_api.fetch_issue")
     @mock.patch("scripts.symphony.pr_handoff.parse_args")
-    def test_main_records_cap_reached_after_third_local_review_round(
+    def test_main_opens_pr_when_local_review_cap_is_reached(
         self,
         mock_parse_args: mock.Mock,
         mock_fetch_issue: mock.Mock,
         mock_run_host_review: mock.Mock,
+        mock_ensure_branch_pushed: mock.Mock,
+        mock_ensure_pr: mock.Mock,
         mock_update_issue_state: mock.Mock,
         mock_sync_workpad: mock.Mock,
         mock_prepared_review_workspace: mock.Mock,
@@ -230,10 +271,15 @@ class PrHandoffTests(unittest.TestCase):
                 message="- [P2] Example finding",
                 manifest={"message_path": ".codex/review_artifacts/latest.md"},
             )
+            mock_ensure_pr.return_value = pr_handoff.PullRequestRef(
+                number=6,
+                url="https://github.com/example/pull/6",
+                is_draft=False,
+            )
             mock_update_issue_state.return_value = {
-                "previous_state": "Ready to Merge",
-                "current_state": "Ready to Merge",
-                "changed": False,
+                "previous_state": "In Progress",
+                "current_state": "In Review",
+                "changed": True,
             }
             with mock.patch(
                 "scripts.symphony.pr_handoff.current_branch",
@@ -241,13 +287,15 @@ class PrHandoffTests(unittest.TestCase):
             ):
                 result = pr_handoff.main()
 
-            self.assertEqual(result, 2)
+            self.assertEqual(result, 0)
+            mock_ensure_branch_pushed.assert_called_once()
+            mock_ensure_pr.assert_called_once()
+            mock_update_issue_state.assert_called_once_with("PRO-6", "In Review")
             self.assertIn(
-                "cap",
-                " ".join(mock_sync_workpad.call_args.kwargs["risks_blockers"]).lower(),
+                "github / devin review",
+                " ".join(mock_sync_workpad.call_args.kwargs["validation"]).lower(),
             )
-            tracker = json.loads(tracker_path.read_text(encoding="utf-8"))
-            self.assertEqual(tracker["count"], 3)
+            self.assertFalse(tracker_path.exists())
 
     @mock.patch("builtins.print")
     @mock.patch("scripts.symphony.pr_handoff.trace.is_enabled", return_value=False)
@@ -341,7 +389,7 @@ class PrHandoffTests(unittest.TestCase):
             )
             mock_update_issue_state.return_value = {
                 "previous_state": "In Progress",
-                "current_state": "Ready to Merge",
+                "current_state": "In Progress",
                 "changed": True,
             }
 
@@ -358,7 +406,7 @@ class PrHandoffTests(unittest.TestCase):
             ):
                 result = pr_handoff.main()
 
-            self.assertEqual(result, 2)
+            self.assertEqual(result, 0)
             mock_run_host_review.assert_called_once_with(review_workspace, "PRO-6")
             self.assertIn(
                 "Used clean committed clone",
