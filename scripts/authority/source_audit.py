@@ -131,7 +131,7 @@ def validate_source_audit_note(
     if _extract_review_status(note_text) != SOURCE_AUDIT_REVIEWED_STATUS:
         raise ValueError("source-audit note must be marked reviewed")
 
-    note_rows = _parse_coverage_rows(note_text)
+    note_rows = _parse_coverage_rows(bundle, note_text)
     missing_surfaces = [
         surface.contract_surface
         for surface in resolved_surfaces
@@ -207,7 +207,10 @@ def _extract_review_status(note_text: str) -> str | None:
     return match.group(1).strip()
 
 
-def _parse_coverage_rows(note_text: str) -> dict[str, dict[str, str]]:
+def _parse_coverage_rows(
+    bundle: AuthorityBundle,
+    note_text: str,
+) -> dict[str, dict[str, str]]:
     coverage_section = _extract_markdown_section(note_text, "Semantic Surface Coverage")
     rows: dict[str, dict[str, str]] = {}
     for line in coverage_section.splitlines():
@@ -226,7 +229,9 @@ def _parse_coverage_rows(note_text: str) -> dict[str, dict[str, str]]:
             "ownership_scope": parts[3],
             "notes": parts[4],
         }
-        rows[row["contract_surface"]] = row
+        canonical_surface = _normalize_requested_surfaces(bundle, [row["contract_surface"]])[0]
+        row["contract_surface"] = canonical_surface
+        rows[canonical_surface] = row
     return rows
 
 

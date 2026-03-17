@@ -183,6 +183,22 @@ class SourceAuditHelperTests(unittest.TestCase):
 
         self.assertEqual(result[0].contract_surface, "Alpha transport")
 
+    def test_validate_source_audit_note_accepts_alias_surface_labels_in_rows(self) -> None:
+        bundle = load_authority_bundle(repo_root())
+        note = render_source_audit_note(
+            bundle,
+            touched_surfaces=["alphaPredictor"],
+            review_status="reviewed",
+        ).replace("| Alpha transport |", "| alphaPredictor |")
+
+        result = validate_source_audit_note(
+            bundle,
+            note_text=note,
+            touched_surfaces=["alphaPredictor"],
+        )
+
+        self.assertEqual(result[0].contract_surface, "Alpha transport")
+
     def test_source_audit_cli_check_validates_reviewed_note(self) -> None:
         bundle = load_authority_bundle(repo_root())
         note = render_source_audit_note(
