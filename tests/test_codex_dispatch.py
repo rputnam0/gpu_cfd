@@ -11,6 +11,7 @@ import time
 import unittest
 from unittest import mock
 
+from scripts.authority import load_authority_bundle, render_source_audit_note
 from scripts.symphony import codex_dispatch
 from scripts.symphony.runtime_config import CodexProfile
 
@@ -96,6 +97,49 @@ class CodexDispatchTests(unittest.TestCase):
         self.assertEqual(snapshot["title"], "FND-04 override")
         self.assertEqual(snapshot["description"], "override payload")
 
+    def test_enforce_source_audit_gate_rejects_missing_workpad_metadata(self) -> None:
+        pr_context = {
+            "pr_id": "P5-02",
+            "card_markdown": "Cites docs/authority/semantic_source_map.md for implementation.",
+        }
+
+        with self.assertRaisesRegex(
+            codex_dispatch.DispatchError,
+            "implementation planning requires a reviewed source-audit note",
+        ):
+            codex_dispatch.enforce_source_audit_gate(
+                self.repo_root(),
+                pr_context,
+                None,
+            )
+
+    def test_enforce_source_audit_gate_accepts_reviewed_note_metadata(self) -> None:
+        bundle = load_authority_bundle(self.repo_root())
+        note_text = render_source_audit_note(
+            bundle,
+            touched_surfaces=["Alpha transport"],
+            review_status="reviewed",
+        )
+        note_path = self.repo_root() / "phase5_source_audit_note.md"
+        note_path.write_text(note_text, encoding="utf-8")
+        self.addCleanup(note_path.unlink)
+
+        codex_dispatch.enforce_source_audit_gate(
+            self.repo_root(),
+            {
+                "pr_id": "P5-02",
+                "card_markdown": "Cites docs/authority/semantic_source_map.md for implementation.",
+            },
+            {
+                "body": "\n".join(
+                    [
+                        "- Source audit note: phase5_source_audit_note.md",
+                        "- Touched semantic surfaces: Alpha transport",
+                    ]
+                )
+            },
+        )
+
     def test_main_preserves_worker_exit_code_when_trace_finalization_fetch_fails(
         self,
     ) -> None:
@@ -171,7 +215,7 @@ class CodexDispatchTests(unittest.TestCase):
         )
         self.assertEqual(mock_finalize_run.call_args.kwargs["state_end"], "Todo")
 
-    def test_main_skips_linear_prefetch_when_trace_disabled(self) -> None:
+    def test_main_prefetches_issue_for_source_audit_gate_even_when_trace_disabled(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             temp_path = pathlib.Path(temp_dir)
             workspace = temp_path / "PRO-17"
@@ -187,12 +231,19 @@ class CodexDispatchTests(unittest.TestCase):
                 mock.patch.object(codex_dispatch, "workspace_root", return_value=workspace),
                 mock.patch.object(codex_dispatch, "current_branch", return_value="main"),
                 mock.patch.object(
+                    codex_dispatch,
+                    "fetch_issue_snapshot",
+                    return_value={"identifier": "PRO-17", "title": "P4-08", "state": {"name": "Todo"}},
+                ) as mock_fetch_issue,
+                mock.patch.object(codex_dispatch, "resolve_pr_context", return_value=None),
+                mock.patch.object(codex_dispatch, "find_workpad_snapshot", return_value=None),
+                mock.patch.object(codex_dispatch, "enforce_source_audit_gate") as mock_gate,
+                mock.patch.object(
                     codex_dispatch.runtime_config,
                     "build_codex_command",
                     return_value=["codex", "app-server"],
                 ),
                 mock.patch.object(codex_dispatch.trace, "is_enabled", return_value=False),
-                mock.patch.object(codex_dispatch, "fetch_issue_snapshot") as mock_fetch_issue,
                 mock.patch.object(
                     codex_dispatch,
                     "launch_codex_proxy",
@@ -202,7 +253,8 @@ class CodexDispatchTests(unittest.TestCase):
                 exit_code = codex_dispatch.main()
 
         self.assertEqual(exit_code, 0)
-        mock_fetch_issue.assert_not_called()
+        mock_fetch_issue.assert_called_once_with("PRO-17")
+        mock_gate.assert_called_once()
         self.assertEqual(
             mock_launch.call_args.kwargs["command"],
             ["codex", "app-server"],

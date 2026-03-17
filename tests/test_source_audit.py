@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import pathlib
+import subprocess
 import unittest
 from contextlib import redirect_stdout
 from io import StringIO
@@ -179,6 +180,26 @@ class SourceAuditHelperTests(unittest.TestCase):
         self.assertIn("## Semantic Surface Coverage", rendered)
         self.assertIn("| Alpha transport |", rendered)
         self.assertIn("| Pressure corrector |", rendered)
+
+    def test_source_audit_script_entrypoint_runs_from_shell(self) -> None:
+        completed = subprocess.run(
+            [
+                "python3",
+                "scripts/authority/source_audit.py",
+                "render",
+                "--root",
+                str(repo_root()),
+                "--surface",
+                "Alpha transport",
+            ],
+            cwd=repo_root(),
+            text=True,
+            capture_output=True,
+            check=False,
+        )
+
+        self.assertEqual(completed.returncode, 0, completed.stderr)
+        self.assertIn("| Alpha transport |", completed.stdout)
 
 
 if __name__ == "__main__":

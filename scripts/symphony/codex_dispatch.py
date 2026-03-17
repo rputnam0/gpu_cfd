@@ -15,9 +15,11 @@ from typing import Any
 
 try:
     from scripts.symphony import linear_api, runtime_config, trace
+    from scripts.authority import load_authority_bundle, validate_source_audit_note
 except ModuleNotFoundError:  # pragma: no cover - script execution fallback
     sys.path.append(str(pathlib.Path(__file__).resolve().parents[2]))
     from scripts.symphony import linear_api, runtime_config, trace
+    from scripts.authority import load_authority_bundle, validate_source_audit_note
 
 
 TASK_CARD_ID_PATTERN = re.compile(r"\b(?:FND-\d+|P\d+-\d+)\b", re.IGNORECASE)
@@ -27,6 +29,15 @@ INLINE_REPO_PATH_PATTERN = re.compile(
 )
 ISSUE_SNAPSHOT_PATH_ENV = "GPU_CFD_TRACE_ISSUE_SNAPSHOT_PATH"
 WORKPAD_SNAPSHOT_PATH_ENV = "GPU_CFD_TRACE_WORKPAD_SNAPSHOT_PATH"
+SOURCE_AUDIT_EXEMPT_TASK_IDS = {"FND-07", "P5-01", "P7-01"}
+SOURCE_AUDIT_NOTE_PATTERN = re.compile(
+    r"^- Source audit note:\s*(?P<path>.+?)\s*$",
+    re.MULTILINE,
+)
+SOURCE_AUDIT_SURFACES_PATTERN = re.compile(
+    r"^- Touched semantic surfaces:\s*(?P<surfaces>.+?)\s*$",
+    re.MULTILINE,
+)
 
 
 class DispatchError(RuntimeError):
@@ -450,6 +461,67 @@ def build_dispatch_context(
     }
 
 
+def task_requires_source_audit_gate(pr_context: dict[str, Any] | None) -> bool:
+    if pr_context is None:
+        return False
+    pr_id = str(pr_context.get("pr_id") or "").upper()
+    if pr_id in SOURCE_AUDIT_EXEMPT_TASK_IDS:
+        return False
+    card_markdown = str(pr_context.get("card_markdown") or "")
+    return "semantic_source_map.md" in card_markdown or "FND-07 Semantic source-audit helper" in card_markdown
+
+
+def parse_source_audit_gate_inputs(workpad_body: str) -> tuple[str | None, list[str]]:
+    note_match = SOURCE_AUDIT_NOTE_PATTERN.search(workpad_body)
+    surfaces_match = SOURCE_AUDIT_SURFACES_PATTERN.search(workpad_body)
+    note_path = note_match.group("path").strip() if note_match else None
+    if not surfaces_match:
+        return note_path, []
+    surfaces = [
+        item.strip()
+        for item in re.split(r",|;", surfaces_match.group("surfaces"))
+        if item.strip()
+    ]
+    return note_path, surfaces
+
+
+def enforce_source_audit_gate(
+    repo: pathlib.Path,
+    pr_context: dict[str, Any] | None,
+    workpad_comment: dict[str, Any] | None,
+) -> None:
+    if not task_requires_source_audit_gate(pr_context):
+        return
+    if workpad_comment is None:
+        raise DispatchError(
+            "implementation planning requires a reviewed source-audit note. "
+            "Update the canonical workpad with '- Source audit note: <repo path>' and "
+            "'- Touched semantic surfaces: <surface list>' before dispatch."
+        )
+
+    workpad_body = str(workpad_comment.get("body") or "")
+    note_path_raw, touched_surfaces = parse_source_audit_gate_inputs(workpad_body)
+    if not note_path_raw or not touched_surfaces:
+        raise DispatchError(
+            "implementation planning requires source-audit gate metadata in the canonical workpad. "
+            "Record both '- Source audit note: <repo path>' and "
+            "'- Touched semantic surfaces: <surface list>' before dispatch."
+        )
+
+    note_path = resolve_repo_path(repo, note_path_raw)
+    if note_path is None or not note_path.exists():
+        raise DispatchError(
+            f"source-audit note path must resolve inside the repo and exist: {note_path_raw}"
+        )
+
+    bundle = load_authority_bundle(repo)
+    validate_source_audit_note(
+        bundle,
+        note_text=read_text(note_path),
+        touched_surfaces=touched_surfaces,
+    )
+
+
 def _stream_copy(
     source,
     targets: list[Any],
@@ -614,15 +686,17 @@ def main() -> int:
     issue_identifier = issue_identifier_from_workspace(workspace)
     branch = current_branch(workspace)
     tracing_enabled = trace.is_enabled()
-    issue_payload: dict[str, Any] | None = None
+    issue_payload = fetch_issue_snapshot(issue_identifier)
+    issue_payload.setdefault("identifier", issue_identifier)
     state_start: str | None = None
     run_kind = "implementation"
-
-    if tracing_enabled:
-        issue_payload = fetch_issue_snapshot(issue_identifier)
-        issue_payload.setdefault("identifier", issue_identifier)
-        state_start = issue_state_name(issue_payload) or None
-        run_kind = "rework" if state_start == "Rework" else "implementation"
+    state_start = issue_state_name(issue_payload) or None
+    run_kind = "rework" if state_start == "Rework" else "implementation"
+    enforce_source_audit_gate(
+        repo,
+        resolve_pr_context(repo, issue_payload),
+        find_workpad_snapshot(issue_identifier),
+    )
 
     codex_args = args.codex_args or ["app-server"]
     command = runtime_config.build_codex_command("implementation", codex_args)
@@ -631,7 +705,6 @@ def main() -> int:
     transcript_dir: pathlib.Path | None = None
     commit_before = current_commit(workspace)
     if tracing_enabled:
-        assert issue_payload is not None
         env_metadata = {
             "workspace_path": workspace.as_posix(),
             "repo_root": repo.as_posix(),

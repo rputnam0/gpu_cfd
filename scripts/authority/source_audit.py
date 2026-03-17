@@ -6,9 +6,14 @@ import argparse
 import json
 import pathlib
 import re
+import sys
 from dataclasses import dataclass
 
-from .bundle import AuthorityBundle, load_authority_bundle
+try:
+    from .bundle import AuthorityBundle, load_authority_bundle
+except ImportError:  # pragma: no cover - script execution fallback
+    sys.path.append(str(pathlib.Path(__file__).resolve().parents[2]))
+    from scripts.authority.bundle import AuthorityBundle, load_authority_bundle
 
 
 SOURCE_AUDIT_TEMPLATE_PATH = pathlib.Path("docs/tasks/templates/source_audit_note.md")
@@ -314,3 +319,7 @@ def main(argv: list[str] | None = None) -> int:
         return 0
 
     raise AssertionError(f"unexpected source-audit command: {args.command}")
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
