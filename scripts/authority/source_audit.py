@@ -2,11 +2,13 @@
 
 from __future__ import annotations
 
+import argparse
+import json
 import pathlib
 import re
 from dataclasses import dataclass
 
-from .bundle import AuthorityBundle
+from .bundle import AuthorityBundle, load_authority_bundle
 
 
 SOURCE_AUDIT_TEMPLATE_PATH = pathlib.Path("docs/tasks/templates/source_audit_note.md")
@@ -212,3 +214,103 @@ def _load_template_contract(root: pathlib.Path) -> str:
     if not template_path.exists():
         raise FileNotFoundError(template_path.name)
     return template_path.read_text(encoding="utf-8")
+
+
+def build_arg_parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(description=__doc__)
+    subparsers = parser.add_subparsers(dest="command", required=True)
+
+    render_parser = subparsers.add_parser(
+        "render",
+        help="Render a standardized source-audit note for the requested semantic surfaces.",
+    )
+    _add_shared_cli_arguments(render_parser)
+    render_parser.add_argument(
+        "--title",
+        default="Source Audit Note",
+        help="Markdown title for the rendered note.",
+    )
+    render_parser.add_argument(
+        "--review-status",
+        default=SOURCE_AUDIT_REVIEWED_STATUS,
+        help="Review status label to embed in the rendered note.",
+    )
+
+    check_parser = subparsers.add_parser(
+        "check",
+        help="Validate that a reviewed source-audit note covers the required semantic surfaces.",
+    )
+    _add_shared_cli_arguments(check_parser)
+    check_parser.add_argument(
+        "--note",
+        type=pathlib.Path,
+        required=True,
+        help="Path to the rendered source-audit note to validate.",
+    )
+    check_parser.add_argument(
+        "--json",
+        action="store_true",
+        help="Emit validation output as JSON.",
+    )
+    return parser
+
+
+def _add_shared_cli_arguments(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument(
+        "--root",
+        type=pathlib.Path,
+        default=None,
+        help="Repository root to load. Defaults to the current repo root.",
+    )
+    parser.add_argument(
+        "--surface",
+        action="append",
+        dest="surfaces",
+        required=True,
+        help="Semantic contract surface to include. Repeat for multiple surfaces.",
+    )
+
+
+def main(argv: list[str] | None = None) -> int:
+    parser = build_arg_parser()
+    args = parser.parse_args(argv)
+    bundle = load_authority_bundle(args.root)
+
+    if args.command == "render":
+        print(
+            render_source_audit_note(
+                bundle,
+                touched_surfaces=args.surfaces,
+                review_status=args.review_status,
+                note_title=args.title,
+            )
+        )
+        return 0
+
+    if args.command == "check":
+        note_text = args.note.read_text(encoding="utf-8")
+        resolved_surfaces = validate_source_audit_note(
+            bundle,
+            note_text=note_text,
+            touched_surfaces=args.surfaces,
+        )
+        if args.json:
+            print(
+                json.dumps(
+                    {
+                        "validated": True,
+                        "surfaces": [entry.contract_surface for entry in resolved_surfaces],
+                        "note": args.note.as_posix(),
+                    },
+                    indent=2,
+                )
+            )
+        else:
+            print(
+                "Validated reviewed source-audit note for "
+                f"{len(resolved_surfaces)} semantic surface(s): "
+                + ", ".join(entry.contract_surface for entry in resolved_surfaces)
+            )
+        return 0
+
+    raise AssertionError(f"unexpected source-audit command: {args.command}")
