@@ -154,6 +154,7 @@ def case_meta_schema(bundle: AuthorityBundle) -> dict[str, Any]:
             },
             "phase_gates": {
                 "type": "array",
+                "minItems": 1,
                 "items": {"enum": list(bundle.cases.phase_gate_mapping)},
                 "uniqueItems": True,
             },
@@ -257,8 +258,17 @@ def stage_plan_schema(bundle: AuthorityBundle) -> dict[str, Any]:
                     },
                     "ordered_ladder": {"const": ordered_case_roles},
                     "conditional_selection": {"type": "boolean"},
-                    "conditional_reason": {"type": "string"},
+                    "conditional_reason": {"type": "string", "minLength": 1},
                 },
+                "allOf": [
+                    {
+                        "if": {
+                            "properties": {"conditional_selection": {"const": True}},
+                            "required": ["conditional_selection"],
+                        },
+                        "then": {"required": ["conditional_reason"]},
+                    }
+                ],
             },
             "stages": {
                 "type": "array",
@@ -267,8 +277,8 @@ def stage_plan_schema(bundle: AuthorityBundle) -> dict[str, Any]:
                     "type": "object",
                     "required": ["name", "cmd"],
                     "properties": {
-                        "name": {"type": "string"},
-                        "cmd": {"type": "string"},
+                        "name": {"type": "string", "minLength": 1},
+                        "cmd": {"type": "string", "minLength": 1},
                         "cwd": {"type": "string"},
                     },
                 },

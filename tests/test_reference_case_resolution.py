@@ -128,6 +128,7 @@ class ReferenceCaseResolutionTests(unittest.TestCase):
             ["R2", "R1-core", "R1", "R0"],
         )
         self.assertIn("case_id", schema["required"])
+        self.assertEqual(schema["properties"]["phase_gates"]["minItems"], 1)
 
         validate_case_meta(
             bundle,
@@ -226,7 +227,20 @@ class ReferenceCaseResolutionTests(unittest.TestCase):
             schema["properties"]["phase_gate_selection"]["properties"]["ordered_ladder"]["const"],
             ["R2", "R1-core", "R1", "R0"],
         )
+        conditional_reason_schema = schema["properties"]["phase_gate_selection"]["properties"][
+            "conditional_reason"
+        ]
+        self.assertEqual(conditional_reason_schema["minLength"], 1)
+        self.assertEqual(
+            schema["properties"]["stages"]["items"]["properties"]["name"]["minLength"],
+            1,
+        )
+        self.assertEqual(
+            schema["properties"]["stages"]["items"]["properties"]["cmd"]["minLength"],
+            1,
+        )
         self.assertEqual(schema["properties"]["stages"]["minItems"], 1)
+        self.assertIn("allOf", schema["properties"]["phase_gate_selection"])
 
         validate_stage_plan(
             bundle,
