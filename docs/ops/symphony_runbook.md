@@ -32,6 +32,7 @@ This repository expects the Linear statuses below on the `Projects` team.
 - `Backlog`: parked or dependency-blocked work; Symphony should not pick this up
 - `Todo`: ready for Symphony to start
 - `In Progress`: active implementation
+- `Ready to Merge`: parked local-review remediation state; Symphony must not redispatch from here
 - `In Review`: dormant automated Devin-review queue
 - `Rework`: active review-followup work
 - `Done`: terminal state
@@ -79,8 +80,14 @@ Review loop:
 - The implementation worker starts through `scripts/symphony/codex_dispatch.py`, which is the supported dev-observability seam for freezing the exact worker context pack and teeing app-server transcripts when trace mode is enabled.
 - Before a PR is opened or updated for review, the active worker run executes
   `scripts/symphony/pr_handoff.py` from the issue workspace.
-- That helper runs one local Codex review pass. If findings remain, it returns them to the same run
-  so the worker can fix them immediately.
+- If the issue workspace still has unrelated dirty control-plane files, the handoff helper creates
+  its own clean committed clone for the local review/PR step so workers do not need to invent
+  manual clean-clone workflows.
+- That helper runs one local Codex review pass. If findings remain, it parks the issue in
+  `Ready to Merge` and returns them to the same run so the current worker can fix them without
+  Symphony spawning a fresh implementation session.
+- Local-review remediation is capped at 3 handoff review rounds per branch. If the third round
+  still reports findings, the issue stays parked in `Ready to Merge` for operator attention.
 - If the local review is complete, the helper opens or updates the PR, enables GitHub auto-merge,
   and moves the issue to `In Review`.
 - The handoff helper also writes a hidden `gpu-cfd-linear-issue` marker into the PR body so the
