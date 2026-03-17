@@ -204,7 +204,7 @@ class PrHandoffTests(unittest.TestCase):
             )
             mock_update_issue_state.return_value = {
                 "previous_state": "In Progress",
-                "current_state": "Ready to Merge",
+                "current_state": "In Progress",
                 "changed": True,
             }
             with mock.patch(
@@ -389,7 +389,7 @@ class PrHandoffTests(unittest.TestCase):
             )
             mock_update_issue_state.return_value = {
                 "previous_state": "In Progress",
-                "current_state": "Ready to Merge",
+                "current_state": "In Progress",
                 "changed": True,
             }
 
