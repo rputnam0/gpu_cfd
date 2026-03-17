@@ -245,14 +245,16 @@ def validate_acceptance_tuple_stage_requirements(
     acceptance_orchestration_ranges = tuple(
         bundle.acceptance.raw["nvtx_contract_defaults"]["required_orchestration_ranges"]
     )
-    expected_ranges = (
-        expected_orchestration_ranges
-        if expected_orchestration_ranges is not None
-        else acceptance_orchestration_ranges
-    )
-    if expected_ranges != resolved_registry.required_orchestration_ranges:
+    if acceptance_orchestration_ranges != resolved_registry.required_orchestration_ranges:
         raise GraphRegistryValidationError(
             "acceptance NVTX orchestration ranges do not match the canonical graph registry"
+        )
+    if (
+        expected_orchestration_ranges is not None
+        and expected_orchestration_ranges != resolved_registry.required_orchestration_ranges
+    ):
+        raise GraphRegistryValidationError(
+            "expected orchestration ranges do not match the canonical graph registry"
         )
     return report
 

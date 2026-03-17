@@ -209,6 +209,28 @@ class GraphStageRegistryTests(unittest.TestCase):
         ):
             validate_acceptance_tuple_stage_requirements(mutated_bundle)
 
+    def test_stale_acceptance_orchestration_ranges_fail_even_with_override(self) -> None:
+        bundle = load_authority_bundle(repo_root())
+        mutated_bundle = replace(
+            bundle,
+            acceptance=AcceptanceManifest(
+                tuples_by_id=bundle.acceptance.tuples_by_id,
+                raw={
+                    **bundle.acceptance.raw,
+                    "nvtx_contract_defaults": {
+                        **bundle.acceptance.raw["nvtx_contract_defaults"],
+                        "required_orchestration_ranges": ["solver/timeStep"],
+                    },
+                },
+            ),
+        )
+
+        with self.assertRaisesRegex(
+            GraphRegistryValidationError,
+            "acceptance NVTX orchestration ranges do not match the canonical graph registry",
+        ):
+            build_graph_stage_registry(mutated_bundle)
+
     def _copy_tree(self, source: pathlib.Path, destination: pathlib.Path) -> None:
         for path in source.rglob("*"):
             relative = path.relative_to(source)
