@@ -33,6 +33,11 @@ from .cases import (
     validate_frozen_ladder,
     validate_stage_plan,
 )
+from .env_probe import (
+    BaselineProbeRequest,
+    OpenFOAMBaselineProbeReport,
+    probe_openfoam_baselines,
+)
 from .graph_registry import (
     GraphRegistryValidationError,
     GraphStageRegistry,
@@ -83,10 +88,12 @@ __all__ = [
     "AuthorityLoadReport",
     "AuthoritySchemaError",
     "AuthoritySelectionError",
+    "BaselineProbeRequest",
     "ConsumerPinResolution",
     "EmittedEnvironmentManifests",
     "GraphRegistryValidationError",
     "GraphStageRegistry",
+    "OpenFOAMBaselineProbeReport",
     "ResolvedReferenceCase",
     "ResolvedSourceAuditSurface",
     "SOURCE_AUDIT_OWNERSHIP_SCOPE_PLACEHOLDER",
@@ -110,6 +117,7 @@ __all__ = [
     "load_authority_bundle",
     "load_graph_stage_registry",
     "main",
+    "probe_openfoam_baselines",
     "render_source_audit_note",
     "repo_root",
     "resolve_accepted_tuple",
