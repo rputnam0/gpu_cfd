@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import os
 import pathlib
 import shlex
 from dataclasses import dataclass
@@ -45,6 +46,12 @@ def resolve_stage_runner_context(
         raise StageRunnerResolutionError(
             f"missing baseline environment activation for {baseline_name}; bashrc_path is required"
         )
+    resolved_bashrc_path = _resolve_existing_path(
+        output_root_path,
+        raw_path=resolved_bashrc,
+        artifact_label="baseline bashrc",
+        baseline_name=baseline_name,
+    )
 
     resolved_probe_payload_path = _resolve_artifact_path(
         output_root_path,
@@ -98,7 +105,7 @@ def resolve_stage_runner_context(
 
     return StageRunnerContext(
         baseline_name=baseline_name,
-        bashrc_path=resolved_bashrc,
+        bashrc_path=resolved_bashrc_path.as_posix(),
         runtime_base=runtime_base,
         reviewed_source_tuple_id=reviewed_source_tuple_id,
         probe_payload_path=resolved_probe_payload_path,
@@ -137,7 +144,18 @@ def wrap_stage_command(
             + shlex.quote(context.reviewed_source_tuple_id)
         )
     segments.append(command_segment)
-    return shlex.join(["bash", "--noprofile", "--norc", "-c", " && ".join(segments)])
+    scrubbed_env = [
+        "env",
+        "-i",
+        "HOME=" + os.path.expanduser("~"),
+        "PATH=/usr/bin:/bin",
+        "bash",
+        "--noprofile",
+        "--norc",
+        "-c",
+        " && ".join(segments),
+    ]
+    return shlex.join(scrubbed_env)
 
 
 def render_stage_runner_log_context(
@@ -188,6 +206,8 @@ def _resolve_artifact_path(
 ) -> pathlib.Path:
     if explicit_path is not None:
         path = pathlib.Path(explicit_path)
+        if not path.is_absolute():
+            path = output_root / path
     else:
         artifact = _normalize_optional_string(artifact_ref)
         if not artifact:
@@ -195,6 +215,7 @@ def _resolve_artifact_path(
                 f"missing {artifact_label} for {baseline_name}"
             )
         path = output_root / artifact
+    path = path.resolve()
     if not path.exists():
         raise StageRunnerResolutionError(
             f"{artifact_label} for {baseline_name} does not exist: {path}"
@@ -223,6 +244,24 @@ def _read_json_payload(
             f"{artifact_label} for {baseline_name} must contain a JSON object"
         )
     return payload
+
+
+def _resolve_existing_path(
+    output_root: pathlib.Path,
+    *,
+    raw_path: str,
+    artifact_label: str,
+    baseline_name: str,
+) -> pathlib.Path:
+    path = pathlib.Path(raw_path).expanduser()
+    if not path.is_absolute():
+        path = output_root / path
+    path = path.resolve()
+    if not path.exists():
+        raise StageRunnerResolutionError(
+            f"{artifact_label} for {baseline_name} does not exist: {path}"
+        )
+    return path
 
 
 def _validate_payload_baseline(payload: Mapping[str, Any], *, baseline_name: str) -> None:
