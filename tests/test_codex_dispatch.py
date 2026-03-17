@@ -128,7 +128,7 @@ class CodexDispatchTests(unittest.TestCase):
             self.repo_root(),
             {
                 "pr_id": "P5-02",
-                "card_markdown": "Cites docs/authority/semantic_source_map.md for implementation.",
+                "card_markdown": "Prerequisites: patch-target reconciliation is frozen before implementation proceeds.",
             },
             {
                 "body": "\n".join(
@@ -138,6 +138,31 @@ class CodexDispatchTests(unittest.TestCase):
                     ]
                 )
             },
+        )
+
+    def test_parse_source_audit_gate_inputs_prefers_latest_metadata_lines(self) -> None:
+        note_path, surfaces = codex_dispatch.parse_source_audit_gate_inputs(
+            "\n".join(
+                [
+                    "- Source audit note: old_note.md",
+                    "- Touched semantic surfaces: Alpha transport",
+                    "- Source audit note: new_note.md",
+                    "- Touched semantic surfaces: Pressure corrector; Pressure bridge",
+                ]
+            )
+        )
+
+        self.assertEqual(note_path, "new_note.md")
+        self.assertEqual(surfaces, ["Pressure corrector", "Pressure bridge"])
+
+    def test_task_requires_source_audit_gate_detects_reconciliation_prerequisites(self) -> None:
+        self.assertTrue(
+            codex_dispatch.task_requires_source_audit_gate(
+                {
+                    "pr_id": "P5-02",
+                    "card_markdown": "Prerequisites: patch-target reconciliation is frozen before implementation proceeds.",
+                }
+            )
         )
 
     def test_main_preserves_worker_exit_code_when_trace_finalization_fetch_fails(

@@ -468,15 +468,25 @@ def task_requires_source_audit_gate(pr_context: dict[str, Any] | None) -> bool:
     if pr_id in SOURCE_AUDIT_EXEMPT_TASK_IDS:
         return False
     card_markdown = str(pr_context.get("card_markdown") or "")
-    return "semantic_source_map.md" in card_markdown or "FND-07 Semantic source-audit helper" in card_markdown
+    normalized_markdown = card_markdown.lower()
+    required_markers = (
+        "semantic_source_map.md",
+        "fnd-07 semantic source-audit helper",
+        "source-audit helper outputs",
+        "source-audit note",
+        "patch-target reconciliation",
+        "symbol reconciliation",
+    )
+    return any(marker in normalized_markdown for marker in required_markers)
 
 
 def parse_source_audit_gate_inputs(workpad_body: str) -> tuple[str | None, list[str]]:
-    note_match = SOURCE_AUDIT_NOTE_PATTERN.search(workpad_body)
-    surfaces_match = SOURCE_AUDIT_SURFACES_PATTERN.search(workpad_body)
-    note_path = note_match.group("path").strip() if note_match else None
-    if not surfaces_match:
+    note_matches = list(SOURCE_AUDIT_NOTE_PATTERN.finditer(workpad_body))
+    surface_matches = list(SOURCE_AUDIT_SURFACES_PATTERN.finditer(workpad_body))
+    note_path = note_matches[-1].group("path").strip() if note_matches else None
+    if not surface_matches:
         return note_path, []
+    surfaces_match = surface_matches[-1]
     surfaces = [
         item.strip()
         for item in re.split(r",|;", surfaces_match.group("surfaces"))
