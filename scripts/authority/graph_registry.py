@@ -183,6 +183,21 @@ def build_graph_stage_registry(bundle: AuthorityBundle) -> GraphStageRegistry:
         )
         for stage_id, stage in bundle.graph.stages_by_id.items()
     }
+    invalid_stage_fallbacks = sorted(
+        {
+            stage.stage_id: stage.fallback_mode
+            for stage in stages.values()
+            if stage.fallback_mode not in run_modes
+        }.items()
+    )
+    if invalid_stage_fallbacks:
+        formatted = ", ".join(
+            f"{stage_id} -> {fallback_mode}"
+            for stage_id, fallback_mode in invalid_stage_fallbacks
+        )
+        raise GraphRegistryValidationError(
+            "stages reference unknown fallback run modes: " + formatted
+        )
     registry = GraphStageRegistry(
         run_modes_by_id=run_modes,
         stages_by_id=stages,

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from dataclasses import replace
 import json
 import pathlib
 import tempfile
@@ -13,6 +14,7 @@ from scripts.authority import (
     validate_acceptance_tuple_stage_requirements,
     validate_tuple_stage_requirements,
 )
+from scripts.authority.bundle import GraphCaptureMatrix, GraphStage
 
 
 def repo_root() -> pathlib.Path:
@@ -122,6 +124,35 @@ class GraphStageRegistryTests(unittest.TestCase):
                 "run mode 'sync_debug' production_accepted must be a boolean",
             ):
                 load_graph_stage_registry(temp_root)
+
+    def test_unknown_stage_fallback_mode_fails_fast_during_registry_build(self) -> None:
+        bundle = load_authority_bundle(repo_root())
+        invalid_stage = GraphStage(
+            stage_id="warmup",
+            fallback_mode="graphFixd",
+            raw={**bundle.graph.stages_by_id["warmup"].raw, "fallback_mode": "graphFixd"},
+        )
+        invalid_graph = GraphCaptureMatrix(
+            run_modes=bundle.graph.run_modes,
+            stages_by_id={**bundle.graph.stages_by_id, "warmup": invalid_stage},
+            required_orchestration_ranges=bundle.graph.required_orchestration_ranges,
+            raw={
+                **bundle.graph.raw,
+                "stages": [
+                    {**stage, "fallback_mode": "graphFixd"}
+                    if stage["stage_id"] == "warmup"
+                    else dict(stage)
+                    for stage in bundle.graph.raw["stages"]
+                ],
+            },
+        )
+        invalid_bundle = replace(bundle, graph=invalid_graph)
+
+        with self.assertRaisesRegex(
+            GraphRegistryValidationError,
+            "stages reference unknown fallback run modes: warmup -> graphFixd",
+        ):
+            build_graph_stage_registry(invalid_bundle)
 
     def _copy_tree(self, source: pathlib.Path, destination: pathlib.Path) -> None:
         for path in source.rglob("*"):
