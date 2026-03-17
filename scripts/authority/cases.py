@@ -2,15 +2,19 @@
 
 from __future__ import annotations
 
+import json
+import pathlib
 from dataclasses import dataclass
-from typing import Any, Sequence
+from typing import Any, Mapping, Sequence
 
 from .bundle import AuthorityBundle, ReferenceCase
+from .stage_runner import StageRunnerContext
 
 
 MANIFEST_SCHEMA_VERSION = "1.0.0"
 CANONICAL_CASE_META_NAME = "case_meta.json"
 CANONICAL_STAGE_PLAN_NAME = "stage_plan.json"
+REQUIRED_PROVENANCE_FIELDS = ("probe_payload", "host_env", "manifest_refs")
 
 
 class AuthoritySelectionError(ValueError):
@@ -25,6 +29,12 @@ class ResolvedReferenceCase:
     frozen_default_contract: dict[str, Any]
     ladder_position: int
     phase_gates: tuple[str, ...]
+
+
+@dataclass(frozen=True)
+class EmittedCaseArtifacts:
+    case_meta_path: pathlib.Path
+    stage_plan_path: pathlib.Path
 
 
 def resolve_reference_case(bundle: AuthorityBundle, *, case_role: str) -> ResolvedReferenceCase:
@@ -138,6 +148,40 @@ def case_meta_schema(bundle: AuthorityBundle) -> dict[str, Any]:
             "case_role",
             "ladder_position",
             "phase_gates",
+            "baseline",
+            "runtime_base",
+            "reviewed_source_tuple_id",
+            "requested_vof_solver_mode",
+            "resolved_vof_solver_exec",
+            "resolved_pressure_backend",
+            "openfoam_bashrc_used",
+            "available_commands",
+            "mesh_full_360",
+            "mesh_resolution_scale",
+            "hydraulic_domain_mode",
+            "near_field_radius_d",
+            "near_field_length_d",
+            "steady_end_time_iter",
+            "steady_write_interval_iter",
+            "steady_turbulence_model",
+            "vof_turbulence_model",
+            "delta_t_s",
+            "write_interval_s",
+            "end_time_s",
+            "max_co",
+            "max_alpha_co",
+            "resolved_direct_slot_numerics",
+            "startup_fill_extension_d",
+            "air_core_seed_radius_d_requested",
+            "air_core_seed_radius_m_resolved",
+            "air_core_seed_cap_applied",
+            "fill_radius_m_resolved",
+            "fill_z_start_m",
+            "fill_z_stop_m",
+            "DeltaP_Pa",
+            "DeltaP_effective_Pa",
+            "check_valve_loss_applied",
+            "provenance",
         ],
         "properties": {
             "schema_version": {"const": MANIFEST_SCHEMA_VERSION},
@@ -158,6 +202,56 @@ def case_meta_schema(bundle: AuthorityBundle) -> dict[str, Any]:
                 "items": {"enum": list(bundle.cases.phase_gate_mapping)},
                 "uniqueItems": True,
             },
+            "baseline": {"type": "string", "minLength": 1, "pattern": r".*\S.*"},
+            "runtime_base": {"type": ["string", "null"]},
+            "reviewed_source_tuple_id": {"type": ["string", "null"]},
+            "requested_vof_solver_mode": {"type": "string", "minLength": 1, "pattern": r".*\S.*"},
+            "resolved_vof_solver_exec": {"type": "string", "minLength": 1, "pattern": r".*\S.*"},
+            "resolved_pressure_backend": {"type": "string", "minLength": 1, "pattern": r".*\S.*"},
+            "openfoam_bashrc_used": {"type": "string", "minLength": 1, "pattern": r".*\S.*"},
+            "available_commands": {
+                "type": "object",
+                "minProperties": 1,
+                "additionalProperties": {
+                    "type": "string",
+                    "minLength": 1,
+                    "pattern": r".*\S.*",
+                },
+            },
+            "mesh_full_360": {"type": "integer", "enum": [0, 1]},
+            "mesh_resolution_scale": {"type": "number"},
+            "hydraulic_domain_mode": {"type": "string", "minLength": 1, "pattern": r".*\S.*"},
+            "near_field_radius_d": {"type": ["number", "null"]},
+            "near_field_length_d": {"type": ["number", "null"]},
+            "steady_end_time_iter": {"type": ["integer", "null"]},
+            "steady_write_interval_iter": {"type": ["integer", "null"]},
+            "steady_turbulence_model": {"type": ["string", "null"]},
+            "vof_turbulence_model": {"type": ["string", "null"]},
+            "delta_t_s": {"type": "number"},
+            "write_interval_s": {"type": "number"},
+            "end_time_s": {"type": "number"},
+            "max_co": {"type": "number"},
+            "max_alpha_co": {"type": "number"},
+            "resolved_direct_slot_numerics": {"type": ["object", "null"]},
+            "startup_fill_extension_d": {"type": ["number", "null"]},
+            "air_core_seed_radius_d_requested": {"type": ["number", "null"]},
+            "air_core_seed_radius_m_resolved": {"type": ["number", "null"]},
+            "air_core_seed_cap_applied": {"type": ["boolean", "null"]},
+            "fill_radius_m_resolved": {"type": ["number", "null"]},
+            "fill_z_start_m": {"type": ["number", "null"]},
+            "fill_z_stop_m": {"type": ["number", "null"]},
+            "DeltaP_Pa": {"type": ["number", "null"]},
+            "DeltaP_effective_Pa": {"type": ["number", "null"]},
+            "check_valve_loss_applied": {"type": ["boolean", "null"]},
+            "provenance": {
+                "type": "object",
+                "required": list(REQUIRED_PROVENANCE_FIELDS),
+                "properties": {
+                    "probe_payload": {"type": "string", "minLength": 1, "pattern": r".*\S.*"},
+                    "host_env": {"type": "string", "minLength": 1, "pattern": r".*\S.*"},
+                    "manifest_refs": {"type": "string", "minLength": 1, "pattern": r".*\S.*"},
+                },
+            },
         },
     }
     schema["allOf"] = [{"oneOf": _case_meta_variants(bundle)}]
@@ -173,6 +267,40 @@ def validate_case_meta(bundle: AuthorityBundle, payload: dict[str, Any]) -> dict
             "case_role",
             "ladder_position",
             "phase_gates",
+            "baseline",
+            "runtime_base",
+            "reviewed_source_tuple_id",
+            "requested_vof_solver_mode",
+            "resolved_vof_solver_exec",
+            "resolved_pressure_backend",
+            "openfoam_bashrc_used",
+            "available_commands",
+            "mesh_full_360",
+            "mesh_resolution_scale",
+            "hydraulic_domain_mode",
+            "near_field_radius_d",
+            "near_field_length_d",
+            "steady_end_time_iter",
+            "steady_write_interval_iter",
+            "steady_turbulence_model",
+            "vof_turbulence_model",
+            "delta_t_s",
+            "write_interval_s",
+            "end_time_s",
+            "max_co",
+            "max_alpha_co",
+            "resolved_direct_slot_numerics",
+            "startup_fill_extension_d",
+            "air_core_seed_radius_d_requested",
+            "air_core_seed_radius_m_resolved",
+            "air_core_seed_cap_applied",
+            "fill_radius_m_resolved",
+            "fill_z_start_m",
+            "fill_z_stop_m",
+            "DeltaP_Pa",
+            "DeltaP_effective_Pa",
+            "check_valve_loss_applied",
+            "provenance",
         ),
         artifact_name=CANONICAL_CASE_META_NAME,
     )
@@ -217,6 +345,91 @@ def validate_case_meta(bundle: AuthorityBundle, payload: dict[str, Any]) -> dict
             f"must remain {list(resolved_case.phase_gates)!r}"
         )
 
+    _validate_non_empty_string_field(payload, "baseline", artifact_name=CANONICAL_CASE_META_NAME)
+    _validate_optional_string_field(
+        payload,
+        "runtime_base",
+        artifact_name=CANONICAL_CASE_META_NAME,
+    )
+    _validate_optional_string_field(
+        payload,
+        "reviewed_source_tuple_id",
+        artifact_name=CANONICAL_CASE_META_NAME,
+    )
+    for field_name in (
+        "requested_vof_solver_mode",
+        "resolved_vof_solver_exec",
+        "resolved_pressure_backend",
+        "openfoam_bashrc_used",
+        "hydraulic_domain_mode",
+    ):
+        _validate_non_empty_string_field(payload, field_name, artifact_name=CANONICAL_CASE_META_NAME)
+    _validate_string_mapping_field(payload, "available_commands", artifact_name=CANONICAL_CASE_META_NAME)
+    _validate_int_enum_field(
+        payload,
+        "mesh_full_360",
+        allowed_values=(0, 1),
+        artifact_name=CANONICAL_CASE_META_NAME,
+    )
+    for field_name in (
+        "mesh_resolution_scale",
+        "delta_t_s",
+        "write_interval_s",
+        "end_time_s",
+        "max_co",
+        "max_alpha_co",
+    ):
+        _validate_numeric_field(payload, field_name, artifact_name=CANONICAL_CASE_META_NAME)
+    for field_name in ("near_field_radius_d", "near_field_length_d"):
+        _validate_optional_numeric_field(payload, field_name, artifact_name=CANONICAL_CASE_META_NAME)
+    for field_name in ("steady_end_time_iter", "steady_write_interval_iter"):
+        _validate_optional_integer_field(payload, field_name, artifact_name=CANONICAL_CASE_META_NAME)
+    for field_name in ("steady_turbulence_model", "vof_turbulence_model"):
+        _validate_optional_string_field(payload, field_name, artifact_name=CANONICAL_CASE_META_NAME)
+    if resolved_case.case_role == "R2":
+        for field_name in (
+            "startup_fill_extension_d",
+            "air_core_seed_radius_d_requested",
+            "air_core_seed_radius_m_resolved",
+            "fill_radius_m_resolved",
+            "fill_z_start_m",
+            "fill_z_stop_m",
+            "DeltaP_Pa",
+            "DeltaP_effective_Pa",
+        ):
+            _validate_optional_numeric_field(payload, field_name, artifact_name=CANONICAL_CASE_META_NAME)
+        for field_name in ("air_core_seed_cap_applied", "check_valve_loss_applied"):
+            _validate_optional_boolean_field(
+                payload,
+                field_name,
+                artifact_name=CANONICAL_CASE_META_NAME,
+            )
+        _validate_optional_mapping_field(
+            payload,
+            "resolved_direct_slot_numerics",
+            artifact_name=CANONICAL_CASE_META_NAME,
+        )
+    else:
+        for field_name in (
+            "startup_fill_extension_d",
+            "air_core_seed_radius_d_requested",
+            "air_core_seed_radius_m_resolved",
+            "fill_radius_m_resolved",
+            "fill_z_start_m",
+            "fill_z_stop_m",
+            "DeltaP_Pa",
+            "DeltaP_effective_Pa",
+        ):
+            _validate_numeric_field(payload, field_name, artifact_name=CANONICAL_CASE_META_NAME)
+        for field_name in ("air_core_seed_cap_applied", "check_valve_loss_applied"):
+            _validate_boolean_field(payload, field_name, artifact_name=CANONICAL_CASE_META_NAME)
+        _validate_mapping_field(
+            payload,
+            "resolved_direct_slot_numerics",
+            artifact_name=CANONICAL_CASE_META_NAME,
+        )
+    _validate_provenance_payload(payload, artifact_name=CANONICAL_CASE_META_NAME)
+
     return payload
 
 
@@ -233,6 +446,10 @@ def stage_plan_schema(bundle: AuthorityBundle) -> dict[str, Any]:
             "phase_gate",
             "phase_gate_selection",
             "stages",
+            "baseline",
+            "runtime_base",
+            "reviewed_source_tuple_id",
+            "provenance",
         ],
         "properties": {
             "schema_version": {"const": MANIFEST_SCHEMA_VERSION},
@@ -243,6 +460,18 @@ def stage_plan_schema(bundle: AuthorityBundle) -> dict[str, Any]:
             },
             "case_role": {"enum": ordered_case_roles},
             "phase_gate": {"enum": list(bundle.cases.phase_gate_mapping)},
+            "baseline": {"type": "string", "minLength": 1, "pattern": r".*\S.*"},
+            "runtime_base": {"type": ["string", "null"]},
+            "reviewed_source_tuple_id": {"type": ["string", "null"]},
+            "provenance": {
+                "type": "object",
+                "required": list(REQUIRED_PROVENANCE_FIELDS),
+                "properties": {
+                    "probe_payload": {"type": "string", "minLength": 1, "pattern": r".*\S.*"},
+                    "host_env": {"type": "string", "minLength": 1, "pattern": r".*\S.*"},
+                    "manifest_refs": {"type": "string", "minLength": 1, "pattern": r".*\S.*"},
+                },
+            },
             "phase_gate_selection": {
                 "type": "object",
                 "required": [
@@ -312,6 +541,10 @@ def validate_stage_plan(bundle: AuthorityBundle, payload: dict[str, Any]) -> dic
             "phase_gate",
             "phase_gate_selection",
             "stages",
+            "baseline",
+            "runtime_base",
+            "reviewed_source_tuple_id",
+            "provenance",
         ),
         artifact_name=CANONICAL_STAGE_PLAN_NAME,
     )
@@ -435,6 +668,19 @@ def validate_stage_plan(bundle: AuthorityBundle, payload: dict[str, Any]) -> dic
             + " -> ".join(bundle.ladder.ordered_case_ids)
         ) from exc
 
+    _validate_non_empty_string_field(payload, "baseline", artifact_name=CANONICAL_STAGE_PLAN_NAME)
+    _validate_optional_string_field(
+        payload,
+        "runtime_base",
+        artifact_name=CANONICAL_STAGE_PLAN_NAME,
+    )
+    _validate_optional_string_field(
+        payload,
+        "reviewed_source_tuple_id",
+        artifact_name=CANONICAL_STAGE_PLAN_NAME,
+    )
+    _validate_provenance_payload(payload, artifact_name=CANONICAL_STAGE_PLAN_NAME)
+
     stages = payload["stages"]
     if not isinstance(stages, list) or not stages:
         raise AuthoritySelectionError(f"{CANONICAL_STAGE_PLAN_NAME} stages must be a non-empty list")
@@ -455,6 +701,185 @@ def validate_stage_plan(bundle: AuthorityBundle, payload: dict[str, Any]) -> dic
             )
 
     return payload
+
+
+def build_case_meta_payload(
+    bundle: AuthorityBundle,
+    *,
+    context: StageRunnerContext,
+    case_role: str,
+    requested_vof_solver_mode: str,
+    resolved_vof_solver_exec: str,
+    resolved_pressure_backend: str,
+    mesh: Mapping[str, Any],
+    numerics: Mapping[str, Any],
+    startup: Mapping[str, Any],
+    pressure: Mapping[str, Any],
+    provenance: Mapping[str, Any] | None = None,
+) -> dict[str, Any]:
+    resolved_case = resolve_reference_case(bundle, case_role=case_role)
+    probe_payload = _read_json_dict(context.probe_payload_path)
+    payload = {
+        "schema_version": MANIFEST_SCHEMA_VERSION,
+        "case_id": resolved_case.frozen_id,
+        "case_role": resolved_case.case_role,
+        "ladder_position": resolved_case.ladder_position,
+        "phase_gates": list(resolved_case.phase_gates),
+        "baseline": context.baseline_name,
+        "runtime_base": context.runtime_base,
+        "reviewed_source_tuple_id": context.reviewed_source_tuple_id,
+        "requested_vof_solver_mode": requested_vof_solver_mode,
+        "resolved_vof_solver_exec": resolved_vof_solver_exec,
+        "resolved_pressure_backend": resolved_pressure_backend,
+        "openfoam_bashrc_used": context.bashrc_path,
+        "available_commands": _extract_available_commands(probe_payload),
+        "mesh_full_360": _require_mapping_value(mesh, "mesh_full_360", artifact_name=CANONICAL_CASE_META_NAME),
+        "mesh_resolution_scale": _require_mapping_value(mesh, "mesh_resolution_scale", artifact_name=CANONICAL_CASE_META_NAME),
+        "hydraulic_domain_mode": _require_mapping_value(mesh, "hydraulic_domain_mode", artifact_name=CANONICAL_CASE_META_NAME),
+        "near_field_radius_d": _require_mapping_value(mesh, "near_field_radius_d", artifact_name=CANONICAL_CASE_META_NAME),
+        "near_field_length_d": _require_mapping_value(mesh, "near_field_length_d", artifact_name=CANONICAL_CASE_META_NAME),
+        "steady_end_time_iter": _require_mapping_value(mesh, "steady_end_time_iter", artifact_name=CANONICAL_CASE_META_NAME),
+        "steady_write_interval_iter": _require_mapping_value(mesh, "steady_write_interval_iter", artifact_name=CANONICAL_CASE_META_NAME),
+        "steady_turbulence_model": _require_mapping_value(mesh, "steady_turbulence_model", artifact_name=CANONICAL_CASE_META_NAME),
+        "vof_turbulence_model": _require_mapping_value(mesh, "vof_turbulence_model", artifact_name=CANONICAL_CASE_META_NAME),
+        "delta_t_s": _require_mapping_value(numerics, "delta_t_s", artifact_name=CANONICAL_CASE_META_NAME),
+        "write_interval_s": _require_mapping_value(numerics, "write_interval_s", artifact_name=CANONICAL_CASE_META_NAME),
+        "end_time_s": _require_mapping_value(numerics, "end_time_s", artifact_name=CANONICAL_CASE_META_NAME),
+        "max_co": _require_mapping_value(numerics, "max_co", artifact_name=CANONICAL_CASE_META_NAME),
+        "max_alpha_co": _require_mapping_value(numerics, "max_alpha_co", artifact_name=CANONICAL_CASE_META_NAME),
+        "resolved_direct_slot_numerics": _require_mapping_value(
+            numerics,
+            "resolved_direct_slot_numerics",
+            artifact_name=CANONICAL_CASE_META_NAME,
+        ),
+        "startup_fill_extension_d": _require_mapping_value(
+            startup,
+            "startup_fill_extension_d",
+            artifact_name=CANONICAL_CASE_META_NAME,
+        ),
+        "air_core_seed_radius_d_requested": _require_mapping_value(
+            startup,
+            "air_core_seed_radius_d_requested",
+            artifact_name=CANONICAL_CASE_META_NAME,
+        ),
+        "air_core_seed_radius_m_resolved": _require_mapping_value(
+            startup,
+            "air_core_seed_radius_m_resolved",
+            artifact_name=CANONICAL_CASE_META_NAME,
+        ),
+        "air_core_seed_cap_applied": _require_mapping_value(
+            startup,
+            "air_core_seed_cap_applied",
+            artifact_name=CANONICAL_CASE_META_NAME,
+        ),
+        "fill_radius_m_resolved": _require_mapping_value(
+            startup,
+            "fill_radius_m_resolved",
+            artifact_name=CANONICAL_CASE_META_NAME,
+        ),
+        "fill_z_start_m": _require_mapping_value(startup, "fill_z_start_m", artifact_name=CANONICAL_CASE_META_NAME),
+        "fill_z_stop_m": _require_mapping_value(startup, "fill_z_stop_m", artifact_name=CANONICAL_CASE_META_NAME),
+        "DeltaP_Pa": _require_mapping_value(pressure, "DeltaP_Pa", artifact_name=CANONICAL_CASE_META_NAME),
+        "DeltaP_effective_Pa": _require_mapping_value(
+            pressure,
+            "DeltaP_effective_Pa",
+            artifact_name=CANONICAL_CASE_META_NAME,
+        ),
+        "check_valve_loss_applied": _require_mapping_value(
+            pressure,
+            "check_valve_loss_applied",
+            artifact_name=CANONICAL_CASE_META_NAME,
+        ),
+        "provenance": _build_provenance_payload(context, extra=provenance),
+    }
+    return validate_case_meta(bundle, payload)
+
+
+def build_stage_plan_payload(
+    bundle: AuthorityBundle,
+    *,
+    context: StageRunnerContext,
+    case_role: str,
+    phase_gate: str,
+    stages: Sequence[Mapping[str, Any]],
+    conditional_reason: str | None = None,
+    provenance: Mapping[str, Any] | None = None,
+) -> dict[str, Any]:
+    resolved_case = resolve_reference_case(bundle, case_role=case_role)
+    unconditional_case_roles = allowed_phase_gate_case_roles(bundle, phase_gate=phase_gate)
+    allowed_case_roles = allowed_phase_gate_case_roles(
+        bundle,
+        phase_gate=phase_gate,
+        include_conditional=True,
+    )
+    conditional_selection = case_role not in unconditional_case_roles
+    phase_gate_selection = {
+        "selected_case_role": resolved_case.case_role,
+        "available_case_roles": list(
+            allowed_case_roles if conditional_selection else unconditional_case_roles
+        ),
+        "ordered_ladder": list(bundle.ladder.ordered_case_ids),
+        "conditional_selection": conditional_selection,
+    }
+    if conditional_reason is not None:
+        phase_gate_selection["conditional_reason"] = conditional_reason
+
+    payload = {
+        "schema_version": MANIFEST_SCHEMA_VERSION,
+        "case_id": resolved_case.frozen_id,
+        "case_role": resolved_case.case_role,
+        "phase_gate": phase_gate,
+        "baseline": context.baseline_name,
+        "runtime_base": context.runtime_base,
+        "reviewed_source_tuple_id": context.reviewed_source_tuple_id,
+        "provenance": _build_provenance_payload(context, extra=provenance),
+        "phase_gate_selection": phase_gate_selection,
+        "stages": [dict(stage) for stage in stages],
+    }
+    return validate_stage_plan(bundle, payload)
+
+
+def emit_case_bundle(
+    bundle: AuthorityBundle,
+    *,
+    output_dir: pathlib.Path | str,
+    case_meta: Mapping[str, Any],
+    stage_plan: Mapping[str, Any],
+) -> EmittedCaseArtifacts:
+    validated_case_meta = validate_case_meta(bundle, dict(case_meta))
+    validated_stage_plan = validate_stage_plan(bundle, dict(stage_plan))
+    for field_name in (
+        "case_id",
+        "case_role",
+        "baseline",
+        "runtime_base",
+        "reviewed_source_tuple_id",
+    ):
+        if validated_case_meta[field_name] != validated_stage_plan[field_name]:
+            raise AuthoritySelectionError(
+                f"case bundle {field_name} mismatch between {CANONICAL_CASE_META_NAME} "
+                f"and {CANONICAL_STAGE_PLAN_NAME}"
+            )
+    for field_name in REQUIRED_PROVENANCE_FIELDS:
+        if (
+            validated_case_meta["provenance"][field_name]
+            != validated_stage_plan["provenance"][field_name]
+        ):
+            raise AuthoritySelectionError(
+                f"case bundle provenance {field_name} mismatch between "
+                f"{CANONICAL_CASE_META_NAME} and {CANONICAL_STAGE_PLAN_NAME}"
+            )
+
+    target_dir = pathlib.Path(output_dir)
+    target_dir.mkdir(parents=True, exist_ok=True)
+    case_meta_path = target_dir / CANONICAL_CASE_META_NAME
+    stage_plan_path = target_dir / CANONICAL_STAGE_PLAN_NAME
+    _write_json(case_meta_path, validated_case_meta)
+    _write_json(stage_plan_path, validated_stage_plan)
+    return EmittedCaseArtifacts(
+        case_meta_path=case_meta_path,
+        stage_plan_path=stage_plan_path,
+    )
 
 
 def _build_resolved_case(
@@ -595,3 +1020,227 @@ def _validate_schema_version(payload: dict[str, Any], *, artifact_name: str) -> 
             f"{artifact_name} has unsupported schema_version {schema_version!r}; "
             f"expected {MANIFEST_SCHEMA_VERSION!r}"
         )
+
+
+def _require_mapping_value(
+    payload: Mapping[str, Any],
+    field_name: str,
+    *,
+    artifact_name: str,
+) -> Any:
+    if field_name not in payload:
+        raise AuthoritySelectionError(
+            f"{artifact_name} is missing required fields: {field_name}"
+        )
+    return payload[field_name]
+
+
+def _validate_non_empty_string_field(
+    payload: Mapping[str, Any],
+    field_name: str,
+    *,
+    artifact_name: str,
+) -> None:
+    value = payload.get(field_name)
+    if not isinstance(value, str) or not value.strip():
+        raise AuthoritySelectionError(
+            f"{artifact_name} {field_name} must be a non-empty string"
+        )
+
+
+def _validate_optional_string_field(
+    payload: Mapping[str, Any],
+    field_name: str,
+    *,
+    artifact_name: str,
+) -> None:
+    value = payload.get(field_name)
+    if value is None:
+        return
+    if not isinstance(value, str) or not value.strip():
+        raise AuthoritySelectionError(
+            f"{artifact_name} {field_name} must be a non-empty string when provided"
+        )
+
+
+def _validate_numeric_field(
+    payload: Mapping[str, Any],
+    field_name: str,
+    *,
+    artifact_name: str,
+) -> None:
+    value = payload.get(field_name)
+    if not isinstance(value, (int, float)) or isinstance(value, bool):
+        raise AuthoritySelectionError(f"{artifact_name} {field_name} must be numeric")
+
+
+def _validate_optional_numeric_field(
+    payload: Mapping[str, Any],
+    field_name: str,
+    *,
+    artifact_name: str,
+) -> None:
+    value = payload.get(field_name)
+    if value is None:
+        return
+    _validate_numeric_field(payload, field_name, artifact_name=artifact_name)
+
+
+def _validate_optional_integer_field(
+    payload: Mapping[str, Any],
+    field_name: str,
+    *,
+    artifact_name: str,
+) -> None:
+    value = payload.get(field_name)
+    if value is None:
+        return
+    if not isinstance(value, int) or isinstance(value, bool):
+        raise AuthoritySelectionError(f"{artifact_name} {field_name} must be an integer")
+
+
+def _validate_boolean_field(
+    payload: Mapping[str, Any],
+    field_name: str,
+    *,
+    artifact_name: str,
+) -> None:
+    if not isinstance(payload.get(field_name), bool):
+        raise AuthoritySelectionError(f"{artifact_name} {field_name} must be a boolean")
+
+
+def _validate_optional_boolean_field(
+    payload: Mapping[str, Any],
+    field_name: str,
+    *,
+    artifact_name: str,
+) -> None:
+    value = payload.get(field_name)
+    if value is None:
+        return
+    _validate_boolean_field(payload, field_name, artifact_name=artifact_name)
+
+
+def _validate_int_enum_field(
+    payload: Mapping[str, Any],
+    field_name: str,
+    *,
+    allowed_values: Sequence[int],
+    artifact_name: str,
+) -> None:
+    value = payload.get(field_name)
+    if not isinstance(value, int) or isinstance(value, bool) or value not in allowed_values:
+        raise AuthoritySelectionError(
+            f"{artifact_name} {field_name} must be one of {list(allowed_values)!r}"
+        )
+
+
+def _validate_mapping_field(
+    payload: Mapping[str, Any],
+    field_name: str,
+    *,
+    artifact_name: str,
+) -> None:
+    value = payload.get(field_name)
+    if not isinstance(value, dict) or not value:
+        raise AuthoritySelectionError(f"{artifact_name} {field_name} must be a non-empty object")
+
+
+def _validate_optional_mapping_field(
+    payload: Mapping[str, Any],
+    field_name: str,
+    *,
+    artifact_name: str,
+) -> None:
+    value = payload.get(field_name)
+    if value is None:
+        return
+    _validate_mapping_field(payload, field_name, artifact_name=artifact_name)
+
+
+def _validate_string_mapping_field(
+    payload: Mapping[str, Any],
+    field_name: str,
+    *,
+    artifact_name: str,
+) -> None:
+    value = payload.get(field_name)
+    if not isinstance(value, dict) or not value:
+        raise AuthoritySelectionError(f"{artifact_name} {field_name} must be a non-empty object")
+    for key, entry in value.items():
+        if not isinstance(key, str) or not key.strip():
+            raise AuthoritySelectionError(
+                f"{artifact_name} {field_name} must use non-empty string keys"
+            )
+        if not isinstance(entry, str) or not entry.strip():
+            raise AuthoritySelectionError(
+                f"{artifact_name} {field_name} must use non-empty string values"
+            )
+
+
+def _validate_provenance_payload(payload: Mapping[str, Any], *, artifact_name: str) -> None:
+    provenance = payload.get("provenance")
+    if not isinstance(provenance, dict):
+        raise AuthoritySelectionError(f"{artifact_name} provenance must be an object")
+    _validate_required_fields(
+        provenance,
+        required_fields=REQUIRED_PROVENANCE_FIELDS,
+        artifact_name=f"{artifact_name} provenance",
+    )
+    for field_name in REQUIRED_PROVENANCE_FIELDS:
+        _validate_non_empty_string_field(
+            provenance,
+            field_name,
+            artifact_name=f"{artifact_name} provenance",
+        )
+
+
+def _build_provenance_payload(
+    context: StageRunnerContext,
+    *,
+    extra: Mapping[str, Any] | None = None,
+) -> dict[str, Any]:
+    context_owned_payload = {
+        "probe_payload": context.probe_payload_path.as_posix(),
+        "host_env": context.host_env_path.as_posix(),
+        "manifest_refs": context.manifest_refs_path.as_posix(),
+    }
+    payload = dict(context_owned_payload)
+    if extra:
+        for key, value in extra.items():
+            if key in REQUIRED_PROVENANCE_FIELDS:
+                continue
+            payload[key] = value
+    return payload
+
+
+def _extract_available_commands(probe_payload: Mapping[str, Any]) -> dict[str, str]:
+    commands = probe_payload.get("commands")
+    if not isinstance(commands, Mapping):
+        return {}
+    filtered_commands: dict[str, str] = {}
+    for raw_name, raw_path in commands.items():
+        name = str(raw_name).strip()
+        if isinstance(raw_path, Mapping):
+            path = str(raw_path.get("path") or "").strip()
+        else:
+            path = str(raw_path).strip()
+        if name and path:
+            filtered_commands[name] = path
+    return filtered_commands
+
+
+def _read_json_dict(path: pathlib.Path) -> dict[str, Any]:
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except OSError as exc:
+        raise AuthoritySelectionError(f"unable to read JSON payload: {path}") from exc
+    except json.JSONDecodeError as exc:
+        raise AuthoritySelectionError(f"invalid JSON payload: {path}") from exc
+    if not isinstance(payload, dict):
+        raise AuthoritySelectionError(f"JSON payload must be an object: {path}")
+    return payload
+
+
+def _write_json(path: pathlib.Path, payload: Mapping[str, Any]) -> None:
+    path.write_text(json.dumps(dict(payload), indent=2, sort_keys=True) + "\n", encoding="utf-8")
