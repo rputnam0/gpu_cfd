@@ -19,6 +19,7 @@ except ImportError:  # pragma: no cover - script execution fallback
 SOURCE_AUDIT_TEMPLATE_PATH = pathlib.Path("docs/tasks/templates/source_audit_note.md")
 SOURCE_AUDIT_AUTHORITY_PATH = "docs/authority/semantic_source_map.md"
 SOURCE_AUDIT_REVIEWED_STATUS = "reviewed"
+SOURCE_AUDIT_DEFAULT_RENDER_STATUS = "draft"
 
 
 @dataclass(frozen=True)
@@ -60,7 +61,7 @@ def render_source_audit_note(
     bundle: AuthorityBundle,
     *,
     touched_surfaces: list[str] | tuple[str, ...],
-    review_status: str = SOURCE_AUDIT_REVIEWED_STATUS,
+    review_status: str = SOURCE_AUDIT_DEFAULT_RENDER_STATUS,
     note_title: str = "Source Audit Note",
     reviewer_notes: list[str] | tuple[str, ...] | None = None,
 ) -> str:
@@ -237,7 +238,7 @@ def build_arg_parser() -> argparse.ArgumentParser:
     )
     render_parser.add_argument(
         "--review-status",
-        default=SOURCE_AUDIT_REVIEWED_STATUS,
+        default=SOURCE_AUDIT_DEFAULT_RENDER_STATUS,
         help="Review status label to embed in the rendered note.",
     )
 

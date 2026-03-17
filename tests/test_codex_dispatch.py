@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+from contextlib import ExitStack
 import io
 import json
 import os
@@ -165,6 +166,23 @@ class CodexDispatchTests(unittest.TestCase):
             )
         )
 
+    def test_task_requires_source_audit_gate_covers_phase_range_exports(self) -> None:
+        self.assertTrue(
+            codex_dispatch.task_requires_source_audit_gate(
+                {"pr_id": "P5-07", "card_markdown": "No explicit marker repeated here."}
+            )
+        )
+        self.assertTrue(
+            codex_dispatch.task_requires_source_audit_gate(
+                {"pr_id": "P7-03", "card_markdown": "No explicit marker repeated here."}
+            )
+        )
+        self.assertFalse(
+            codex_dispatch.task_requires_source_audit_gate(
+                {"pr_id": "P5-01", "card_markdown": "Source-audit note producer."}
+            )
+        )
+
     def test_main_preserves_worker_exit_code_when_trace_finalization_fetch_fails(
         self,
     ) -> None:
@@ -183,53 +201,93 @@ class CodexDispatchTests(unittest.TestCase):
             workspace.mkdir()
             stderr_buffer = io.StringIO()
 
-            with (
-                mock.patch.object(
-                    codex_dispatch,
-                    "parse_args",
-                    return_value=argparse.Namespace(codex_args=["app-server"]),
-                ),
-                mock.patch.object(codex_dispatch, "repo_root", return_value=self.repo_root()),
-                mock.patch.object(codex_dispatch, "workspace_root", return_value=workspace),
-                mock.patch.object(
-                    codex_dispatch,
-                    "fetch_issue_snapshot",
-                    side_effect=[
-                        initial_issue,
-                        codex_dispatch.DispatchError("final issue fetch failed"),
-                    ],
-                ),
-                mock.patch.object(codex_dispatch, "current_branch", return_value="codex/test"),
-                mock.patch.object(
-                    codex_dispatch.runtime_config,
-                    "build_codex_command",
-                    return_value=["codex", "app-server"],
-                ),
-                mock.patch.object(
-                    codex_dispatch.runtime_config,
-                    "load_codex_profile",
-                    return_value=runtime_profile,
-                ),
-                mock.patch.object(codex_dispatch.trace, "is_enabled", return_value=True),
-                mock.patch.object(codex_dispatch.trace, "latest_run_summary", return_value=None),
-                mock.patch.object(
-                    codex_dispatch.trace,
-                    "create_run",
-                    return_value={"issue_id": "PRO-17", "run_id": "run-1"},
-                ),
-                mock.patch.object(codex_dispatch, "capture_dispatch_bundle"),
-                mock.patch.object(codex_dispatch.trace, "resolve_trace_root", return_value=temp_path),
-                mock.patch.object(codex_dispatch.trace, "run_dir", return_value=temp_path / "run"),
-                mock.patch.object(
-                    codex_dispatch,
-                    "launch_codex_proxy",
-                    return_value=(0, {}),
-                ),
-                mock.patch.object(codex_dispatch, "current_commit", side_effect=["before", "after"]),
-                mock.patch.object(codex_dispatch.trace, "capture_event") as mock_capture_event,
-                mock.patch.object(codex_dispatch.trace, "finalize_run") as mock_finalize_run,
-                mock.patch("sys.stderr", stderr_buffer),
-            ):
+            with ExitStack() as stack:
+                stack.enter_context(
+                    mock.patch.object(
+                        codex_dispatch,
+                        "parse_args",
+                        return_value=argparse.Namespace(codex_args=["app-server"]),
+                    )
+                )
+                stack.enter_context(
+                    mock.patch.object(codex_dispatch, "repo_root", return_value=self.repo_root())
+                )
+                stack.enter_context(
+                    mock.patch.object(codex_dispatch, "workspace_root", return_value=workspace)
+                )
+                stack.enter_context(
+                    mock.patch.object(
+                        codex_dispatch,
+                        "fetch_issue_snapshot",
+                        side_effect=[
+                            initial_issue,
+                            codex_dispatch.DispatchError("final issue fetch failed"),
+                        ],
+                    )
+                )
+                stack.enter_context(
+                    mock.patch.object(codex_dispatch, "resolve_pr_context", return_value=None)
+                )
+                stack.enter_context(
+                    mock.patch.object(codex_dispatch, "find_workpad_snapshot", return_value=None)
+                )
+                stack.enter_context(
+                    mock.patch.object(codex_dispatch, "enforce_source_audit_gate")
+                )
+                stack.enter_context(
+                    mock.patch.object(codex_dispatch, "current_branch", return_value="codex/test")
+                )
+                stack.enter_context(
+                    mock.patch.object(
+                        codex_dispatch.runtime_config,
+                        "build_codex_command",
+                        return_value=["codex", "app-server"],
+                    )
+                )
+                stack.enter_context(
+                    mock.patch.object(
+                        codex_dispatch.runtime_config,
+                        "load_codex_profile",
+                        return_value=runtime_profile,
+                    )
+                )
+                stack.enter_context(
+                    mock.patch.object(codex_dispatch.trace, "is_enabled", return_value=True)
+                )
+                stack.enter_context(
+                    mock.patch.object(codex_dispatch.trace, "latest_run_summary", return_value=None)
+                )
+                stack.enter_context(
+                    mock.patch.object(
+                        codex_dispatch.trace,
+                        "create_run",
+                        return_value={"issue_id": "PRO-17", "run_id": "run-1"},
+                    )
+                )
+                stack.enter_context(mock.patch.object(codex_dispatch, "capture_dispatch_bundle"))
+                stack.enter_context(
+                    mock.patch.object(codex_dispatch.trace, "resolve_trace_root", return_value=temp_path)
+                )
+                stack.enter_context(
+                    mock.patch.object(codex_dispatch.trace, "run_dir", return_value=temp_path / "run")
+                )
+                stack.enter_context(
+                    mock.patch.object(
+                        codex_dispatch,
+                        "launch_codex_proxy",
+                        return_value=(0, {}),
+                    )
+                )
+                stack.enter_context(
+                    mock.patch.object(codex_dispatch, "current_commit", side_effect=["before", "after"])
+                )
+                mock_capture_event = stack.enter_context(
+                    mock.patch.object(codex_dispatch.trace, "capture_event")
+                )
+                mock_finalize_run = stack.enter_context(
+                    mock.patch.object(codex_dispatch.trace, "finalize_run")
+                )
+                stack.enter_context(mock.patch("sys.stderr", stderr_buffer))
                 exit_code = codex_dispatch.main()
 
         self.assertEqual(exit_code, 0)

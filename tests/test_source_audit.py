@@ -53,6 +53,16 @@ class SourceAuditHelperTests(unittest.TestCase):
         self.assertIn("| Pressure bridge |", note)
         self.assertIn("PressureMatrixCache", note)
 
+    def test_render_source_audit_note_defaults_to_draft(self) -> None:
+        bundle = load_authority_bundle(repo_root())
+
+        note = render_source_audit_note(
+            bundle,
+            touched_surfaces=["Alpha transport"],
+        )
+
+        self.assertIn("- Review status: draft", note)
+
     def test_unknown_semantic_surface_fails_fast(self) -> None:
         bundle = load_authority_bundle(repo_root())
 
@@ -177,6 +187,7 @@ class SourceAuditHelperTests(unittest.TestCase):
         rendered = stdout.getvalue()
         self.assertEqual(exit_code, 0)
         self.assertIn("# Phase 5 Source Audit", rendered)
+        self.assertIn("- Review status: draft", rendered)
         self.assertIn("## Semantic Surface Coverage", rendered)
         self.assertIn("| Alpha transport |", rendered)
         self.assertIn("| Pressure corrector |", rendered)
