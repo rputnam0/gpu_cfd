@@ -161,6 +161,34 @@ class LinearApiTests(unittest.TestCase):
         self.assertIsNone(mock_graphql.call_args_list[0].args[1]["after"])
         self.assertEqual(mock_graphql.call_args_list[1].args[1]["after"], "cursor-1")
 
+    @mock.patch("scripts.symphony.linear_api.list_issue_comments")
+    def test_find_workpad_comment_prefers_canonical_comment_over_newer_legacy(
+        self,
+        mock_list_issue_comments: mock.Mock,
+    ) -> None:
+        mock_list_issue_comments.return_value = [
+            {
+                "id": "comment-legacy",
+                "body": "<!-- codex:workpad -->\n# Canonical Workpad\nlegacy",
+                "url": "https://linear.app/comment-legacy",
+                "createdAt": "2026-03-15T11:00:00Z",
+                "updatedAt": "2026-03-15T12:00:00Z",
+            },
+            {
+                "id": "comment-canonical",
+                "body": f"{linear_api.WORKPAD_MARKER}\n\n{linear_api.WORKPAD_TITLE}\ncanonical",
+                "url": "https://linear.app/comment-canonical",
+                "createdAt": "2026-03-15T10:00:00Z",
+                "updatedAt": "2026-03-15T10:00:00Z",
+            },
+        ]
+
+        comment = linear_api.find_workpad_comment("PRO-17")
+
+        self.assertIsNotNone(comment)
+        assert comment is not None
+        self.assertEqual(comment["id"], "comment-canonical")
+
     def test_parse_issue_identifier(self) -> None:
         parsed = linear_api.parse_issue_identifier("pro-17")
 
