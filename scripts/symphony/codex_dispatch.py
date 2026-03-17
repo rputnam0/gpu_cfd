@@ -507,7 +507,13 @@ def resolve_source_audit_requirement(pr_context: dict[str, Any]) -> dict[str, An
 
 def find_source_audit_note(repo: pathlib.Path, note_filename: str) -> pathlib.Path:
     completed = subprocess.run(
-        ["git", "ls-files", "--", note_filename],
+        [
+            "git",
+            "ls-files",
+            "--",
+            note_filename,
+            f":(glob)**/{note_filename}",
+        ],
         cwd=repo,
         text=True,
         capture_output=True,
