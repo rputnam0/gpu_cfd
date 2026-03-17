@@ -381,6 +381,53 @@ class SupportScannerTests(unittest.TestCase):
             ("backend_mode_not_admitted",),
         )
 
+    def test_extra_scheme_blocks_are_rejected(self) -> None:
+        request = SupportScanRequest(
+            **{
+                **self.make_supported_request().__dict__,
+                "schemes": {
+                    **self.make_supported_request().schemes,
+                    "snGradSchemes": {"default": "corrected"},
+                },
+            }
+        )
+
+        with self.assertRaises(SupportScanRejected) as context:
+            enforce_support_scan(self.bundle, request)
+
+        self.assertEqual(
+            tuple(reason["code"] for reason in context.exception.report.reject_reasons),
+            ("unsupported_scheme_tuple",),
+        )
+
+    def test_unknown_execution_and_fallback_modes_fail_fast(self) -> None:
+        execution_request = SupportScanRequest(
+            **{
+                **self.make_supported_request().__dict__,
+                "execution_mode": "async_no_graph",
+            }
+        )
+        fallback_request = SupportScanRequest(
+            **{
+                **self.make_supported_request().__dict__,
+                "fallback_policy": "typo",
+            }
+        )
+
+        with self.assertRaises(SupportScanRejected) as execution_context:
+            enforce_support_scan(self.bundle, execution_request)
+        with self.assertRaises(SupportScanRejected) as fallback_context:
+            enforce_support_scan(self.bundle, fallback_request)
+
+        self.assertEqual(
+            tuple(reason["code"] for reason in execution_context.exception.report.reject_reasons),
+            ("execution_mode_not_admitted",),
+        )
+        self.assertEqual(
+            tuple(reason["code"] for reason in fallback_context.exception.report.reject_reasons),
+            ("fallback_policy_not_admitted",),
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

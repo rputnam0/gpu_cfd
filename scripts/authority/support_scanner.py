@@ -19,6 +19,8 @@ BACKEND_CITATION = "docs/authority/support_matrix.json#backend_operational_polic
 CONTINUITY_CITATION = "docs/authority/continuity_ledger.md#1-frozen-global-decisions"
 DEBUG_FALLBACK_POLICY = "debugOnlyFallback"
 FAIL_FAST_POLICY = "failFast"
+ALLOWED_EXECUTION_MODES = frozenset({"production", "debug"})
+ALLOWED_FALLBACK_POLICIES = frozenset({FAIL_FAST_POLICY, DEBUG_FALLBACK_POLICY})
 _VECTOR_VALUE_PATTERN = re.compile(
     r"^\(\s*[-+]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][-+]?\d+)?"
     r"\s+[-+]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][-+]?\d+)?"
@@ -176,6 +178,24 @@ def _scan_issues(bundle: AuthorityBundle, request: SupportScanRequest) -> tuple[
     issues: list[SupportScanIssue] = []
     global_policy = bundle.support.raw["global_policy"]
 
+    if request.execution_mode not in ALLOWED_EXECUTION_MODES:
+        issues.append(
+            SupportScanIssue(
+                code="execution_mode_not_admitted",
+                message="Execution mode must use one of the frozen support-scan mode labels.",
+                citations=(GLOBAL_POLICY_CITATION, CONTINUITY_CITATION),
+                detail={"requested": request.execution_mode},
+            )
+        )
+    if request.fallback_policy not in ALLOWED_FALLBACK_POLICIES:
+        issues.append(
+            SupportScanIssue(
+                code="fallback_policy_not_admitted",
+                message="Fallback policy must use one of the frozen support-scan policy labels.",
+                citations=(GLOBAL_POLICY_CITATION, CONTINUITY_CITATION),
+                detail={"requested": request.fallback_policy},
+            )
+        )
     if request.execution_mode == "production" and request.fallback_policy == DEBUG_FALLBACK_POLICY:
         issues.append(
             SupportScanIssue(
@@ -314,8 +334,8 @@ def _scan_schemes(bundle: AuthorityBundle, request: SupportScanRequest) -> tuple
         if isinstance(values, dict)
     }
     observed = {
-        block: { _normalize_scheme_key(key): value for key, value in request.schemes.get(block, {}).items() }
-        for block in expected
+        block: {_normalize_scheme_key(key): value for key, value in values.items()}
+        for block, values in request.schemes.items()
     }
     if observed != expected:
         return (
