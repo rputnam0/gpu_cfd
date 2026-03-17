@@ -52,19 +52,23 @@ repository's authority docs, backlog dependencies, and PR-card scope.
    Run that helper from the issue workspace directly. If the workspace still has unrelated dirty
    control-plane files, the helper creates its own clean committed review clone; do not invent a
    separate manual clean-clone workflow.
-9. If the handoff helper reports findings, inspect the latest artifact under
-   `.codex/review_artifacts/`, fix the valid findings in the same implementation run, rerun
+9. If the handoff helper reports findings on remediation pass 1 or 2, inspect the latest artifact
+   under `.codex/review_artifacts/`, fix the valid findings in the same implementation run, rerun
    targeted validation, and rerun the handoff helper.
-   Findings before the cap are continuation work for the same implementation worker; stay in
+   Those first two remediation passes belong to the same implementation worker; stay in
    `In Progress` and keep going on the same branch.
-   Cap this local-review remediation loop at 3 review rounds total; if the third round still
-   reports findings, the helper opens or updates the PR, moves the issue to `In Review`, and
-   escalates the branch to Devin instead of parking it for more local review.
-10. When the handoff helper succeeds, it opens or updates the PR, enables GitHub auto-merge, moves
-   the issue to `In Review`, and you should stop after you update the workpad with the PR URL.
+   The local-review cycle is finite: remediation pass 1, remediation pass 2, then one final local
+   review pass.
+   If the third and final local review pass still reports findings, the helper creates one child
+   `Backlog` issue per residual finding, opens or updates the PR, enables auto-merge, moves the
+   parent issue to `In Review`, and returns `stop_worker=true`.
+10. When the handoff helper succeeds cleanly, it opens or updates the PR, enables GitHub
+    auto-merge, moves the issue to `In Review`, returns `stop_worker=true`, and you should stop
+    after you update the workpad with the PR URL.
 11. `In Review` is a dormant automated-review queue. Do not wait or poll from the worker.
 12. On a `Rework` run, start by using the GitHub CLI API to pull the latest review comments and
-    review state for the current PR head. Do not rely on memory alone.
+    review state for the current PR head, and record the actionable thread IDs / URLs in the
+    Linear workpad. Do not rely on memory alone.
 13. Treat valid actionable Devin feedback as mandatory fix work. Fix those findings first, rerun
     targeted validation, push, and rerun the handoff helper before returning to `In Review`.
     This workflow requires one Devin review round; after those actionable findings are resolved,

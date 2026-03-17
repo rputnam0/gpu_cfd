@@ -149,6 +149,13 @@ def is_thread_stale_for_current_head(
     return max(comment_timestamps) < latest_commit_at
 
 
+def thread_has_actionable_feedback(thread: dict[str, Any]) -> bool:
+    return any(
+        review_loop.is_actionable_thread_comment(str(comment.get("body") or ""))
+        for comment in thread.get("comments", [])
+    )
+
+
 def collect_resolvable_thread_ids(summary: review_loop.ReviewSummary) -> list[str]:
     actionable_thread_ids = {
         str(thread["id"])
@@ -160,11 +167,14 @@ def collect_resolvable_thread_ids(summary: review_loop.ReviewSummary) -> list[st
         thread_id = thread.get("id")
         if thread_id is None:
             continue
-        if thread.get("is_resolved") or thread.get("is_outdated"):
+        if thread.get("is_resolved"):
             continue
-        if str(thread_id) in actionable_thread_ids and not is_thread_stale_for_current_head(
-            thread, summary.latest_commit_at
-        ):
+        if thread.get("is_outdated"):
+            resolvable.append(str(thread_id))
+            continue
+        if str(thread_id) in actionable_thread_ids:
+            continue
+        if thread_has_actionable_feedback(thread):
             continue
         resolvable.append(str(thread_id))
     return resolvable
@@ -232,6 +242,59 @@ def determine_gate_decision(
     )
 
 
+def build_actionable_feedback_notes(summary: review_loop.ReviewSummary) -> list[str]:
+    notes: list[str] = []
+    for thread in summary.actionable_threads:
+        thread_id = str(thread.get("id") or "").strip()
+        path = str(thread.get("path") or "").strip()
+        latest_comment = (thread.get("comments") or [{}])[-1]
+        url = str(latest_comment.get("url") or "").strip()
+        body = str(latest_comment.get("body") or "").strip()
+        summary_line = body.splitlines()[-1].strip() if body else "Actionable Devin thread"
+        line_bits: list[str] = []
+        if thread_id:
+            line_bits.append(f"thread `{thread_id}`")
+        if path:
+            line_bits.append(f"path `{path}`")
+        if url:
+            line_bits.append(url)
+        prefix = "Actionable Devin thread"
+        if line_bits:
+            prefix += ": " + " | ".join(line_bits)
+        notes.append(f"{prefix} - {summary_line}")
+    for review in summary.actionable_reviews:
+        author = str(review.get("author") or "").strip()
+        state = str(review.get("state") or "").strip()
+        url = str(review.get("url") or "").strip()
+        parts = [part for part in [author, state, url] if part]
+        notes.append("Actionable Devin review: " + " | ".join(parts))
+    return notes
+
+
+def sync_rework_workpad_best_effort(
+    issue_identifier: str,
+    summary: review_loop.ReviewSummary,
+) -> str | None:
+    try:
+        issue = linear_api.fetch_issue(issue_identifier)
+        issue_title = str(issue.get("title") or issue_identifier)
+        existing = linear_api.find_workpad_comment(issue_identifier)
+        merged = linear_api.merge_workpad_body(
+            existing.get("body") if existing else None,
+            issue_identifier=issue_identifier,
+            issue_title=issue_title,
+            current_status="rework",
+            validation=[
+                "GitHub review bridge moved the issue to `Rework` because actionable Devin feedback remains on the current PR head.",
+            ],
+            review_handoff_notes=build_actionable_feedback_notes(summary),
+        )
+        linear_api.upsert_workpad_comment(issue_identifier, merged)
+    except Exception as exc:
+        return f"workpad sync failed: {exc}"
+    return None
+
+
 def set_commit_status(
     repo: str,
     sha: str,
@@ -293,6 +356,12 @@ def main() -> int:
             "current_state": update_result["current_state"],
             "issue_identifier": decision.issue_identifier,
         }
+        workpad_warning = sync_rework_workpad_best_effort(
+            decision.issue_identifier,
+            summary,
+        )
+    else:
+        workpad_warning = None
 
     result = {
         "pull_request": asdict(snapshot),
@@ -309,6 +378,8 @@ def main() -> int:
         "linear_update": linear_update,
         "status_context": CHECK_CONTEXT,
     }
+    if workpad_warning:
+        result["workpad_sync_warning"] = workpad_warning
     if issue_identifier and trace.is_enabled():
         run_manifest = trace.ensure_run(
             issue_id=issue_identifier,

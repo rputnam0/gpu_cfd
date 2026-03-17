@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 import os
 import re
@@ -26,6 +27,11 @@ LINKED_ISSUE_MARKER_PATTERN = re.compile(
 )
 WORKPAD_MARKER = "<!-- gpu-cfd-workpad:v1 -->"
 WORKPAD_TITLE = "# GPU CFD Worker Workpad"
+LEGACY_WORKPAD_MARKERS = (
+    "<!-- codex:workpad -->",
+    "# Canonical Workpad",
+)
+LEGACY_WORKPAD_SUPERSEDED_MARKER = "<!-- gpu-cfd-workpad-superseded:v1 -->"
 WORKPAD_SECTIONS = (
     "Task Summary",
     "Current Status",
@@ -35,6 +41,10 @@ WORKPAD_SECTIONS = (
     "Validation",
     "Risks / Blockers",
     "Review / Handoff Notes",
+)
+RESIDUAL_FOLLOWUP_MARKER_PATTERN = re.compile(
+    r"<!--\s*gpu-cfd-residual-followup:v1\s+parent=(?P<parent>[A-Z]+-\d+)\s+fingerprint=(?P<fingerprint>[a-f0-9]{12})\s*-->",
+    re.IGNORECASE,
 )
 
 ISSUE_BY_IDENTIFIER_QUERY = """
@@ -56,6 +66,7 @@ query($teamKey: String!, $number: Float!) {
         name
       }
       team {
+        id
         key
         states {
           nodes {
@@ -118,6 +129,42 @@ mutation($id: String!, $description: String!) {
       id
       identifier
       description
+    }
+  }
+}
+"""
+
+ISSUE_CREATE_MUTATION = """
+mutation(
+  $teamId: String!,
+  $title: String!,
+  $description: String!,
+  $parentId: String,
+  $stateId: String,
+  $priority: Int,
+  $labelIds: [String!]
+) {
+  issueCreate(
+    input: {
+      teamId: $teamId,
+      title: $title,
+      description: $description,
+      parentId: $parentId,
+      stateId: $stateId,
+      priority: $priority,
+      labelIds: $labelIds
+    }
+  ) {
+    success
+    issue {
+      id
+      identifier
+      title
+      url
+      state {
+        id
+        name
+      }
     }
   }
 }
@@ -205,12 +252,31 @@ query($teamKey: String!, $after: String) {
       title
       description
       url
+      parent {
+        id
+        identifier
+      }
       state {
         name
       }
       team {
         key
       }
+    }
+  }
+}
+"""
+
+ISSUE_LABELS_QUERY = """
+query($after: String) {
+  issueLabels(first: 100, after: $after) {
+    pageInfo {
+      hasNextPage
+      endCursor
+    }
+    nodes {
+      id
+      name
     }
   }
 }
@@ -407,6 +473,31 @@ def update_issue_description(issue_identifier: str, description: str) -> dict[st
     }
 
 
+def create_issue(
+    *,
+    team_id: str,
+    title: str,
+    description: str,
+    parent_id: str | None = None,
+    state_id: str | None = None,
+    priority: int | None = None,
+    label_ids: list[str] | None = None,
+) -> dict[str, Any]:
+    data = graphql(
+        ISSUE_CREATE_MUTATION,
+        {
+            "teamId": team_id,
+            "title": title,
+            "description": description,
+            "parentId": parent_id,
+            "stateId": state_id,
+            "priority": priority,
+            "labelIds": label_ids or [],
+        },
+    )
+    return data["issueCreate"]["issue"]
+
+
 def list_issue_comments(issue_identifier: str) -> list[dict[str, Any]]:
     comments: list[dict[str, Any]] = []
     after: str | None = None
@@ -451,11 +542,16 @@ def update_comment(comment_id: str, body: str) -> dict[str, Any]:
 
 
 def find_workpad_comment(issue_identifier: str) -> dict[str, Any] | None:
-    matched: list[dict[str, Any]] = []
+    canonical_comments: list[dict[str, Any]] = []
+    legacy_comments: list[dict[str, Any]] = []
     for comment in list_issue_comments(issue_identifier):
         body = (comment.get("body") or "").strip()
         if WORKPAD_MARKER in body:
-            matched.append(comment)
+            canonical_comments.append(comment)
+            continue
+        if is_legacy_workpad_body(body):
+            legacy_comments.append(comment)
+    matched = canonical_comments or legacy_comments
     if not matched:
         return None
     matched.sort(
@@ -465,6 +561,26 @@ def find_workpad_comment(issue_identifier: str) -> dict[str, Any] | None:
         )
     )
     return matched[-1]
+
+
+def list_workpad_comments(issue_identifier: str) -> list[dict[str, Any]]:
+    matched: list[dict[str, Any]] = []
+    for comment in list_issue_comments(issue_identifier):
+        body = (comment.get("body") or "").strip()
+        if WORKPAD_MARKER in body or is_legacy_workpad_body(body):
+            matched.append(comment)
+    matched.sort(
+        key=lambda comment: (
+            comment.get("updatedAt") or "",
+            comment.get("createdAt") or "",
+        )
+    )
+    return matched
+
+
+def is_legacy_workpad_body(body: str) -> bool:
+    normalized = body.strip()
+    return any(marker in normalized for marker in LEGACY_WORKPAD_MARKERS)
 
 
 def render_workpad_body(
@@ -665,6 +781,10 @@ def upsert_workpad_comment(issue_identifier: str, body: str) -> dict[str, Any]:
     else:
         updated = update_comment(str(existing_comment["id"]), body)
         result = {"action": "updated", **updated}
+    try:
+        suppress_legacy_workpad_comments(issue_identifier)
+    except Exception:
+        pass
     if trace is not None and trace.is_enabled():
         context = trace.current_trace_context()
         if context["run_id"]:
@@ -678,6 +798,240 @@ def upsert_workpad_comment(issue_identifier: str, body: str) -> dict[str, Any]:
                 comment_url=str(result.get("url") or ""),
             )
     return result
+
+
+def suppress_legacy_workpad_comments(issue_identifier: str) -> list[dict[str, Any]]:
+    canonical_comment = None
+    legacy_comments: list[dict[str, Any]] = []
+    for comment in list_workpad_comments(issue_identifier):
+        body = str(comment.get("body") or "")
+        if WORKPAD_MARKER in body:
+            canonical_comment = comment
+            continue
+        if is_legacy_workpad_body(body):
+            legacy_comments.append(comment)
+
+    if canonical_comment is None:
+        return []
+
+    suppressed: list[dict[str, Any]] = []
+    canonical_url = str(canonical_comment.get("url") or "").strip()
+    replacement = "\n".join(
+        [
+            LEGACY_WORKPAD_SUPERSEDED_MARKER,
+            "",
+            "# Workpad Superseded",
+            "",
+            (
+                f"Superseded by the canonical worker workpad: {canonical_url}"
+                if canonical_url
+                else "Superseded by the canonical worker workpad comment."
+            ),
+            "",
+        ]
+    )
+    for legacy_comment in legacy_comments:
+        suppressed.append(update_comment(str(legacy_comment["id"]), replacement))
+    return suppressed
+
+
+def list_issue_labels() -> list[dict[str, Any]]:
+    labels: list[dict[str, Any]] = []
+    after: str | None = None
+    while True:
+        data = graphql(ISSUE_LABELS_QUERY, {"after": after})
+        payload = data.get("issueLabels", {})
+        labels.extend(list(payload.get("nodes", [])))
+        page_info = payload.get("pageInfo", {})
+        if not page_info.get("hasNextPage"):
+            return labels
+        next_cursor = page_info.get("endCursor")
+        if not next_cursor:
+            return labels
+        after = str(next_cursor)
+
+
+def resolve_label_ids(label_names: list[str]) -> list[str]:
+    requested = {name.strip() for name in label_names if name.strip()}
+    if not requested:
+        return []
+    resolved: list[str] = []
+    for label in list_issue_labels():
+        name = str(label.get("name") or "").strip()
+        if name in requested:
+            resolved.append(str(label["id"]))
+    return resolved
+
+
+def render_residual_followup_marker(parent_identifier: str, fingerprint: str) -> str:
+    return (
+        "<!-- gpu-cfd-residual-followup:v1 "
+        f"parent={normalize_issue_identifier(parent_identifier)} "
+        f"fingerprint={fingerprint} -->"
+    )
+
+
+def extract_residual_followup_marker(description: str) -> dict[str, str] | None:
+    match = RESIDUAL_FOLLOWUP_MARKER_PATTERN.search(description or "")
+    if match is None:
+        return None
+    return {
+        "parent": normalize_issue_identifier(match.group("parent")),
+        "fingerprint": str(match.group("fingerprint")).lower(),
+    }
+
+
+def residual_followup_fingerprint(
+    *,
+    parent_identifier: str,
+    priority_label: str,
+    title: str,
+    body: str,
+    path: str | None = None,
+    start_line: int | None = None,
+) -> str:
+    normalized_parts = [
+        normalize_issue_identifier(parent_identifier),
+        priority_label.strip(),
+        title.strip(),
+        body.strip(),
+        (path or "").strip(),
+        str(start_line or ""),
+    ]
+    digest = hashlib.sha256("\n".join(normalized_parts).encode("utf-8")).hexdigest()
+    return digest[:12]
+
+
+def find_residual_followup_issue(
+    team_key: str,
+    *,
+    fingerprint: str,
+) -> dict[str, Any] | None:
+    for issue in list_team_issues(team_key):
+        marker = extract_residual_followup_marker(str(issue.get("description") or ""))
+        if marker and marker["fingerprint"] == fingerprint.lower():
+            return issue
+    return None
+
+
+def render_residual_followup_description(
+    *,
+    parent_identifier: str,
+    parent_title: str,
+    fingerprint: str,
+    priority_label: str,
+    finding_title: str,
+    finding_body: str,
+    pr_url: str,
+    branch: str,
+    commit: str,
+    artifact_path: str,
+    source_path: str | None = None,
+    start_line: int | None = None,
+    end_line: int | None = None,
+) -> str:
+    location_lines: list[str] = []
+    if source_path:
+        location = source_path
+        if start_line is not None:
+            location += f":{start_line}"
+            if end_line is not None and end_line != start_line:
+                location += f"-{end_line}"
+        location_lines.append(f"- Source location: `{location}`")
+    return "\n".join(
+        [
+            render_residual_followup_marker(parent_identifier, fingerprint),
+            "",
+            f"Residual local-review finding deferred from `{parent_identifier}`.",
+            "",
+            "## Parent Context",
+            f"- Parent issue: `{normalize_issue_identifier(parent_identifier)}`",
+            f"- Parent title: {parent_title}",
+            f"- Pull request: {pr_url}",
+            f"- Branch: `{branch}`",
+            f"- Commit: `{commit}`",
+            f"- Review artifact: `{artifact_path}`",
+            "",
+            "## Finding",
+            f"- Priority: `{priority_label}`",
+            f"- Title: {finding_title}",
+            *location_lines,
+            "",
+            "## Review Excerpt",
+            finding_body.strip(),
+            "",
+        ]
+    ).strip() + "\n"
+
+
+def ensure_residual_followup_issue(
+    *,
+    parent_identifier: str,
+    parent_title: str,
+    finding_title: str,
+    finding_body: str,
+    priority: int,
+    priority_label: str,
+    pr_url: str,
+    branch: str,
+    commit: str,
+    artifact_path: str,
+    source_path: str | None = None,
+    start_line: int | None = None,
+    end_line: int | None = None,
+    label_names: list[str] | None = None,
+) -> dict[str, Any]:
+    parent_issue = fetch_issue(parent_identifier)
+    team_key = str(parent_issue.get("team", {}).get("key") or "")
+    fingerprint = residual_followup_fingerprint(
+        parent_identifier=parent_identifier,
+        priority_label=priority_label,
+        title=finding_title,
+        body=finding_body,
+        path=source_path,
+        start_line=start_line,
+    )
+    existing = find_residual_followup_issue(team_key, fingerprint=fingerprint)
+    if existing is not None:
+        return {"action": "existing", **existing}
+
+    backlog_state_id = resolve_state_id(parent_issue, "Backlog")
+    effective_label_names = list(label_names or [])
+    if not effective_label_names:
+        if priority_label == "P0":
+            effective_label_names = ["Bug"]
+        elif priority_label in {"P1", "P2"}:
+            effective_label_names = ["Bug"]
+        else:
+            effective_label_names = ["Improvement"]
+    label_ids = resolve_label_ids(effective_label_names)
+    created = create_issue(
+        team_id=str(parent_issue["team"]["id"]),
+        title=(
+            f"Residual review follow-up: {normalize_issue_identifier(parent_identifier)} "
+            f"[{priority_label}] {finding_title}"
+        ),
+        description=render_residual_followup_description(
+            parent_identifier=parent_identifier,
+            parent_title=parent_title,
+            fingerprint=fingerprint,
+            priority_label=priority_label,
+            finding_title=finding_title,
+            finding_body=finding_body,
+            pr_url=pr_url,
+            branch=branch,
+            commit=commit,
+            artifact_path=artifact_path,
+            source_path=source_path,
+            start_line=start_line,
+            end_line=end_line,
+        ),
+        parent_id=str(parent_issue["id"]),
+        state_id=backlog_state_id,
+        priority=priority,
+        label_ids=label_ids,
+    )
+    return {"action": "created", **created}
 
 
 def fetch_direct_blocked_dependents(issue_identifier: str) -> list[dict[str, Any]]:
