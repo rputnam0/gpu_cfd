@@ -261,18 +261,37 @@ def resolve_pr_context(
     issue_payload: dict[str, Any],
 ) -> dict[str, Any] | None:
     inventory = parse_pr_inventory(repo)
-    candidate_texts = [
+    prioritized_candidate_texts = [
         str(issue_payload.get("title") or ""),
-        str(issue_payload.get("description") or ""),
+        str(issue_payload.get("gitBranchName") or ""),
         str(issue_payload.get("branchName") or ""),
+    ]
+    fallback_candidate_texts = [
+        str(issue_payload.get("description") or ""),
     ]
     comments_payload = issue_payload.get("comments", {})
     if isinstance(comments_payload, dict):
         for comment in comments_payload.get("nodes", []):
             if isinstance(comment, dict):
-                candidate_texts.append(str(comment.get("body") or ""))
+                fallback_candidate_texts.append(str(comment.get("body") or ""))
 
-    for candidate in extract_task_card_candidates(*candidate_texts):
+    for candidate in extract_task_card_candidates(*prioritized_candidate_texts):
+        task_file = inventory.get(candidate)
+        if task_file is None or not task_file.exists():
+            continue
+        task_text = read_text(task_file)
+        card_markdown = extract_card_markdown(task_text, candidate)
+        if not card_markdown.strip():
+            continue
+        cited_paths = extract_repo_paths(repo, card_markdown)
+        return {
+            "pr_id": candidate,
+            "task_file": task_file.as_posix(),
+            "card_markdown": card_markdown,
+            "cited_paths": cited_paths,
+        }
+
+    for candidate in extract_task_card_candidates(*fallback_candidate_texts):
         task_file = inventory.get(candidate)
         if task_file is None or not task_file.exists():
             continue

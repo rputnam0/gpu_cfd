@@ -199,6 +199,30 @@ class SourceAuditHelperTests(unittest.TestCase):
 
         self.assertEqual(result[0].contract_surface, "Alpha transport")
 
+    def test_validate_source_audit_note_rejects_duplicate_canonical_surface_rows(self) -> None:
+        bundle = load_authority_bundle(repo_root())
+        note = render_source_audit_note(
+            bundle,
+            touched_surfaces=["alphaPredictor"],
+            review_status="reviewed",
+        )
+        duplicate_row = (
+            "| alphaPredictor | `twoPhaseSolver::alphaPredictor()` | "
+            "local `alphaPredictor.C` path plus `DeviceAlphaTransport.*` / `DeviceMULES.*` | "
+            "ownership-reviewed duplicate | duplicate row |"
+        )
+        note = note.replace("## Reviewer Notes", duplicate_row + "\n\n## Reviewer Notes")
+
+        with self.assertRaisesRegex(
+            ValueError,
+            "duplicate semantic surface rows for 'Alpha transport'",
+        ):
+            validate_source_audit_note(
+                bundle,
+                note_text=note,
+                touched_surfaces=["alphaPredictor"],
+            )
+
     def test_source_audit_cli_check_validates_reviewed_note(self) -> None:
         bundle = load_authority_bundle(repo_root())
         note = render_source_audit_note(

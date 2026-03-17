@@ -63,6 +63,21 @@ class CodexDispatchTests(unittest.TestCase):
         self.assertIn("## P4-08", context["card_markdown"])
         self.assertTrue(context["cited_paths"])
 
+    def test_resolve_pr_context_prefers_title_and_git_branch_over_description_mentions(self) -> None:
+        context = codex_dispatch.resolve_pr_context(
+            self.repo_root(),
+            {
+                "identifier": "PRO-17",
+                "title": "Implement P5-02 runtime gate",
+                "gitBranchName": "rputnam0/p5-02-runtime-gate",
+                "description": "Depends on P5-01 before starting P5-02.",
+            },
+        )
+
+        self.assertIsNotNone(context)
+        assert context is not None
+        self.assertEqual(context["pr_id"], "P5-02")
+
     @mock.patch("scripts.symphony.codex_dispatch.linear_api.fetch_issue")
     def test_fetch_issue_snapshot_raises_when_linear_issue_lookup_fails(
         self,

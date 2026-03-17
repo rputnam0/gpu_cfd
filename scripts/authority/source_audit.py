@@ -230,6 +230,10 @@ def _parse_coverage_rows(
             "notes": parts[4],
         }
         canonical_surface = _normalize_requested_surfaces(bundle, [row["contract_surface"]])[0]
+        if canonical_surface in rows:
+            raise ValueError(
+                f"source-audit note contains duplicate semantic surface rows for {canonical_surface!r}"
+            )
         row["contract_surface"] = canonical_surface
         rows[canonical_surface] = row
     return rows
