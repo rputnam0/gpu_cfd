@@ -164,12 +164,16 @@ def validate_case_meta(bundle: AuthorityBundle, payload: dict[str, Any]) -> dict
         raise AuthoritySelectionError(
             f"{CANONICAL_CASE_META_NAME} phase_gates must contain only strings"
         )
-    phase_gates = tuple(phase_gates_value)
-    expected_phase_gates = resolved_case.phase_gates
+    if len(phase_gates_value) != len(set(phase_gates_value)):
+        raise AuthoritySelectionError(
+            f"{CANONICAL_CASE_META_NAME} phase_gates must not contain duplicates"
+        )
+    phase_gates = set(phase_gates_value)
+    expected_phase_gates = set(resolved_case.phase_gates)
     if phase_gates != expected_phase_gates:
         raise AuthoritySelectionError(
             f"{CANONICAL_CASE_META_NAME} phase_gates for case role {resolved_case.case_role!r} "
-            f"must remain {list(expected_phase_gates)!r}"
+            f"must remain {list(resolved_case.phase_gates)!r}"
         )
 
     return payload
@@ -280,8 +284,12 @@ def validate_stage_plan(bundle: AuthorityBundle, payload: dict[str, Any]) -> dic
         raise AuthoritySelectionError(
             f"{CANONICAL_STAGE_PLAN_NAME} available_case_roles must contain only strings"
         )
-    available_case_roles = tuple(available_case_roles_value)
-    if available_case_roles != allowed_case_roles:
+    if len(available_case_roles_value) != len(set(available_case_roles_value)):
+        raise AuthoritySelectionError(
+            f"{CANONICAL_STAGE_PLAN_NAME} available_case_roles must not contain duplicates"
+        )
+    available_case_roles = set(available_case_roles_value)
+    if available_case_roles != set(allowed_case_roles):
         raise AuthoritySelectionError(
             f"{CANONICAL_STAGE_PLAN_NAME} available_case_roles for phase gate {phase_gate!r} "
             f"must remain {list(allowed_case_roles)!r}"
@@ -318,6 +326,10 @@ def validate_stage_plan(bundle: AuthorityBundle, payload: dict[str, Any]) -> dic
         ):
             raise AuthoritySelectionError(
                 f"{CANONICAL_STAGE_PLAN_NAME} each stage must define string name and cmd values"
+            )
+        if "cwd" in stage and not isinstance(stage["cwd"], str):
+            raise AuthoritySelectionError(
+                f"{CANONICAL_STAGE_PLAN_NAME} stage cwd must be a string when provided"
             )
 
     return payload

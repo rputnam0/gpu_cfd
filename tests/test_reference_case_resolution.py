@@ -154,6 +154,20 @@ class ReferenceCaseResolutionTests(unittest.TestCase):
                 },
             )
 
+    def test_case_meta_validation_allows_phase_gate_reordering_with_same_members(self) -> None:
+        bundle = load_authority_bundle(repo_root())
+
+        validate_case_meta(
+            bundle,
+            {
+                "schema_version": "1.0.0",
+                "case_id": "phase0_r1_core_57_28_1000_internal_generic_v1",
+                "case_role": "R1-core",
+                "ladder_position": 2,
+                "phase_gates": ["Phase 8", "Phase 5", "Phase 2", "Phase 0"],
+            },
+        )
+
         with self.assertRaisesRegex(
             AuthoritySelectionError,
             "case_meta.json phase_gates must be a list of phase-gate names",
@@ -285,6 +299,45 @@ class ReferenceCaseResolutionTests(unittest.TestCase):
                     "stages": [{"name": 1, "cmd": 2}],
                 },
             )
+
+        with self.assertRaisesRegex(
+            AuthoritySelectionError,
+            "stage_plan.json stage cwd must be a string when provided",
+        ):
+            validate_stage_plan(
+                bundle,
+                {
+                    "schema_version": "1.0.0",
+                    "case_id": "phase0_r1_core_57_28_1000_internal_generic_v1",
+                    "case_role": "R1-core",
+                    "phase_gate": "Phase 5",
+                    "phase_gate_selection": {
+                        "selected_case_role": "R1-core",
+                        "available_case_roles": ["R1-core", "R2"],
+                        "ordered_ladder": ["R2", "R1-core", "R1", "R0"],
+                    },
+                    "stages": [{"name": "transient_run", "cmd": "foamRun", "cwd": 1}],
+                },
+            )
+
+    def test_stage_plan_validation_allows_available_role_reordering_with_same_members(self) -> None:
+        bundle = load_authority_bundle(repo_root())
+
+        validate_stage_plan(
+            bundle,
+            {
+                "schema_version": "1.0.0",
+                "case_id": "phase0_r1_core_57_28_1000_internal_generic_v1",
+                "case_role": "R1-core",
+                "phase_gate": "Phase 5",
+                "phase_gate_selection": {
+                    "selected_case_role": "R1-core",
+                    "available_case_roles": ["R1-core", "R2"],
+                    "ordered_ladder": ["R2", "R1-core", "R1", "R0"],
+                },
+                "stages": [{"name": "transient_run", "cmd": "foamRun"}],
+            },
+        )
 
 
 if __name__ == "__main__":
