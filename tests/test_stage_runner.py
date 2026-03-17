@@ -16,6 +16,7 @@ from scripts.authority import (
     emit_case_bundle,
     load_authority_bundle,
     probe_openfoam_baselines,
+    reference_io_overlay_command,
     render_stage_runner_log_context,
     resolve_stage_runner_context,
     wrap_stage_command,
@@ -736,6 +737,111 @@ class StageRunnerTests(unittest.TestCase):
         self.assertEqual(
             case_meta["provenance"]["reference_freeze_overlay"],
             "reference_freeze_overlay.json",
+        )
+
+    def test_build_stage_plan_and_case_meta_share_reference_io_normalization_contract(self) -> None:
+        bundle = load_authority_bundle(repo_root())
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_root = pathlib.Path(temp_dir)
+            bashrc_path = write_bashrc(temp_root, name="baseline_b_reference_io.sh")
+            report = probe_openfoam_baselines(
+                bundle,
+                output_dir=temp_dir,
+                baselines={
+                    "Baseline B": BaselineProbeRequest(
+                        lane="experimental",
+                        runtime_base="exaFOAM/SPUMA 0.1-v2412",
+                        bashrc_path=str(bashrc_path),
+                        host_observations=sample_host_observations(lane="experimental"),
+                        local_mirror_refs=sample_local_mirror_refs(),
+                        repo_commit="def456abc123",
+                        command_paths=sample_commands(),
+                        openfoam_env={
+                            "WM_PROJECT": "OpenFOAM",
+                            "WM_PROJECT_VERSION": "v2412",
+                            "WM_OPTIONS": "linux64ClangDPInt32Opt",
+                        },
+                    ),
+                },
+            )
+            context = resolve_stage_runner_context(
+                temp_root,
+                probe_report=report,
+                baseline_name="Baseline B",
+            )
+            case_meta = build_case_meta_payload(
+                bundle,
+                context=context,
+                case_role="R1",
+                requested_vof_solver_mode="vof_transient_preconditioned",
+                resolved_vof_solver_exec="incompressibleVoF",
+                resolved_pressure_backend="amgx",
+                mesh={
+                    "mesh_full_360": 1,
+                    "mesh_resolution_scale": 2.0,
+                    "hydraulic_domain_mode": "internal_only",
+                    "near_field_radius_d": 10.0,
+                    "near_field_length_d": 20.0,
+                    "steady_end_time_iter": 10,
+                    "steady_write_interval_iter": 5,
+                    "steady_turbulence_model": "kOmegaSST",
+                    "vof_turbulence_model": "laminar",
+                },
+                numerics={
+                    "delta_t_s": 1e-8,
+                    "write_interval_s": 1e-8,
+                    "end_time_s": 2e-8,
+                    "max_co": 0.05,
+                    "max_alpha_co": 0.01,
+                    "resolved_direct_slot_numerics": {
+                        "slot_count": 6,
+                        "nominal_slot_width_mm": 0.64,
+                    },
+                },
+                startup={
+                    "startup_fill_extension_d": 0.0,
+                    "air_core_seed_radius_d_requested": 1.0,
+                    "air_core_seed_radius_m_resolved": 0.0005,
+                    "air_core_seed_cap_applied": False,
+                    "fill_radius_m_resolved": 0.00075,
+                    "fill_z_start_m": -0.001,
+                    "fill_z_stop_m": 0.001,
+                },
+                pressure={
+                    "DeltaP_Pa": 6894760.0,
+                    "DeltaP_effective_Pa": 6894760.0,
+                    "check_valve_loss_applied": False,
+                },
+            )
+            stage_plan = build_stage_plan_payload(
+                bundle,
+                context=context,
+                case_role="R1",
+                phase_gate="Phase 2",
+                conditional_reason="patch-manifest coverage under test",
+                stages=[{"name": "transient_run", "cmd": "foamRun -solver incompressibleVoF"}],
+            )
+
+        self.assertEqual(case_meta["io_normalization"], stage_plan["io_normalization"])
+        self.assertEqual(stage_plan["stages"][0]["name"], "reference_io_normalization")
+        self.assertEqual(stage_plan["stages"][0]["stage_kind"], "compare-prep")
+        self.assertEqual(
+            stage_plan["stages"][0]["overlay_artifact"],
+            "reference_freeze_overlay.json",
+        )
+        self.assertEqual(
+            stage_plan["stages"][0]["cmd"],
+            reference_io_overlay_command(json_out="reference_freeze_overlay.json"),
+        )
+        self.assertEqual(
+            case_meta["io_normalization"]["policy"],
+            {
+                "write_format": "ascii",
+                "write_compression": "off",
+                "write_precision": 12,
+                "time_precision": 12,
+            },
         )
 
     def test_emit_case_bundle_allows_case_specific_provenance_fields(self) -> None:
