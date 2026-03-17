@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Any, Iterable, Mapping
 
 from .bundle import AcceptedTuple, AuthorityBundle, load_authority_bundle
@@ -152,7 +153,7 @@ class GraphStageRegistry:
         )
 
 
-def load_graph_stage_registry(root: str | None = None) -> GraphStageRegistry:
+def load_graph_stage_registry(root: Path | str | None = None) -> GraphStageRegistry:
     return build_graph_stage_registry(load_authority_bundle(root))
 
 
@@ -204,7 +205,11 @@ def build_graph_stage_registry(bundle: AuthorityBundle) -> GraphStageRegistry:
         required_orchestration_ranges=tuple(bundle.graph.required_orchestration_ranges),
         global_capture_rules=dict(bundle.graph.raw["global_capture_rules"]),
     )
-    validate_acceptance_tuple_stage_requirements(bundle, registry=registry)
+    validate_acceptance_tuple_stage_requirements(
+        bundle,
+        registry=registry,
+        expected_orchestration_ranges=registry.required_orchestration_ranges,
+    )
     return registry
 
 
@@ -212,8 +217,11 @@ def validate_acceptance_tuple_stage_requirements(
     bundle: AuthorityBundle,
     *,
     registry: GraphStageRegistry | None = None,
+    expected_orchestration_ranges: tuple[str, ...] | None = None,
 ) -> TupleStageValidationReport:
-    resolved_registry = registry or build_graph_stage_registry(bundle)
+    resolved_registry = registry
+    if resolved_registry is None:
+        resolved_registry = build_graph_stage_registry(bundle)
     report = validate_tuple_stage_requirements(
         resolved_registry,
         {
@@ -221,10 +229,15 @@ def validate_acceptance_tuple_stage_requirements(
             for tuple_id, accepted_tuple in bundle.acceptance.tuples_by_id.items()
         },
     )
-    expected_orchestration_ranges = tuple(
+    acceptance_orchestration_ranges = tuple(
         bundle.acceptance.raw["nvtx_contract_defaults"]["required_orchestration_ranges"]
     )
-    if expected_orchestration_ranges != resolved_registry.required_orchestration_ranges:
+    expected_ranges = (
+        expected_orchestration_ranges
+        if expected_orchestration_ranges is not None
+        else acceptance_orchestration_ranges
+    )
+    if expected_ranges != resolved_registry.required_orchestration_ranges:
         raise GraphRegistryValidationError(
             "acceptance NVTX orchestration ranges do not match the canonical graph registry"
         )
