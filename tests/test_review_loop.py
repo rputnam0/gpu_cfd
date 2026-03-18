@@ -41,6 +41,7 @@ class EvaluateReviewStateTests(unittest.TestCase):
             "url": "https://github.com/rputnam0/gpu_cfd/pull/17",
             "state": "OPEN",
             "reviewDecision": None,
+            "mergeStateStatus": "CLEAN",
             "headRefOid": "abc123",
             "commits": {
                 "nodes": [
@@ -201,6 +202,18 @@ class EvaluateReviewStateTests(unittest.TestCase):
 
         self.assertEqual(summary.review_state, "review_complete")
         self.assertEqual(len(summary.actionable_reviews), 0)
+
+    def test_branch_refresh_required_when_pr_is_behind_without_actionable_feedback(self) -> None:
+        pull_request = self.make_pull_request()
+        pull_request["mergeStateStatus"] = "BEHIND"
+
+        summary = review_loop.evaluate_review_state(
+            pull_request,
+            {"devin-ai-integration[bot]"},
+        )
+
+        self.assertEqual(summary.review_state, "branch_refresh_required")
+        self.assertEqual(summary.merge_state_status, "BEHIND")
 
     def test_review_complete_when_only_stale_review_exists(self) -> None:
         pull_request = self.make_pull_request()

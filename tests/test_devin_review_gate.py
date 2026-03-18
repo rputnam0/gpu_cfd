@@ -6,7 +6,13 @@ from scripts.symphony import devin_review_gate, review_loop
 
 
 class DevinReviewGateTests(unittest.TestCase):
-    def make_snapshot(self, *, state: str = "OPEN", is_draft: bool = False) -> devin_review_gate.PullRequestSnapshot:
+    def make_snapshot(
+        self,
+        *,
+        state: str = "OPEN",
+        is_draft: bool = False,
+        merge_state_status: str | None = "CLEAN",
+    ) -> devin_review_gate.PullRequestSnapshot:
         return devin_review_gate.PullRequestSnapshot(
             number=17,
             title="PRO-17 Example",
@@ -16,6 +22,7 @@ class DevinReviewGateTests(unittest.TestCase):
             url="https://github.com/rputnam0/gpu_cfd/pull/17",
             state=state,
             is_draft=is_draft,
+            merge_state_status=merge_state_status,
         )
 
     def make_summary(
@@ -25,6 +32,7 @@ class DevinReviewGateTests(unittest.TestCase):
         actionable_threads: list[dict] | None = None,
         observed_threads: list[dict] | None = None,
         latest_commit_at: str | None = "2026-03-15T12:00:00Z",
+        merge_state_status: str | None = "CLEAN",
     ) -> review_loop.ReviewSummary:
         return review_loop.ReviewSummary(
             pr_number=17,
@@ -32,6 +40,7 @@ class DevinReviewGateTests(unittest.TestCase):
             pr_state="OPEN",
             review_state=review_state,
             review_decision=None,
+            merge_state_status=merge_state_status,
             head_oid="abc123",
             latest_commit_at=latest_commit_at,
             reviewers=["devin-ai-integration[bot]"],
@@ -99,12 +108,47 @@ class DevinReviewGateTests(unittest.TestCase):
             url="https://github.com/rputnam0/gpu_cfd/pull/17",
             state="OPEN",
             is_draft=False,
+            merge_state_status="CLEAN",
         )
 
         self.assertEqual(
             devin_review_gate.select_issue_identifier(snapshot),
             "PRO-41",
         )
+
+    def test_select_issue_identifier_does_not_use_arbitrary_issue_mentions(self) -> None:
+        snapshot = devin_review_gate.PullRequestSnapshot(
+            number=29,
+            title="[codex] Retry behind PR reconciliation",
+            body=(
+                "Live test note: workflow_dispatch of linear-post-merge on PR #28 moved PRO-16 "
+                "from In Review to Rework.\n"
+                "This maintenance PR is not itself linked to a Linear issue."
+            ),
+            head_ref_name="codex/behind-pr-reconcile-retry",
+            head_oid="abc123",
+            url="https://github.com/rputnam0/gpu_cfd/pull/29",
+            state="OPEN",
+            is_draft=False,
+            merge_state_status="CLEAN",
+        )
+
+        self.assertIsNone(devin_review_gate.select_issue_identifier(snapshot))
+
+    def test_select_issue_identifier_falls_back_to_branch_issue_identifier(self) -> None:
+        snapshot = devin_review_gate.PullRequestSnapshot(
+            number=17,
+            title="[codex] Scope cleanup",
+            body="No explicit marker or closing directive.",
+            head_ref_name="rputnam0/pro-17-example",
+            head_oid="abc123",
+            url="https://github.com/rputnam0/gpu_cfd/pull/17",
+            state="OPEN",
+            is_draft=False,
+            merge_state_status="CLEAN",
+        )
+
+        self.assertEqual(devin_review_gate.select_issue_identifier(snapshot), "PRO-17")
 
     def test_collect_resolvable_thread_ids_ignores_current_actionable_threads(self) -> None:
         actionable_thread = {
@@ -147,6 +191,34 @@ class DevinReviewGateTests(unittest.TestCase):
             devin_review_gate.collect_resolvable_thread_ids(summary),
             ["thread-stale"],
         )
+
+    def test_branch_refresh_required_moves_issue_to_rework(self) -> None:
+        decision = devin_review_gate.determine_gate_decision(
+            self.make_snapshot(merge_state_status="BEHIND"),
+            self.make_summary(
+                review_state="branch_refresh_required",
+                merge_state_status="BEHIND",
+            ),
+            "PRO-17",
+        )
+
+        self.assertEqual(decision.status_state, "failure")
+        self.assertEqual(decision.target_state, "Rework")
+        self.assertIn("behind", decision.description.lower())
+
+    def test_action_required_mentions_branch_refresh_when_both_conditions_apply(self) -> None:
+        decision = devin_review_gate.determine_gate_decision(
+            self.make_snapshot(merge_state_status="BEHIND"),
+            self.make_summary(
+                review_state="action_required",
+                merge_state_status="BEHIND",
+            ),
+            "PRO-17",
+        )
+
+        self.assertEqual(decision.status_state, "failure")
+        self.assertEqual(decision.target_state, "Rework")
+        self.assertIn("refresh", decision.description.lower())
 
     def test_collect_resolvable_thread_ids_keeps_stale_actionable_threads_open(self) -> None:
         actionable_thread = {

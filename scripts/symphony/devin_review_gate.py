@@ -31,6 +31,7 @@ PR_FIELDS = ",".join(
         "url",
         "state",
         "isDraft",
+        "mergeStateStatus",
     ]
 )
 RESOLVE_REVIEW_THREAD_MUTATION = """
@@ -55,6 +56,7 @@ class PullRequestSnapshot:
     url: str
     state: str
     is_draft: bool
+    merge_state_status: str | None
 
 
 @dataclass(frozen=True)
@@ -109,6 +111,7 @@ def fetch_pr_snapshot(repo: str | None, pr_number: int | None) -> PullRequestSna
         url=payload.get("url") or "",
         state=payload.get("state") or "UNKNOWN",
         is_draft=bool(payload.get("isDraft")),
+        merge_state_status=payload.get("mergeStateStatus"),
     )
 
 
@@ -124,12 +127,13 @@ def select_issue_identifier(
     )
     if explicit_identifier:
         return explicit_identifier
-    identifiers = linear_api.extract_issue_identifiers(
+    closing_identifier = linear_api.extract_closing_issue_identifier(
         snapshot.body,
         snapshot.title,
-        snapshot.head_ref_name,
     )
-    return identifiers[0] if identifiers else None
+    if closing_identifier:
+        return closing_identifier
+    return linear_api.extract_branch_issue_identifier(snapshot.head_ref_name)
 
 
 def is_thread_stale_for_current_head(
@@ -209,10 +213,24 @@ def determine_gate_decision(
     issue_identifier: str | None,
 ) -> GateDecision:
     if summary.review_state == "action_required":
+        description = "Devin requested changes on the current head"
+        if (summary.merge_state_status or "").strip() in review_loop.REFRESH_REQUIRED_MERGE_STATES:
+            description += " and the PR branch also requires a refresh against current main"
         return GateDecision(
             issue_identifier=issue_identifier,
             status_state="failure",
-            description="Devin requested changes on the current head",
+            description=description,
+            review_state=summary.review_state,
+            target_state=DEFAULT_REWORK_STATE,
+        )
+    if summary.review_state == "branch_refresh_required":
+        merge_state = (summary.merge_state_status or "").strip() or "BEHIND"
+        return GateDecision(
+            issue_identifier=issue_identifier,
+            status_state="failure",
+            description=(
+                f"PR branch is {merge_state.lower()} current main and must be refreshed before merge"
+            ),
             review_state=summary.review_state,
             target_state=DEFAULT_REWORK_STATE,
         )
@@ -271,6 +289,17 @@ def build_actionable_feedback_notes(summary: review_loop.ReviewSummary) -> list[
     return notes
 
 
+def build_branch_refresh_notes(summary: review_loop.ReviewSummary) -> list[str]:
+    merge_state = (summary.merge_state_status or "").strip() or "BEHIND"
+    return [
+        (
+            f"Branch refresh required: the PR is `{merge_state}` against the current "
+            "base branch. Refresh against the latest `origin/main`, rerun the smallest "
+            "relevant validation, push, and rerun `scripts/symphony/pr_handoff.py`."
+        )
+    ]
+
+
 def sync_rework_workpad_best_effort(
     issue_identifier: str,
     summary: review_loop.ReviewSummary,
@@ -279,15 +308,28 @@ def sync_rework_workpad_best_effort(
         issue = linear_api.fetch_issue(issue_identifier)
         issue_title = str(issue.get("title") or issue_identifier)
         existing = linear_api.find_workpad_comment(issue_identifier)
+        validation: list[str] = []
+        if summary.actionable_reviews or summary.actionable_threads:
+            validation.append(
+                "GitHub review bridge moved the issue to `Rework` because actionable Devin feedback remains on the current PR head."
+            )
+        if (summary.merge_state_status or "").strip() in review_loop.REFRESH_REQUIRED_MERGE_STATES:
+            validation.append(
+                "GitHub review bridge moved the issue to `Rework` because the PR branch must be refreshed against the latest `main` before merge."
+            )
+        if not validation:
+            validation.append(
+                "GitHub review bridge moved the issue to `Rework` for follow-up action on the current PR head."
+            )
+        review_handoff_notes = build_actionable_feedback_notes(summary)
+        review_handoff_notes.extend(build_branch_refresh_notes(summary))
         merged = linear_api.merge_workpad_body(
             existing.get("body") if existing else None,
             issue_identifier=issue_identifier,
             issue_title=issue_title,
             current_status="rework",
-            validation=[
-                "GitHub review bridge moved the issue to `Rework` because actionable Devin feedback remains on the current PR head.",
-            ],
-            review_handoff_notes=build_actionable_feedback_notes(summary),
+            validation=validation,
+            review_handoff_notes=review_handoff_notes,
         )
         linear_api.upsert_workpad_comment(issue_identifier, merged)
     except Exception as exc:
@@ -295,37 +337,17 @@ def sync_rework_workpad_best_effort(
     return None
 
 
-def set_commit_status(
+def process_pull_request(
     repo: str,
-    sha: str,
-    state: str,
-    description: str,
+    pr_number: int,
     *,
-    target_url: str | None = None,
-) -> None:
-    command = [
-        "gh",
-        "api",
-        f"repos/{repo}/statuses/{sha}",
-        "-f",
-        f"state={state}",
-        "-f",
-        f"context={CHECK_CONTEXT}",
-        "-f",
-        f"description={description}",
-    ]
-    if target_url:
-        command.extend(["-f", f"target_url={target_url}"])
-    review_loop.require_command(command, cwd=review_loop.repo_root())
-
-
-def main() -> int:
-    args = parse_args()
-    repo = args.repo or "/".join(review_loop.infer_repo())
-    reviewers = args.reviewers or list(DEFAULT_REVIEWERS)
-    snapshot = fetch_pr_snapshot(repo, args.pr)
-    summary = review_loop.fetch_pr_summary(repo, snapshot.number, reviewers)
-    issue_identifier = select_issue_identifier(snapshot, args.issue)
+    issue_override: str | None = None,
+    reviewers: list[str] | None = None,
+) -> dict[str, Any]:
+    selected_reviewers = reviewers or list(DEFAULT_REVIEWERS)
+    snapshot = fetch_pr_snapshot(repo, pr_number)
+    summary = review_loop.fetch_pr_summary(repo, snapshot.number, selected_reviewers)
+    issue_identifier = select_issue_identifier(snapshot, issue_override)
 
     resolved_thread_ids: list[str] = []
     for thread_id in collect_resolvable_thread_ids(summary):
@@ -334,7 +356,7 @@ def main() -> int:
 
     if resolved_thread_ids:
         snapshot = fetch_pr_snapshot(repo, snapshot.number)
-        summary = review_loop.fetch_pr_summary(repo, snapshot.number, reviewers)
+        summary = review_loop.fetch_pr_summary(repo, snapshot.number, selected_reviewers)
 
     decision = determine_gate_decision(snapshot, summary, issue_identifier)
     set_commit_status(
@@ -369,6 +391,7 @@ def main() -> int:
             "pr_number": summary.pr_number,
             "review_state": summary.review_state,
             "review_decision": summary.review_decision,
+            "merge_state_status": summary.merge_state_status,
             "actionable_reviews": len(summary.actionable_reviews),
             "actionable_threads": len(summary.actionable_threads),
             "stale_reviews": len(summary.stale_reviews),
@@ -412,6 +435,43 @@ def main() -> int:
             state_end=linear_update.get("current_state") or decision.target_state,
             metadata={"status_context": CHECK_CONTEXT},
         )
+    return result
+
+
+def set_commit_status(
+    repo: str,
+    sha: str,
+    state: str,
+    description: str,
+    *,
+    target_url: str | None = None,
+) -> None:
+    command = [
+        "gh",
+        "api",
+        f"repos/{repo}/statuses/{sha}",
+        "-f",
+        f"state={state}",
+        "-f",
+        f"context={CHECK_CONTEXT}",
+        "-f",
+        f"description={description}",
+    ]
+    if target_url:
+        command.extend(["-f", f"target_url={target_url}"])
+    review_loop.require_command(command, cwd=review_loop.repo_root())
+
+
+def main() -> int:
+    args = parse_args()
+    repo = args.repo or "/".join(review_loop.infer_repo())
+    reviewers = args.reviewers or list(DEFAULT_REVIEWERS)
+    result = process_pull_request(
+        repo,
+        args.pr if args.pr is not None else review_loop.infer_pr_number(),
+        issue_override=args.issue,
+        reviewers=reviewers,
+    )
     print(json.dumps(result, indent=2))
     return 0
 

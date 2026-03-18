@@ -27,6 +27,7 @@ IN_REVIEW_STATE = "In Review"
 REWORK_STATE = "Rework"
 LOCAL_REMEDIATION_STATE = "In Progress"
 LOCAL_REVIEW_PARKED_STATE = "Ready to Merge"
+DEFAULT_BASE_BRANCH = "origin/main"
 LOCAL_REVIEW_REMEDIATION_PASSES = 2
 FINAL_LOCAL_REVIEW_PASS = LOCAL_REVIEW_REMEDIATION_PASSES + 1
 NO_FINDINGS_MARKERS = (
@@ -160,6 +161,99 @@ def worktree_is_clean(workspace: pathlib.Path) -> bool:
 
 def origin_remote_url(workspace: pathlib.Path) -> str:
     return run_checked(["git", "remote", "get-url", "origin"], cwd=workspace).stdout.strip()
+
+
+def refresh_origin_refs(workspace: pathlib.Path) -> None:
+    run_checked(["git", "fetch", "origin", "--prune"], cwd=workspace)
+
+
+def base_ref_commit(workspace: pathlib.Path, base_ref: str = DEFAULT_BASE_BRANCH) -> str:
+    return run_checked(["git", "rev-parse", base_ref], cwd=workspace).stdout.strip()
+
+
+def branch_contains_base_ref(
+    workspace: pathlib.Path,
+    base_ref: str = DEFAULT_BASE_BRANCH,
+) -> bool:
+    completed = subprocess.run(
+        ["git", "merge-base", "--is-ancestor", base_ref, "HEAD"],
+        cwd=workspace,
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+    if completed.returncode not in {0, 1}:
+        raise HandoffError(
+            "unable to determine whether the branch contains the latest "
+            f"{base_ref}:\nstdout:\n{completed.stdout}\nstderr:\n{completed.stderr}"
+        )
+    return completed.returncode == 0
+
+
+def merge_conflict_summary(
+    workspace: pathlib.Path,
+    *,
+    base_ref: str = DEFAULT_BASE_BRANCH,
+) -> dict[str, Any] | None:
+    refresh_origin_refs(workspace)
+    with tempfile.TemporaryDirectory(prefix=f"{workspace.name.lower()}mergecheck_") as temp_dir:
+        check_root = pathlib.Path(temp_dir) / workspace.name
+        run_checked(
+            ["git", "worktree", "add", "--detach", check_root.as_posix(), "HEAD"],
+            cwd=workspace,
+        )
+        try:
+            completed = subprocess.run(
+                ["git", "merge", "--no-commit", "--no-ff", "--no-stat", base_ref],
+                cwd=check_root,
+                text=True,
+                capture_output=True,
+                check=False,
+            )
+            combined = "\n".join(
+                part.strip()
+                for part in (completed.stdout, completed.stderr)
+                if part and part.strip()
+            ).strip()
+            subprocess.run(
+                ["git", "merge", "--abort"],
+                cwd=check_root,
+                text=True,
+                capture_output=True,
+                check=False,
+            )
+            if completed.returncode == 0:
+                if branch_contains_base_ref(workspace, base_ref):
+                    return None
+                return {
+                    "base_ref": base_ref,
+                    "base_commit": base_ref_commit(workspace, base_ref),
+                    "details": (
+                        f"The branch is behind fresh `{base_ref}` and must be refreshed "
+                        "against the latest base commit before GitHub review or "
+                        "auto-merge can continue."
+                    ),
+                    "reason": "behind",
+                }
+            if "CONFLICT (" not in combined and "Automatic merge failed" not in combined:
+                raise HandoffError(
+                    "unable to determine whether the branch cleanly merges with "
+                    f"{base_ref}:\n{combined}"
+                )
+            return {
+                "base_ref": base_ref,
+                "base_commit": base_ref_commit(workspace, base_ref),
+                "details": combined,
+                "reason": "conflict",
+            }
+        finally:
+            subprocess.run(
+                ["git", "worktree", "remove", "--force", check_root.as_posix()],
+                cwd=workspace,
+                text=True,
+                capture_output=True,
+                check=False,
+            )
 
 
 def branch_exists_on_origin(workspace: pathlib.Path, branch: str) -> bool:
@@ -678,6 +772,108 @@ def enable_auto_merge(workspace: pathlib.Path, pr_number: int) -> None:
     )
 
 
+def handle_branch_refresh_required(
+    *,
+    issue_identifier: str,
+    issue_title: str,
+    issue_state: str,
+    branch: str,
+    conflict_summary: dict[str, Any],
+    review_workspace_note: str | None = None,
+    artifact_copy_note: str | None = None,
+) -> int:
+    current_status = "rework_refresh_required" if issue_state == REWORK_STATE else "branch_refresh_required"
+    refresh_reason = str(conflict_summary.get("reason") or "conflict")
+    if refresh_reason == "behind":
+        validation = [
+            (
+                f"The branch does not yet contain fresh `{conflict_summary['base_ref']}` "
+                "and must be refreshed before GitHub review or auto-merge can continue."
+            ),
+        ]
+        risks_blockers = [
+            (
+                f"Branch refresh against `{conflict_summary['base_ref']}` is required "
+                "before PR handoff can continue."
+            ),
+        ]
+        review_handoff_notes = [
+            (
+                "Refresh the branch against the latest `origin/main`, rerun the smallest "
+                "relevant validation, push, and rerun the handoff helper in the same worker run."
+            ),
+            (
+                "Do not return the PR to `In Review` until the branch contains the latest "
+                "`origin/main` commit."
+            ),
+            "Review cycle phase: branch_refresh_required",
+            "Stop worker: false",
+        ]
+    else:
+        validation = [
+            (
+                f"The branch conflicts with fresh `{conflict_summary['base_ref']}` "
+                "and cannot safely enter GitHub review yet."
+            ),
+        ]
+        risks_blockers = [
+            (
+                f"Branch refresh against `{conflict_summary['base_ref']}` is required "
+                "before PR handoff can continue."
+            ),
+        ]
+        review_handoff_notes = [
+            (
+                "Refresh the branch against the latest `origin/main`, rerun the smallest "
+                "relevant validation, and rerun the handoff helper in the same worker run."
+            ),
+            (
+                "Do not open or update the PR from a conflicted branch. GitHub review "
+                "automation will be skipped on conflicted pull requests."
+            ),
+            "Review cycle phase: branch_refresh_required",
+            "Stop worker: false",
+        ]
+    if review_workspace_note:
+        review_handoff_notes.append(review_workspace_note)
+    if artifact_copy_note:
+        review_handoff_notes.append(artifact_copy_note)
+    workpad_warning = sync_workpad_best_effort(
+        issue_identifier=issue_identifier,
+        issue_title=issue_title,
+        current_status=current_status,
+        validation=validation,
+        risks_blockers=risks_blockers,
+        review_handoff_notes=review_handoff_notes,
+    )
+    result: dict[str, Any] = {
+        "issue_identifier": issue_identifier,
+        "issue_title": issue_title,
+        "branch": branch,
+        "handoff_status": "branch_refresh_required",
+        "review_cycle_phase": "branch_refresh_required",
+        "continue_same_worker": True,
+        "stop_worker": False,
+        "next_action": "refresh_branch_from_origin_main_and_rerun_handoff",
+        "base_ref": conflict_summary["base_ref"],
+        "base_commit": conflict_summary["base_commit"],
+        "review": {
+            "status": "blocked",
+            "message": conflict_summary["details"],
+            "manifest": None,
+        },
+    }
+    if review_workspace_note:
+        result["review_workspace_note"] = review_workspace_note
+    if artifact_copy_note:
+        result["review_artifact_note"] = artifact_copy_note
+    if workpad_warning:
+        result["workpad_sync_warning"] = workpad_warning
+        print(workpad_warning, file=sys.stderr)
+    print(json.dumps(result, indent=2))
+    return 0
+
+
 def main() -> int:
     args = parse_args()
     workspace = pathlib.Path(args.workspace).resolve()
@@ -686,6 +882,7 @@ def main() -> int:
     issue_title = issue.get("title") or issue_identifier
     issue_state = str(issue.get("state", {}).get("name") or "")
     workspace_branch = current_branch(workspace)
+    refresh_origin_refs(workspace)
 
     if issue_state == IN_REVIEW_STATE:
         existing_pr = find_existing_pr(workspace, workspace_branch)
@@ -731,6 +928,15 @@ def main() -> int:
     if is_rework_run:
         if workspace_branch in {"", "main"}:
             raise HandoffError("refusing PR handoff from the default branch")
+        conflict_summary = merge_conflict_summary(workspace)
+        if conflict_summary is not None:
+            return handle_branch_refresh_required(
+                issue_identifier=issue_identifier,
+                issue_title=issue_title,
+                issue_state=issue_state,
+                branch=workspace_branch,
+                conflict_summary=conflict_summary,
+            )
         ensure_branch_pushed(workspace, workspace_branch)
         pr_ref = ensure_pr(workspace, issue_identifier, issue_title, workspace_branch)
         enable_auto_merge(workspace, pr_ref.number)
@@ -833,8 +1039,18 @@ def main() -> int:
         review_workspace,
         review_workspace_note,
     ):
-        review_result = run_host_review(review_workspace, issue_identifier)
+        conflict_summary = merge_conflict_summary(review_workspace)
         branch = current_branch(review_workspace)
+        if conflict_summary is not None:
+            return handle_branch_refresh_required(
+                issue_identifier=issue_identifier,
+                issue_title=issue_title,
+                issue_state=issue_state,
+                branch=branch,
+                conflict_summary=conflict_summary,
+                review_workspace_note=review_workspace_note,
+            )
+        review_result = run_host_review(review_workspace, issue_identifier)
         artifact_copy_note = persist_review_artifacts(
             review_workspace,
             workspace,

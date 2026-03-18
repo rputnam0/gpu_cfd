@@ -53,6 +53,91 @@ class CodexDispatchTests(unittest.TestCase):
         self.assertNotIn("project_slug:", rendered)
         self.assertNotIn("approval_policy:", rendered)
 
+    def test_render_workflow_prompt_compacts_large_linear_issue_descriptions(self) -> None:
+        workflow_text = (self.repo_root() / "WORKFLOW.md").read_text(encoding="utf-8")
+        rendered = codex_dispatch.render_workflow_prompt(
+            workflow_text,
+            {
+                "identifier": "PRO-12",
+                "title": "P0-01 Environment probe hardening",
+                "description": (
+                    "Execution task for backlog item `P0-01`.\n\n"
+                    "## Worker startup contract\n\n"
+                    "* giant duplicated body\n\n"
+                    "## Task card\n\n"
+                    "## P0-01 Environment probe hardening\n"
+                ),
+                "url": "https://linear.app/example/PRO-12",
+                "state": {"name": "Todo"},
+                "labels": {"nodes": [{"name": "phase 0"}]},
+            },
+        )
+
+        self.assertIn("Execution task for backlog item `P0-01`.", rendered)
+        self.assertIn(codex_dispatch.FULL_DESCRIPTION_OMISSION_NOTE, rendered)
+        self.assertNotIn("## Worker startup contract", rendered)
+        self.assertNotIn("## Task card", rendered)
+
+    def test_ensure_workspace_codex_trust_adds_exact_workspace_entry(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_path = pathlib.Path(temp_dir)
+            config_path = temp_path / "config.toml"
+            config_path.write_text(
+                'model = "gpt-5.4"\n'
+                '[projects."/home/rputn/projects"]\n'
+                'trust_level = "trusted"\n',
+                encoding="utf-8",
+            )
+            workspace = pathlib.Path("/home/rputn/projects/symphony-workspaces/gpu_cfd/PRO-12")
+
+            changed = codex_dispatch.ensure_workspace_codex_trust(
+                workspace,
+                config_path=config_path,
+            )
+            updated = config_path.read_text(encoding="utf-8")
+
+        self.assertTrue(changed)
+        self.assertIn(
+            '[projects."/home/rputn/projects/symphony-workspaces/gpu_cfd/PRO-12"]',
+            updated,
+        )
+        self.assertIn('trust_level = "trusted"', updated)
+
+    def test_ensure_workspace_codex_trust_updates_untrusted_workspace_entry(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_path = pathlib.Path(temp_dir)
+            config_path = temp_path / "config.toml"
+            config_path.write_text(
+                '[projects."/home/rputn/projects/symphony-workspaces/gpu_cfd/PRO-12"]\n'
+                'trust_level = "untrusted"\n',
+                encoding="utf-8",
+            )
+            workspace = pathlib.Path("/home/rputn/projects/symphony-workspaces/gpu_cfd/PRO-12")
+
+            changed = codex_dispatch.ensure_workspace_codex_trust(
+                workspace,
+                config_path=config_path,
+            )
+            updated = config_path.read_text(encoding="utf-8")
+
+        self.assertTrue(changed)
+        self.assertIn('trust_level = "trusted"', updated)
+        self.assertNotIn('trust_level = "untrusted"', updated)
+
+    @mock.patch("scripts.symphony.codex_dispatch.subprocess.run")
+    def test_refresh_origin_refs_raises_dispatch_error_on_fetch_failure(
+        self,
+        mock_run: mock.Mock,
+    ) -> None:
+        mock_run.return_value = mock.Mock(
+            returncode=1,
+            stdout="",
+            stderr="network timeout",
+        )
+
+        with self.assertRaises(codex_dispatch.DispatchError):
+            codex_dispatch.refresh_origin_refs(pathlib.Path("/tmp/workspace"))
+
     def test_resolve_pr_context_finds_owning_task_file_and_card(self) -> None:
         context = codex_dispatch.resolve_pr_context(
             self.repo_root(),
@@ -272,6 +357,7 @@ class CodexDispatchTests(unittest.TestCase):
                 ),
                 mock.patch.object(codex_dispatch, "repo_root", return_value=self.repo_root()),
                 mock.patch.object(codex_dispatch, "workspace_root", return_value=workspace),
+                mock.patch.object(codex_dispatch, "refresh_origin_refs"),
                 mock.patch.object(
                     codex_dispatch,
                     "fetch_issue_snapshot",
@@ -321,6 +407,9 @@ class CodexDispatchTests(unittest.TestCase):
                 )
                 stack.enter_context(
                     mock.patch.object(codex_dispatch, "workspace_root", return_value=workspace)
+                )
+                stack.enter_context(
+                    mock.patch.object(codex_dispatch, "refresh_origin_refs")
                 )
                 stack.enter_context(
                     mock.patch.object(
@@ -419,6 +508,7 @@ class CodexDispatchTests(unittest.TestCase):
                 ),
                 mock.patch.object(codex_dispatch, "repo_root", return_value=self.repo_root()),
                 mock.patch.object(codex_dispatch, "workspace_root", return_value=workspace),
+                mock.patch.object(codex_dispatch, "refresh_origin_refs"),
                 mock.patch.object(codex_dispatch, "current_branch", return_value="main"),
                 mock.patch.object(
                     codex_dispatch,
