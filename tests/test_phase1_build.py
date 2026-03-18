@@ -351,6 +351,64 @@ class Phase1BuildTests(unittest.TestCase):
         self.assertEqual(run_subprocess.call_count, 2)
 
     @mock.patch("scripts.authority.phase1_build.subprocess.run")
+    def test_run_phase1_build_maps_host_flags_to_repo_native_cxx_env(
+        self,
+        run_subprocess: mock.Mock,
+    ) -> None:
+        bundle = load_authority_bundle(repo_root())
+        observed_shell_command: list[str] = []
+        probe_calls = 0
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_root = pathlib.Path(temp_dir)
+            emitted = emit_phase1_discovery_artifacts(
+                bundle,
+                output_dir=temp_root / "discovery",
+                lane="primary",
+                host_observations=sample_host_observations(),
+                cuda_probe=sample_cuda_probe_payload(),
+                local_mirror_refs=sample_local_mirror_refs(),
+                repo_commit="abc123def456",
+            )
+            source_root = temp_root / "spuma"
+            source_root.mkdir()
+            allwmake = source_root / "Allwmake"
+            allwmake.write_text("#!/usr/bin/env bash\nexit 0\n", encoding="utf-8")
+            allwmake.chmod(0o755)
+
+            def side_effect(*args, **kwargs):
+                nonlocal probe_calls
+                probe_calls += 1
+                if probe_calls == 1:
+                    return subprocess_completed(
+                        stdout=sample_repo_native_probe_output(),
+                        returncode=0,
+                    )
+                observed_shell_command.extend(args[0])
+                stdout_handle = kwargs["stdout"]
+                stdout_handle.write("Allwmake ok\n")
+                stdout_handle.flush()
+                return subprocess_completed(returncode=0)
+
+            run_subprocess.side_effect = side_effect
+
+            plan = plan_phase1_build(
+                bundle,
+                source_root=source_root,
+                output_dir=temp_root / "build",
+                discovery_host_env_path=emitted.host_env_path,
+                discovery_manifest_refs_path=emitted.manifest_refs_path,
+                cuda_probe_path=emitted.cuda_probe_path,
+            )
+            run_phase1_build(plan)
+
+        self.assertEqual(run_subprocess.call_count, 2)
+        self.assertIn(
+            'export FOAM_EXTRA_CXXFLAGS="${FOAM_EXTRA_CXXFLAGS:+${FOAM_EXTRA_CXXFLAGS} }${SPUMA_EXTRA_CXX_FLAGS}"',
+            observed_shell_command[-1],
+        )
+
+    @mock.patch("scripts.authority.phase1_build.subprocess.run")
     def test_run_phase1_build_sources_repo_native_bashrc_when_present(
         self,
         run_subprocess: mock.Mock,

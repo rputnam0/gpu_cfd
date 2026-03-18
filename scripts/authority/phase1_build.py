@@ -609,6 +609,10 @@ def _build_shell_preamble(plan: Phase1BuildPlan) -> list[str]:
             )
             continue
         segments.append(f"export {key}={shlex.quote(value)}")
+    if "SPUMA_EXTRA_CXX_FLAGS" in plan.env_exports:
+        segments.append(
+            'export FOAM_EXTRA_CXXFLAGS="${FOAM_EXTRA_CXXFLAGS:+${FOAM_EXTRA_CXXFLAGS} }${SPUMA_EXTRA_CXX_FLAGS}"'
+        )
     return segments
 
 
