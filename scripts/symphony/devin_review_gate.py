@@ -20,6 +20,7 @@ except ModuleNotFoundError:  # pragma: no cover - script execution fallback
 CHECK_CONTEXT = "devin-review-gate"
 DEFAULT_REVIEWERS = ("devin-ai-integration[bot]",)
 DEFAULT_REWORK_STATE = "Rework"
+DEFAULT_REFRESH_REQUIRED_STATE = "Refresh Required"
 REVIEW_BRIDGE_TOKEN_SECRET = "REVIEW_BRIDGE_GH_TOKEN"
 PR_FIELDS = ",".join(
     [
@@ -232,7 +233,7 @@ def determine_gate_decision(
                 f"PR branch is {merge_state.lower()} current main and must be refreshed before merge"
             ),
             review_state=summary.review_state,
-            target_state=DEFAULT_REWORK_STATE,
+            target_state=DEFAULT_REFRESH_REQUIRED_STATE,
         )
     if summary.review_state == "review_complete":
         return GateDecision(
@@ -300,22 +301,27 @@ def build_branch_refresh_notes(summary: review_loop.ReviewSummary) -> list[str]:
     ]
 
 
-def sync_rework_workpad_best_effort(
+def sync_followup_workpad_best_effort(
     issue_identifier: str,
     summary: review_loop.ReviewSummary,
+    *,
+    target_state: str | None,
 ) -> str | None:
     try:
         issue = linear_api.fetch_issue(issue_identifier)
         issue_title = str(issue.get("title") or issue_identifier)
         existing = linear_api.find_workpad_comment(issue_identifier)
         validation: list[str] = []
+        current_status = "rework"
         if summary.actionable_reviews or summary.actionable_threads:
             validation.append(
                 "GitHub review bridge moved the issue to `Rework` because actionable Devin feedback remains on the current PR head."
             )
+        if target_state == DEFAULT_REFRESH_REQUIRED_STATE:
+            current_status = "refresh_required"
         if (summary.merge_state_status or "").strip() in review_loop.REFRESH_REQUIRED_MERGE_STATES:
             validation.append(
-                "GitHub review bridge moved the issue to `Rework` because the PR branch must be refreshed against the latest `main` before merge."
+                "GitHub review bridge moved the issue to `Refresh Required` because the PR branch must be refreshed against the latest `main` before merge."
             )
         if not validation:
             validation.append(
@@ -327,7 +333,7 @@ def sync_rework_workpad_best_effort(
             existing.get("body") if existing else None,
             issue_identifier=issue_identifier,
             issue_title=issue_title,
-            current_status="rework",
+            current_status=current_status,
             validation=validation,
             review_handoff_notes=review_handoff_notes,
         )
@@ -378,9 +384,10 @@ def process_pull_request(
             "current_state": update_result["current_state"],
             "issue_identifier": decision.issue_identifier,
         }
-        workpad_warning = sync_rework_workpad_best_effort(
+        workpad_warning = sync_followup_workpad_best_effort(
             decision.issue_identifier,
             summary,
+            target_state=decision.target_state,
         )
     else:
         workpad_warning = None

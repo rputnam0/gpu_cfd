@@ -7,14 +7,25 @@ import argparse
 import json
 import pathlib
 import sys
-import time
 from dataclasses import asdict, dataclass
 
 try:
-    from scripts.symphony import devin_review_gate, linear_api, review_loop, trace
+    from scripts.symphony import (
+        devin_review_gate,
+        linear_api,
+        phase_cleanup,
+        review_loop,
+        trace,
+    )
 except ModuleNotFoundError:  # pragma: no cover - script execution fallback
     sys.path.append(str(pathlib.Path(__file__).resolve().parents[2]))
-    from scripts.symphony import devin_review_gate, linear_api, review_loop, trace
+    from scripts.symphony import (
+        devin_review_gate,
+        linear_api,
+        phase_cleanup,
+        review_loop,
+        trace,
+    )
 
 
 DONE_STATE = "Done"
@@ -31,8 +42,6 @@ PR_FIELDS = ",".join(
     ]
 )
 OPEN_PR_FIELDS = ",".join(["number"])
-RECONCILE_MAX_ATTEMPTS = 3
-RECONCILE_RETRY_DELAY_SECONDS = 15.0
 
 
 @dataclass(frozen=True)
@@ -158,43 +167,34 @@ def reconcile_open_review_pull_requests(
     repo: str,
     *,
     exclude_pr_number: int | None = None,
-    max_attempts: int = RECONCILE_MAX_ATTEMPTS,
-    retry_delay_seconds: float = RECONCILE_RETRY_DELAY_SECONDS,
 ) -> list[dict[str, object]]:
-    attempts = max(1, int(max_attempts))
-    for attempt in range(attempts):
-        reconciled: list[dict[str, object]] = []
-        candidates = collect_in_review_pull_request_candidates(
+    reconciled: list[dict[str, object]] = []
+    candidates = collect_in_review_pull_request_candidates(
+        repo,
+        exclude_pr_number=exclude_pr_number,
+    )
+    refresh_candidates = [
+        candidate
+        for candidate in candidates
+        if candidate["merge_state_status"] in review_loop.REFRESH_REQUIRED_MERGE_STATES
+    ]
+    for candidate in refresh_candidates:
+        result = devin_review_gate.process_pull_request(
             repo,
-            exclude_pr_number=exclude_pr_number,
+            int(candidate["pr_number"]),
+            issue_override=str(candidate["issue_identifier"]),
+            reviewers=list(devin_review_gate.DEFAULT_REVIEWERS),
         )
-        if not candidates:
-            return []
-        refresh_candidates = [
-            candidate
-            for candidate in candidates
-            if candidate["merge_state_status"] in review_loop.REFRESH_REQUIRED_MERGE_STATES
-        ]
-        for candidate in refresh_candidates:
-            result = devin_review_gate.process_pull_request(
-                repo,
-                int(candidate["pr_number"]),
-                issue_override=str(candidate["issue_identifier"]),
-                reviewers=list(devin_review_gate.DEFAULT_REVIEWERS),
-            )
-            reconciled.append(
-                {
-                    "pr_number": int(candidate["pr_number"]),
-                    "issue_identifier": str(candidate["issue_identifier"]),
-                    "merge_state_status": candidate["merge_state_status"],
-                    "decision": result["decision"],
-                    "linear_update": result["linear_update"],
-                }
-            )
-        if reconciled or attempt == attempts - 1:
-            return reconciled
-        time.sleep(max(0.0, retry_delay_seconds))
-    return []
+        reconciled.append(
+            {
+                "pr_number": int(candidate["pr_number"]),
+                "issue_identifier": str(candidate["issue_identifier"]),
+                "merge_state_status": candidate["merge_state_status"],
+                "decision": result["decision"],
+                "linear_update": result["linear_update"],
+            }
+        )
+    return reconciled
 
 
 def main() -> int:
@@ -219,8 +219,41 @@ def main() -> int:
         print(json.dumps(result, indent=2))
         return 0
 
+    issue_payload = linear_api.fetch_issue(issue_identifier)
+    team_key = str((issue_payload.get("team") or {}).get("key") or "PRO")
     done_update = linear_api.update_issue_state(issue_identifier, DONE_STATE)
-    released_dependents = linear_api.release_direct_unblocked_dependents(issue_identifier)
+    live_issues = linear_api.list_team_issues(team_key)
+    section = phase_cleanup.resolve_section_for_issue(
+        next(
+            (issue for issue in live_issues if str(issue.get("identifier") or "") == issue_identifier),
+            issue_payload,
+        ),
+        live_issues,
+        root=pathlib.Path(__file__).resolve().parents[2],
+    )
+    implementation_issues = phase_cleanup.build_issue_maps(live_issues)[1]
+    cleanup_result: dict[str, object] | None = None
+    if section is not None and phase_cleanup.section_boundary_reached(section, implementation_issues):
+        cleanup_result = phase_cleanup.ensure_cleanup_sweep(
+            section=section,
+            current_issue=issue_payload,
+            team_issues=live_issues,
+            implementation_issues=implementation_issues,
+        )
+        live_issues = linear_api.list_team_issues(team_key)
+    if section is not None:
+        finalized_cleanup = phase_cleanup.finalize_cleanup_sweep_if_ready(section, live_issues)
+        if finalized_cleanup is not None:
+            cleanup_result = {
+                **(cleanup_result or {"section": section.slug}),
+                "finalized_cleanup_sweep": finalized_cleanup,
+            }
+            live_issues = linear_api.list_team_issues(team_key)
+    released_dependents = phase_cleanup.promote_ready_backlog_issues(
+        team_key=team_key,
+        team_issues=live_issues,
+        root=pathlib.Path(__file__).resolve().parents[2],
+    )
 
     result = {
         "pull_request": asdict(snapshot),
@@ -233,6 +266,8 @@ def main() -> int:
         "released_dependents": released_dependents,
         "reconciled_open_reviews": reconciled_open_reviews,
     }
+    if cleanup_result is not None:
+        result["phase_cleanup"] = cleanup_result
     if trace.is_enabled():
         trace_issue = issue_identifier or f"UNLINKED-PR-{snapshot.number}"
         run_manifest = trace.ensure_run(

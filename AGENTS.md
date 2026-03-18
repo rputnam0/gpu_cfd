@@ -51,10 +51,9 @@ start from the issue, the exact PR card, and the cited docs before opening broad
 
 ## Build, Test, and Development Commands
 - Use `uv run` for all commands. Do not use `pip`.
-- `uv sync` installs dependencies from `pyproject.toml` and `uv.lock`.
-- `uv run python <entrypoint>.py` launches the app or primary workflow.
-- `uv run python -m pytest` runs the full suite; narrow with `uv run python -m pytest <path>` when iterating.
-- `uv run python -m black .` formats the codebase; run it before committing.
+- `uv run python <entrypoint>.py` launches repo scripts and workflow helpers.
+- `uv run python -m unittest discover -s tests` runs the full regression suite.
+- Narrow local iteration by running the smallest relevant `unittest` module or file first.
 
 ## Coding Style & Naming Conventions
 Target Python 3.12 unless the project specifies otherwise. Use 4-space indentation and type hints on public functions. Prefer descriptive `snake_case` for functions and variables; keep constants uppercase. Use module-level loggers (`logger = logging.getLogger(__name__)`) for traceability. Favor docstrings describing intent and behavior over implementation trivia.

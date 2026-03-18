@@ -107,7 +107,7 @@ class StageRunnerTests(unittest.TestCase):
             )
 
         self.assertEqual(context.baseline_name, "Baseline B")
-        self.assertEqual(context.bashrc_path, bashrc_path.as_posix())
+        self.assertEqual(context.bashrc_path, bashrc_path.resolve().as_posix())
         self.assertEqual(context.runtime_base, "exaFOAM/SPUMA 0.1-v2412")
         self.assertEqual(context.reviewed_source_tuple_id, "SRC_SPUMA_V2412_AD2A_FES_MAIN_AMGX_2_5_0")
         self.assertTrue(context.probe_payload_path.name.endswith("probe.json"))
@@ -192,7 +192,7 @@ class StageRunnerTests(unittest.TestCase):
         self.assertIn("env -i", wrapped)
         self.assertIn("PATH=/usr/bin:/bin", wrapped)
         self.assertIn("bash --noprofile --norc -c", wrapped)
-        self.assertIn(f". {bashrc_path.as_posix()}", wrapped)
+        self.assertIn(f". {bashrc_path.resolve().as_posix()}", wrapped)
         self.assertIn("cd /tmp/cases/r1/run", wrapped)
         self.assertIn("FOAM_SIGFPE=1 python -c", wrapped)
         self.assertIn('print("quoted")', wrapped)
@@ -280,7 +280,7 @@ class StageRunnerTests(unittest.TestCase):
                 manifest_refs_path=temp_root / "baseline_b" / "manifest_refs.json",
             )
 
-        self.assertEqual(context.bashrc_path, override_bashrc.as_posix())
+        self.assertEqual(context.bashrc_path, override_bashrc.resolve().as_posix())
         self.assertEqual(context.host_env_path.name, "host_env.json")
         self.assertEqual(context.manifest_refs_path.name, "manifest_refs.json")
 
@@ -572,7 +572,7 @@ class StageRunnerTests(unittest.TestCase):
         self.assertEqual(emitted_case_meta["baseline"], "Baseline B")
         self.assertEqual(
             emitted_case_meta["openfoam_bashrc_used"],
-            bashrc_path.as_posix(),
+                bashrc_path.resolve().as_posix(),
         )
         self.assertEqual(
             emitted_case_meta["available_commands"]["foamRun"],
@@ -1234,7 +1234,7 @@ class StageRunnerTests(unittest.TestCase):
 
         self.assertIn("stage=checkMesh", log_context)
         self.assertIn("baseline=Baseline A", log_context)
-        self.assertIn(f"bashrc_path={bashrc_path.as_posix()}", log_context)
+        self.assertIn(f"bashrc_path={bashrc_path.resolve().as_posix()}", log_context)
         self.assertIn("runtime_base=OpenFOAM 12", log_context)
         self.assertIn("host_env_manifest=", log_context)
         self.assertIn("manifest_refs=", log_context)

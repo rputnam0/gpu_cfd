@@ -192,7 +192,7 @@ class DevinReviewGateTests(unittest.TestCase):
             ["thread-stale"],
         )
 
-    def test_branch_refresh_required_moves_issue_to_rework(self) -> None:
+    def test_branch_refresh_required_moves_issue_to_refresh_required(self) -> None:
         decision = devin_review_gate.determine_gate_decision(
             self.make_snapshot(merge_state_status="BEHIND"),
             self.make_summary(
@@ -203,7 +203,7 @@ class DevinReviewGateTests(unittest.TestCase):
         )
 
         self.assertEqual(decision.status_state, "failure")
-        self.assertEqual(decision.target_state, "Rework")
+        self.assertEqual(decision.target_state, "Refresh Required")
         self.assertIn("behind", decision.description.lower())
 
     def test_action_required_mentions_branch_refresh_when_both_conditions_apply(self) -> None:

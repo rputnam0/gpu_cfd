@@ -8,12 +8,14 @@ Linear project.
 - `WORKFLOW.md`: repo-owned Symphony workflow contract
 - `scripts/symphony/runtime_config.toml`: repo-owned Codex defaults
 - `scripts/symphony/codex_dispatch.py`: trace-aware implementation-worker wrapper that freezes the dispatch context pack before launching Codex
+- `scripts/symphony/workspace_sync.py`: canonical control-plane bootstrap and workspace sync helper used before dispatch, resume, and handoff
 - `scripts/symphony/review_loop.py`: local Codex review gate plus Devin review classifier
 - `scripts/symphony/pr_handoff.py`: worker-owned PR handoff that opens or updates a PR, enables
   auto-merge, and moves the issue to `In Review`
 - `scripts/symphony/devin_review_gate.py`: required GitHub status gate for the external Devin review
 - `scripts/symphony/post_merge_bridge.py`: merged-PR bridge that moves issues to `Done` and releases
   newly unblocked dependents
+- `scripts/symphony/phase_cleanup.py`: section-boundary cleanup sweep and backlog-release helper
 - `scripts/symphony/linear_api.py`: Linear GraphQL helper used by the bridges, handoff, and canonical workpad memory flow
 - `scripts/symphony/reconcile_review_state.py`: one-time reconciliation helper for open PRs, legacy workpads, and `In Review` / `Rework` drift
 - `scripts/symphony/trace.py`: dev-only immutable trace bundle collector for dispatch, workpad, review, handoff, bridge, and merge events
@@ -36,6 +38,7 @@ This repository expects the Linear statuses below on the `Projects` team.
 - `Ready to Merge`: parked manual-handoff / local-review-blocked state; Symphony must not redispatch from here
 - `In Review`: dormant automated Devin-review queue
 - `Rework`: active review-followup work
+- `Refresh Required`: active branch-refresh work after clean `BEHIND` or `DIRTY` review state
 - `Done`: terminal state
 
 ## Worker-side Linear access
@@ -81,10 +84,14 @@ Review loop:
 - The implementation worker profile explicitly enables Codex multi-agent support plus the
   project child-agent definitions under `.codex/agents/`.
 - The implementation worker may use bounded recursive research helpers to surface doc sections,
-  code paths, nearby tests/APIs, or review payload details. The preferred helper model is
-  `gpt-5.4-mini`; the main `gpt-5.4`
-  implementation worker remains responsible for edits, validation, handoff, and final judgment.
-- The implementation worker starts through `scripts/symphony/codex_dispatch.py`, which is the supported dev-observability seam for freezing the exact worker context pack and teeing app-server transcripts when trace mode is enabled.
+  code paths, nearby tests/APIs, or review payload details. Trigger `docs_scout` for docs-plus-code
+  work or multi-doc cards, `codepath_scout` for multi-module changes, and `review_payload_scout`
+  on `Rework`, `Refresh Required`, or large review payloads. The preferred helper model is
+  `gpt-5.4-mini`; the main `gpt-5.4` implementation worker remains responsible for edits,
+  validation, handoff, and final judgment.
+- The implementation worker starts through `scripts/symphony/codex_dispatch.py`, which syncs the
+  canonical control plane into the issue workspace, captures a lean worker context pack by default,
+  and tees app-server transcripts when trace mode is enabled.
 - Before a PR is opened or updated for review, the active worker run executes
   `scripts/symphony/pr_handoff.py` from the issue workspace.
 - If the issue workspace still has unrelated dirty control-plane files, the handoff helper creates
@@ -99,6 +106,9 @@ Review loop:
   `Backlog` issue per residual finding, opens or updates the PR, enables GitHub auto-merge,
   moves the parent issue to `In Review`, and stops the implementation worker instead of
   continuing the local remediation loop.
+- Those residual findings are not left behind indefinitely. When the owning backlog section is
+  complete, post-merge automation creates one `phase-cleanup` sweep issue, promotes residual
+  findings into that sweep, and blocks downstream release until the section cleanup gate is done.
 - If the local review is complete, the helper opens or updates the PR, enables GitHub auto-merge,
   moves the issue to `In Review`, and stops the implementation worker.
 - The handoff helper also writes a hidden `gpu-cfd-linear-issue` marker into the PR body so the
@@ -107,6 +117,7 @@ Review loop:
 - The GitHub Actions workflow `.github/workflows/devin-review-gate.yml` sets the required
   `devin-review-gate` status for the PR review cycle.
 - Actionable Devin feedback moves the issue to `Rework`.
+- Clean `BEHIND` or `DIRTY` PRs move to `Refresh Required`.
 - Actionable Devin threads are not auto-resolved just because a newer commit exists; only
   non-actionable or outdated threads are auto-cleared by the bridge.
 - A `Rework` worker is expected to pull the latest Devin review comments directly from GitHub with
@@ -115,13 +126,18 @@ Review loop:
 - A `Rework` pass is terminal with respect to local review. Once Devin findings are fixed, the
   worker reruns `pr_handoff.py`, which resolves actionable Devin threads, re-enables auto-merge,
   and returns directly to `In Review` without another local Codex review cycle.
+- A `Refresh Required` pass also bypasses local review. The worker merges `origin/main`, reruns the
+  smallest relevant validation, reruns `pr_handoff.py`, and returns directly to `In Review`. If the
+  refresh merge conflicts, the issue is moved to `Rework`.
 - Once that first Devin review round has no remaining actionable feedback, `devin-review-gate`
   turns green and the PR can merge.
 - GitHub auto-merge lands the PR only after both `review-loop-harness` and
   `devin-review-gate` are green and conversation resolution is satisfied.
-- `.github/workflows/linear-post-merge.yml` moves the linked issue to `Done` and promotes newly
-  unblocked direct dependents from `Backlog` to `Todo`. If a merged PR has no linked Linear issue,
-  the workflow now skips cleanly instead of failing.
+- `.github/workflows/linear-post-merge.yml` moves the linked issue to `Done`, creates or updates a
+  section cleanup sweep at phase boundaries, and promotes newly ready backlog work only after the
+  cleanup gate is complete. If a merged PR has no linked Linear issue, the workflow skips cleanly.
+- `.github/workflows/review-state-reconcile.yml` provides the durable reconciliation path for open
+  PR review state on PR events, `push` to `main`, manual runs, and a schedule.
 - `.github/workflows/linear-issue-description-sync.yml` audits live Linear issue descriptions on PRs
   and syncs them from repo truth on `main`, so the worker-visible board contract does not drift.
 
@@ -132,6 +148,7 @@ These items still must exist on the worker host before Symphony can run end to e
 - `LINEAR_API_KEY` exported on the worker host
 - `SYMPHONY_WORKSPACE_ROOT` exported on the worker host
 - `GPU_CFD_SOURCE_REPO_URL` exported when you want to override the default clone URL
+- `GPU_CFD_CONTROL_REPO_ROOT` exported on the worker host and pointing at the canonical control repo checkout
 - Codex authenticated on the worker host via `~/.codex/auth.json`
 - GitHub push and PR auth on the worker host (`gh auth login` or SSH push access)
 - Symphony itself installed on the worker host
@@ -153,7 +170,7 @@ codex --version
 
 The checked-in workflow uses direct Codex CLI flags for the implementation worker profile:
 
-- implementation app-server: `uv run python scripts/symphony/codex_dispatch.py app-server` which wraps the `gpt-5.4` / `high` implementation profile from `scripts/symphony/runtime_config.toml`
+- implementation app-server: `uv run python "${GPU_CFD_CONTROL_REPO_ROOT}/scripts/symphony/codex_dispatch.py" app-server` which wraps the `gpt-5.4` / `high` implementation profile from `scripts/symphony/runtime_config.toml`
 - local review gate: `gpt-5.4` with `xhigh`
 
 The checked-in workflow keeps issue workspaces on the supported `workspaceWrite` sandbox and enables
@@ -249,7 +266,8 @@ For development-only over-the-shoulder auditing, the repo can emit immutable loc
 
 - Enable tracing explicitly with `GPU_CFD_TRACE_ENABLE=1`.
 - Override the trace root with `GPU_CFD_TRACE_ROOT`; the default is `~/projects/symphony-traces/gpu_cfd`.
-- The dispatch wrapper freezes the rendered worker prompt, `AGENTS.md`, the skill, the Linear issue payload, the current workpad, the resolved PR card, and every cited doc the card points at.
+- The dispatch wrapper freezes the rendered worker prompt, a lean context manifest, the current workpad snapshot, the PR card excerpt, control-plane sync results, and helper-usage telemetry by default.
+- Full task files and full cited docs remain available behind the explicit full-context trace flag.
 - Workpad upserts, local review artifacts, PR handoff results, Devin bridge decisions, and post-merge transitions append to the same issue-centric trace graph.
 - The standalone local viewer lives outside this repo at `~/projects/symphony-trace-viewer` and reads those bundles directly.
 
