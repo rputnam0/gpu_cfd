@@ -560,9 +560,26 @@ def _build_shell_preamble(plan: Phase1BuildPlan) -> list[str]:
 
 
 def _validate_repo_native_toolchain(plan: Phase1BuildPlan) -> None:
+    host_env = _read_json_payload(plan.host_env_path)
+    host_observations = host_env.get("host_observations")
+    toolkit = host_env.get("toolkit")
+    if not isinstance(host_observations, dict) or not isinstance(toolkit, dict):
+        raise Phase1BuildError(
+            "build host_env.json is missing host_observations or toolkit metadata"
+        )
     probe_segments = _build_shell_preamble(plan)
     probe_segments.append(
-        'printf "WM_COMPILER=%s\\nNVC=%s\\n" "${WM_COMPILER:-}" "$(command -v nvc || true)"'
+        'printf "WM_COMPILER=%s\\nNVC=%s\\nNVCC=%s\\nNVCC_VERSION=%s\\nNSYS=%s\\nNSYS_VERSION=%s\\nCOMPUTE_SANITIZER=%s\\nCOMPUTE_SANITIZER_VERSION=%s\\nNVIDIA_SMI=%s\\nNVIDIA_SMI_GPU=%s\\n" '
+        '"${WM_COMPILER:-}" '
+        '"$(command -v nvc || true)" '
+        '"$(command -v nvcc || true)" '
+        '"$(nvcc --version 2>/dev/null | tr \'\\n\' \' \' || true)" '
+        '"$(command -v nsys || true)" '
+        '"$(nsys --version 2>/dev/null | tr \'\\n\' \' \' || true)" '
+        '"$(command -v compute-sanitizer || true)" '
+        '"$(compute-sanitizer --version 2>/dev/null | tr \'\\n\' \' \' || true)" '
+        '"$(command -v nvidia-smi || true)" '
+        '"$(nvidia-smi --query-gpu=name,driver_version,memory.total --format=csv,noheader 2>/dev/null | head -n 1 || true)"'
     )
     completed = subprocess.run(
         ["bash", "--noprofile", "--norc", "-c", "\n".join(probe_segments)],
@@ -577,16 +594,95 @@ def _validate_repo_native_toolchain(plan: Phase1BuildPlan) -> None:
         )
     compiler = ""
     nvc_path = ""
+    nvcc_path = ""
+    nvcc_version = ""
+    nsys_path = ""
+    nsys_version = ""
+    compute_sanitizer_path = ""
+    compute_sanitizer_version = ""
+    nvidia_smi_path = ""
+    nvidia_smi_gpu = ""
     for line in completed.stdout.splitlines():
         if line.startswith("WM_COMPILER="):
             compiler = line.partition("=")[2].strip()
         if line.startswith("NVC="):
             nvc_path = line.partition("=")[2].strip()
+        if line.startswith("NVCC="):
+            nvcc_path = line.partition("=")[2].strip()
+        if line.startswith("NVCC_VERSION="):
+            nvcc_version = line.partition("=")[2].strip()
+        if line.startswith("NSYS="):
+            nsys_path = line.partition("=")[2].strip()
+        if line.startswith("NSYS_VERSION="):
+            nsys_version = line.partition("=")[2].strip()
+        if line.startswith("COMPUTE_SANITIZER="):
+            compute_sanitizer_path = line.partition("=")[2].strip()
+        if line.startswith("COMPUTE_SANITIZER_VERSION="):
+            compute_sanitizer_version = line.partition("=")[2].strip()
+        if line.startswith("NVIDIA_SMI="):
+            nvidia_smi_path = line.partition("=")[2].strip()
+        if line.startswith("NVIDIA_SMI_GPU="):
+            nvidia_smi_gpu = line.partition("=")[2].strip()
+
+    issues: list[str] = []
     if compiler == "Nvidia" and not nvc_path:
-        raise Phase1BuildError(
+        issues.append(
             "repo-native environment selects WM_COMPILER=Nvidia but nvc is unavailable; "
             "the SPUMA GPU build requires Nvidia HPC plus CUDA"
         )
+
+    expected_toolkit = str(toolkit.get("selected_lane_value", "")).strip().removeprefix("CUDA ").strip()
+    expected_nsys = str(host_observations.get("nsys_version", "")).strip()
+    expected_compute_sanitizer = str(
+        host_observations.get("compute_sanitizer_version", "")
+    ).strip()
+    expected_gpu_csv = str(host_observations.get("gpu_csv", "")).strip()
+
+    if not nvcc_path:
+        issues.append("nvcc is unavailable in the active build environment")
+    elif expected_toolkit and not _matches_expected_version(nvcc_version, expected_toolkit):
+        issues.append(
+            f"nvcc version must realize frozen toolkit lane {expected_toolkit!r}; found {nvcc_version!r}"
+        )
+    if not nsys_path:
+        issues.append("nsys is unavailable in the active build environment")
+    elif expected_nsys and not _matches_expected_version(nsys_version, expected_nsys):
+        issues.append(
+            f"nsys version must realize frozen value {expected_nsys!r}; found {nsys_version!r}"
+        )
+    if not compute_sanitizer_path:
+        issues.append("compute-sanitizer is unavailable in the active build environment")
+    elif expected_compute_sanitizer and not _matches_expected_version(
+        compute_sanitizer_version,
+        expected_compute_sanitizer,
+    ):
+        issues.append(
+            "compute-sanitizer version must realize frozen value "
+            f"{expected_compute_sanitizer!r}; found {compute_sanitizer_version!r}"
+        )
+    if not nvidia_smi_path:
+        issues.append("nvidia-smi is unavailable; gpu_csv cannot be verified against the frozen workstation target")
+    elif expected_gpu_csv and nvidia_smi_gpu != expected_gpu_csv:
+        issues.append(
+            f"gpu_csv must realize frozen workstation observations {expected_gpu_csv!r}; found {nvidia_smi_gpu!r}"
+        )
+
+    if issues:
+        raise Phase1BuildError("; ".join(issues))
+
+
+def _matches_expected_version(observed_value: str, expected_value: str) -> bool:
+    observed = observed_value.strip()
+    expected = expected_value.strip()
+    if expected and expected in observed:
+        return True
+    observed_versions = set(re.findall(r"\d+(?:\.\d+)+", observed))
+    expected_versions = set(re.findall(r"\d+(?:\.\d+)+", expected))
+    if expected_versions:
+        return bool(observed_versions & expected_versions)
+    if observed_versions:
+        return expected in observed_versions
+    return observed == expected
 
 
 def _infer_cuda_home(selected_lane_value: str) -> str:

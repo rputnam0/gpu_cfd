@@ -222,10 +222,20 @@ class Phase1BuildTests(unittest.TestCase):
                     cuda_probe_path=emitted.cuda_probe_path,
                 )
 
+    @mock.patch("scripts.authority.phase1_build.subprocess.run")
     def test_run_phase1_build_executes_repo_native_entrypoint_and_captures_log(
         self,
+        run_subprocess: mock.Mock,
     ) -> None:
         bundle = load_authority_bundle(repo_root())
+        run_subprocess.side_effect = phase1_build_subprocess_side_effect(
+            build_stdout=(
+                "have_cuda=true\n"
+                "NVARCH=120\n"
+                "CUDA_HOME=/usr/local/cuda-12.9\n"
+                "SPUMA_ENABLE_NVTX=1\n"
+            )
+        )
 
         with tempfile.TemporaryDirectory() as temp_dir:
             temp_root = pathlib.Path(temp_dir)
@@ -274,9 +284,17 @@ class Phase1BuildTests(unittest.TestCase):
         self.assertIn("NVARCH=120", build_log)
         self.assertIn("CUDA_HOME=/usr/local/cuda-12.9", build_log)
         self.assertIn("SPUMA_ENABLE_NVTX=1", build_log)
+        self.assertEqual(run_subprocess.call_count, 2)
 
-    def test_run_phase1_build_sources_repo_native_bashrc_when_present(self) -> None:
+    @mock.patch("scripts.authority.phase1_build.subprocess.run")
+    def test_run_phase1_build_sources_repo_native_bashrc_when_present(
+        self,
+        run_subprocess: mock.Mock,
+    ) -> None:
         bundle = load_authority_bundle(repo_root())
+        run_subprocess.side_effect = phase1_build_subprocess_side_effect(
+            build_stdout="SPUMA_BASHRC_MARKER=enabled\n"
+        )
 
         with tempfile.TemporaryDirectory() as temp_dir:
             temp_root = pathlib.Path(temp_dir)
@@ -321,9 +339,17 @@ class Phase1BuildTests(unittest.TestCase):
             build_log = plan.log_path.read_text(encoding="utf-8")
 
         self.assertIn("SPUMA_BASHRC_MARKER=enabled", build_log)
+        self.assertEqual(run_subprocess.call_count, 2)
 
-    def test_run_phase1_build_preserves_bashrc_path_updates(self) -> None:
+    @mock.patch("scripts.authority.phase1_build.subprocess.run")
+    def test_run_phase1_build_preserves_bashrc_path_updates(
+        self,
+        run_subprocess: mock.Mock,
+    ) -> None:
         bundle = load_authority_bundle(repo_root())
+        run_subprocess.side_effect = phase1_build_subprocess_side_effect(
+            build_stdout="bashrc-helper-ok\n"
+        )
 
         with tempfile.TemporaryDirectory() as temp_dir:
             temp_root = pathlib.Path(temp_dir)
@@ -376,6 +402,7 @@ class Phase1BuildTests(unittest.TestCase):
             build_log = plan.log_path.read_text(encoding="utf-8")
 
         self.assertIn("bashrc-helper-ok", build_log)
+        self.assertEqual(run_subprocess.call_count, 2)
 
     @mock.patch("scripts.authority.phase1_build.subprocess.run")
     def test_run_phase1_build_fails_fast_when_nvc_is_missing(
@@ -422,9 +449,153 @@ class Phase1BuildTests(unittest.TestCase):
 
         self.assertEqual(run_subprocess.call_count, 1)
 
+    @mock.patch("scripts.authority.phase1_build.subprocess.run")
+    def test_run_phase1_build_fails_fast_when_nvcc_version_mismatches_frozen_lane(
+        self,
+        run_subprocess: mock.Mock,
+    ) -> None:
+        bundle = load_authority_bundle(repo_root())
+        run_subprocess.side_effect = [
+            subprocess_completed(
+                stdout=(
+                    "WM_COMPILER=Gcc\n"
+                    "NVC=\n"
+                    "NVCC=/usr/bin/nvcc\n"
+                    "NVCC_VERSION=Cuda compilation tools, release 12.0, V12.0.140\n"
+                    "NSYS=/usr/bin/nsys\n"
+                    "NSYS_VERSION=NVIDIA Nsight Systems version 2025.2\n"
+                    "COMPUTE_SANITIZER=/usr/bin/compute-sanitizer\n"
+                    "COMPUTE_SANITIZER_VERSION=Compute Sanitizer version 2025.1\n"
+                    "NVIDIA_SMI=/usr/bin/nvidia-smi\n"
+                    "NVIDIA_SMI_GPU=NVIDIA GeForce RTX 5080, 595.50.00, 16384 MiB\n"
+                ),
+                returncode=0,
+            ),
+        ]
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_root = pathlib.Path(temp_dir)
+            emitted = emit_phase1_discovery_artifacts(
+                bundle,
+                output_dir=temp_root / "discovery",
+                lane="primary",
+                host_observations=sample_host_observations(),
+                cuda_probe=sample_cuda_probe_payload(),
+                local_mirror_refs=sample_local_mirror_refs(),
+                repo_commit="abc123def456",
+            )
+            source_root = temp_root / "spuma"
+            source_root.mkdir()
+            allwmake = source_root / "Allwmake"
+            allwmake.write_text("#!/usr/bin/env bash\nexit 0\n", encoding="utf-8")
+            allwmake.chmod(0o755)
+
+            plan = plan_phase1_build(
+                bundle,
+                source_root=source_root,
+                output_dir=temp_root / "build",
+                discovery_host_env_path=emitted.host_env_path,
+                discovery_manifest_refs_path=emitted.manifest_refs_path,
+                cuda_probe_path=emitted.cuda_probe_path,
+            )
+
+            with self.assertRaisesRegex(Phase1BuildError, "nvcc|12.9.1|12.0"):
+                run_phase1_build(plan)
+
+        self.assertEqual(run_subprocess.call_count, 1)
+
+    @mock.patch("scripts.authority.phase1_build.subprocess.run")
+    def test_run_phase1_build_fails_fast_when_nvidia_smi_is_missing(
+        self,
+        run_subprocess: mock.Mock,
+    ) -> None:
+        bundle = load_authority_bundle(repo_root())
+        run_subprocess.side_effect = [
+            subprocess_completed(
+                stdout=(
+                    "WM_COMPILER=Gcc\n"
+                    "NVC=\n"
+                    "NVCC=/usr/bin/nvcc\n"
+                    "NVCC_VERSION=Cuda compilation tools, release 12.9, V12.9.1\n"
+                    "NSYS=/usr/bin/nsys\n"
+                    "NSYS_VERSION=NVIDIA Nsight Systems version 2025.2\n"
+                    "COMPUTE_SANITIZER=/usr/bin/compute-sanitizer\n"
+                    "COMPUTE_SANITIZER_VERSION=Compute Sanitizer version 2025.1\n"
+                    "NVIDIA_SMI=\n"
+                    "NVIDIA_SMI_GPU=\n"
+                ),
+                returncode=0,
+            ),
+        ]
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_root = pathlib.Path(temp_dir)
+            emitted = emit_phase1_discovery_artifacts(
+                bundle,
+                output_dir=temp_root / "discovery",
+                lane="primary",
+                host_observations=sample_host_observations(),
+                cuda_probe=sample_cuda_probe_payload(),
+                local_mirror_refs=sample_local_mirror_refs(),
+                repo_commit="abc123def456",
+            )
+            source_root = temp_root / "spuma"
+            source_root.mkdir()
+            allwmake = source_root / "Allwmake"
+            allwmake.write_text("#!/usr/bin/env bash\nexit 0\n", encoding="utf-8")
+            allwmake.chmod(0o755)
+
+            plan = plan_phase1_build(
+                bundle,
+                source_root=source_root,
+                output_dir=temp_root / "build",
+                discovery_host_env_path=emitted.host_env_path,
+                discovery_manifest_refs_path=emitted.manifest_refs_path,
+                cuda_probe_path=emitted.cuda_probe_path,
+            )
+
+            with self.assertRaisesRegex(Phase1BuildError, "nvidia-smi|gpu_csv"):
+                run_phase1_build(plan)
+
+        self.assertEqual(run_subprocess.call_count, 1)
+
 
 def subprocess_completed(*, stdout: str = "", returncode: int = 0):
     return mock.Mock(stdout=stdout, returncode=returncode)
+
+
+def phase1_build_subprocess_side_effect(*, build_stdout: str):
+    call_count = 0
+
+    def side_effect(*args, **kwargs):
+        nonlocal call_count
+        call_count += 1
+        if call_count == 1:
+            return subprocess_completed(
+                stdout=sample_repo_native_probe_output(),
+                returncode=0,
+            )
+        stdout_handle = kwargs["stdout"]
+        stdout_handle.write(build_stdout)
+        stdout_handle.flush()
+        return subprocess_completed(returncode=0)
+
+    return side_effect
+
+
+def sample_repo_native_probe_output() -> str:
+    return (
+        "WM_COMPILER=Gcc\n"
+        "NVC=\n"
+        "NVCC=/usr/bin/nvcc\n"
+        "NVCC_VERSION=Cuda compilation tools, release 12.9, V12.9.1\n"
+        "NSYS=/usr/bin/nsys\n"
+        "NSYS_VERSION=NVIDIA Nsight Systems version 2025.2\n"
+        "COMPUTE_SANITIZER=/usr/bin/compute-sanitizer\n"
+        "COMPUTE_SANITIZER_VERSION=Compute Sanitizer version 2025.1\n"
+        "NVIDIA_SMI=/usr/bin/nvidia-smi\n"
+        "NVIDIA_SMI_GPU=NVIDIA GeForce RTX 5080, 595.50.00, 16384 MiB\n"
+    )
 
 
 if __name__ == "__main__":
