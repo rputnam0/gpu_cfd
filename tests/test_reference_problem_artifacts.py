@@ -9,6 +9,7 @@ from scripts.authority import (
     BaselineProbeRequest,
     build_case_meta_payload,
     build_stage_plan_payload,
+    compute_field_signatures,
     emit_case_bundle,
     emit_reference_problem_artifacts,
     load_authority_bundle,
@@ -560,6 +561,34 @@ class ReferenceProblemArtifactTests(unittest.TestCase):
             2.8284271247461903,
         )
 
+    def test_compute_field_signatures_fails_with_descriptive_error_for_missing_transient_root(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_root = pathlib.Path(temp_dir)
+            steady_root = temp_root / "normalized" / "steady" / "20"
+            write_uniform_vector_field(steady_root / "U", "U", (1.0, 0.0, 0.0))
+
+            with self.assertRaisesRegex(
+                ValueError,
+                r"no OpenFOAM time directories found under .*?/normalized/transient",
+            ):
+                compute_field_signatures(
+                    normalized_steady_root=temp_root / "normalized" / "steady",
+                    normalized_transient_root=temp_root / "normalized" / "transient",
+                    case_identity={
+                        "case_id": "phase0_r1_57_28_1000_internal_v1",
+                        "case_role": "R1",
+                        "baseline": "baseline_a",
+                        "runtime_base": "openfoam_v2412",
+                        "reviewed_source_tuple_id": "spuma-v2412",
+                    },
+                    mesh_counts={
+                        "cells": 2,
+                        "internal_faces": 1,
+                    },
+                )
+
     def test_emit_reference_problem_artifacts_fails_before_writing_on_mismatched_bundle(self) -> None:
         bundle = load_authority_bundle(repo_root())
 
@@ -593,8 +622,7 @@ class ReferenceProblemArtifactTests(unittest.TestCase):
                     normalized_steady_root=temp_root / "normalized" / "steady",
                     normalized_transient_root=temp_root / "normalized" / "transient",
                 )
-
-        self.assertFalse(artifact_root.exists())
+            self.assertFalse(artifact_root.exists())
 
 
 if __name__ == "__main__":

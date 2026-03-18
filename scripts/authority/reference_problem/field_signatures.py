@@ -46,6 +46,10 @@ def compute_field_signatures(
             optional_fields=STEADY_OPTIONAL_FIELDS,
             mesh_counts=mesh_counts,
         )
+    if transient_time_dir is None:
+        raise ValueError(
+            f"no OpenFOAM time directories found under {pathlib.Path(normalized_transient_root).as_posix()}"
+        )
     transient_payload = _build_time_window_payload(
         transient_time_dir,
         label="transient",
