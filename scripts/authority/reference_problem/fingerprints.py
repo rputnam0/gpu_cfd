@@ -127,10 +127,21 @@ def _extract_boundary_value(entries: str, *, key: str) -> str:
 
 
 def _extract_list_body(text: str) -> str:
-    match = re.search(r"\n\s*\d+\s*\(\s*(.*?)\s*\)\s*;?\s*$", text, flags=re.DOTALL)
-    if match is None:
+    count_match = re.search(r"\n\s*\d+\s*\(", text)
+    if count_match is None:
         raise ValueError("OpenFOAM list payload could not be parsed")
-    return match.group(1)
+    start_index = text.find("(", count_match.start())
+    depth = 0
+    body_start = start_index + 1
+    for index in range(start_index, len(text)):
+        char = text[index]
+        if char == "(":
+            depth += 1
+        elif char == ")":
+            depth -= 1
+            if depth == 0:
+                return text[body_start:index]
+    raise ValueError("OpenFOAM list payload could not be parsed")
 
 
 def _compute_cell_count(owner: list[int], neighbour: list[int]) -> int:

@@ -57,6 +57,7 @@ def emit_reference_problem_artifacts(
         normalized_steady_root=normalized_steady_root,
         normalized_transient_root=normalized_transient_root,
         case_identity=case_identity,
+        mesh_counts=build_fingerprint_payload["mesh_counts"],
         provenance=shared_provenance,
     )
 

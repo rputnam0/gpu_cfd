@@ -88,6 +88,7 @@ def write_poly_mesh(case_dir: pathlib.Path) -> None:
 (0 2 0)
 (0 0 3)
 )
+// ************************************************************************* //
 """,
     )
     write_text(
@@ -102,6 +103,7 @@ def write_poly_mesh(case_dir: pathlib.Path) -> None:
 3(0 1 2)
 3(1 2 3)
 )
+// ************************************************************************* //
 """,
     )
     write_text(
@@ -116,6 +118,7 @@ def write_poly_mesh(case_dir: pathlib.Path) -> None:
 0
 1
 )
+// ************************************************************************* //
 """,
     )
     write_text(
@@ -128,6 +131,7 @@ def write_poly_mesh(case_dir: pathlib.Path) -> None:
 (
 1
 )
+// ************************************************************************* //
 """,
     )
     write_text(
@@ -151,6 +155,7 @@ outlet
     startFace 2;
 }
 )
+// ************************************************************************* //
 """,
     )
 
@@ -202,6 +207,48 @@ internalField nonuniform List<vector>
 {body}
 )
 ;
+boundaryField
+{{
+}}
+""",
+    )
+
+
+def write_uniform_scalar_field(path: pathlib.Path, object_name: str, value: float) -> None:
+    write_text(
+        path,
+        f"""FoamFile
+{{
+    version 2.0;
+    format ascii;
+    class volScalarField;
+    object {object_name};
+}}
+dimensions [0 0 0 0 0 0 0];
+internalField uniform {value};
+boundaryField
+{{
+}}
+""",
+    )
+
+
+def write_uniform_vector_field(
+    path: pathlib.Path,
+    object_name: str,
+    value: tuple[float, float, float],
+) -> None:
+    write_text(
+        path,
+        f"""FoamFile
+{{
+    version 2.0;
+    format ascii;
+    class volVectorField;
+    object {object_name};
+}}
+dimensions [0 0 0 0 0 0 0];
+internalField uniform ({value[0]} {value[1]} {value[2]});
 boundaryField
 {{
 }}
@@ -351,6 +398,7 @@ class ReferenceProblemArtifactTests(unittest.TestCase):
                         "water_flow_cfd_gph": 54.2,
                         "mass_imbalance_pct": 0.1,
                         "spray_angle_cfd_deg": 31.5,
+                        "spray_angle_source": "geometric_a",
                     },
                     "metric_sources": {
                         "water_flow_cfd_gph": "continuity_integral",
@@ -364,7 +412,6 @@ class ReferenceProblemArtifactTests(unittest.TestCase):
                             "latest_time": "0.5",
                         }
                     },
-                    "angle_source": "geometric_a",
                 },
             )
 
@@ -420,6 +467,7 @@ class ReferenceProblemArtifactTests(unittest.TestCase):
 
         self.assertEqual(metrics_payload["canonical_name"], "metrics.json")
         self.assertEqual(metrics_payload["angle_source"], "geometric_a")
+        self.assertNotIn("spray_angle_source", metrics_payload["metrics"])
         self.assertEqual(
             metrics_payload["metrics"]["water_flow_cfd_gph"]["metric_source"],
             "continuity_integral",
@@ -480,9 +528,9 @@ class ReferenceProblemArtifactTests(unittest.TestCase):
             case_dir = temp_root / "case"
             write_poly_mesh(case_dir)
             transient_root = temp_root / "normalized" / "transient" / "0.5"
-            write_vector_field(transient_root / "U", "U", [(2.0, 0.0, 0.0)])
+            write_uniform_vector_field(transient_root / "U", "U", (2.0, 0.0, 0.0))
             write_scalar_field(transient_root / "alpha.water", "alpha.water", [0.25])
-            write_scalar_field(transient_root / "p_rgh", "p_rgh", [10.0])
+            write_uniform_scalar_field(transient_root / "p_rgh", "p_rgh", 10.0)
 
             emitted = emit_reference_problem_artifacts(
                 bundle,
@@ -499,6 +547,18 @@ class ReferenceProblemArtifactTests(unittest.TestCase):
         self.assertIsNone(field_signatures["steady_precondition"]["latest_time"])
         self.assertEqual(field_signatures["transient_latest"]["latest_time"], "0.5")
         self.assertEqual(field_signatures["case_role"], "R2")
+        self.assertEqual(
+            field_signatures["transient_latest"]["fields"]["p_rgh"]["sample_count"],
+            2,
+        )
+        self.assertEqual(
+            field_signatures["transient_latest"]["fields"]["p_rgh"]["stats"]["sum"],
+            20.0,
+        )
+        self.assertAlmostEqual(
+            field_signatures["transient_latest"]["fields"]["U"]["stats"]["l2_magnitude"],
+            2.8284271247461903,
+        )
 
     def test_emit_reference_problem_artifacts_fails_before_writing_on_mismatched_bundle(self) -> None:
         bundle = load_authority_bundle(repo_root())
