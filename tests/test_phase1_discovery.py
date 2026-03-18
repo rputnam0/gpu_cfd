@@ -145,6 +145,49 @@ class Phase1DiscoveryTests(unittest.TestCase):
                     repo_commit="abc123def456",
                 )
 
+    def test_emit_phase1_discovery_artifacts_requires_hostname(self) -> None:
+        bundle = load_authority_bundle(repo_root())
+        host_observations = sample_host_observations()
+        host_observations.pop("hostname")
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            with self.assertRaisesRegex(AuthorityConflictError, "hostname"):
+                emit_phase1_discovery_artifacts(
+                    bundle,
+                    output_dir=temp_dir,
+                    lane="primary",
+                    host_observations=host_observations,
+                    cuda_probe=sample_cuda_probe_payload(),
+                    local_mirror_refs=sample_local_mirror_refs(),
+                    repo_commit="abc123def456",
+                )
+
+    def test_emit_phase1_discovery_artifacts_keeps_output_empty_when_probe_is_invalid(
+        self,
+    ) -> None:
+        bundle = load_authority_bundle(repo_root())
+        cuda_probe = sample_cuda_probe_payload()
+        cuda_probe["managed_memory_probe_ok"] = False
+        output_dir: pathlib.Path | None = None
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            output_dir = pathlib.Path(temp_dir) / "artifacts"
+            with self.assertRaisesRegex(AuthorityConflictError, "managed-memory"):
+                emit_phase1_discovery_artifacts(
+                    bundle,
+                    output_dir=output_dir,
+                    lane="primary",
+                    host_observations=sample_host_observations(),
+                    cuda_probe=cuda_probe,
+                    local_mirror_refs=sample_local_mirror_refs(),
+                    repo_commit="abc123def456",
+                )
+
+            self.assertFalse((output_dir / "host_env.json").exists())
+            self.assertFalse((output_dir / "manifest_refs.json").exists())
+            self.assertFalse((output_dir / "env.json").exists())
+            self.assertFalse((output_dir / "cuda_probe.json").exists())
+
     @mock.patch("scripts.authority.phase1_discovery.shutil.which")
     def test_collect_host_observations_reads_required_host_fields(
         self,

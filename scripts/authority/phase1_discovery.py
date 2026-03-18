@@ -70,19 +70,22 @@ def emit_phase1_discovery_artifacts(
     local_mirror_refs: Mapping[str, str] | None = None,
     repo_commit: str | None = None,
 ) -> EmittedPhase1DiscoveryArtifacts:
-    emitted_manifests = emit_environment_manifests(
-        bundle,
-        consumer="run",
-        output_dir=output_dir,
-        lane=lane,
-        host_observations=dict(host_observations or {}),
-        local_mirror_refs=dict(local_mirror_refs or {}),
-        repo_commit=repo_commit,
+    normalized_host_observations = _normalize_phase1_host_observations(
+        host_observations or {}
     )
     probe_payload = build_cuda_probe_payload(
         bundle,
         lane=lane,
         cuda_probe=dict(cuda_probe or {}),
+    )
+    emitted_manifests = emit_environment_manifests(
+        bundle,
+        consumer="run",
+        output_dir=output_dir,
+        lane=lane,
+        host_observations=normalized_host_observations,
+        local_mirror_refs=dict(local_mirror_refs or {}),
+        repo_commit=repo_commit,
     )
     target_dir = pathlib.Path(output_dir)
     cuda_probe_path = target_dir / CUDA_PROBE_ARTIFACT_NAME
@@ -171,7 +174,7 @@ def collect_host_observations(
         if not tool_path:
             raise ValueError(f"required tool {tool_name!r} was not found in PATH")
         observations[key_name] = tool_path
-    return normalize_host_observations(observations)
+    return _normalize_phase1_host_observations(observations)
 
 
 def build_arg_parser() -> argparse.ArgumentParser:
@@ -324,6 +327,18 @@ def _validate_cuda_probe_payload(pin_details: Any, cuda_probe: Mapping[str, Any]
         raise AuthorityConflictError(
             "CUDA probe total_global_mem_bytes must be a positive integer"
         )
+
+
+def _normalize_phase1_host_observations(
+    host_observations: Mapping[str, Any],
+) -> dict[str, Any]:
+    normalized = normalize_host_observations(dict(host_observations))
+    if not str(normalized.get("hostname", "")).strip():
+        raise AuthorityConflictError(
+            "missing required Phase 1 host observation(s): hostname"
+        )
+    normalized["hostname"] = str(normalized["hostname"]).strip()
+    return normalized
 
 
 def _expected_gpu_name(workstation_target: str) -> str | None:
