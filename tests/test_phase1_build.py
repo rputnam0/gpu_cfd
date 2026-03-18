@@ -38,6 +38,7 @@ def materialize_sample_toolchain(root: pathlib.Path) -> dict[str, str]:
         "ncu",
         "compute-sanitizer",
         "nvidia-smi",
+        "cuobjdump",
     ):
         tool_path = bin_dir / tool_name
         tool_path.write_text("#!/usr/bin/env bash\nexit 0\n", encoding="utf-8")
@@ -110,6 +111,14 @@ def sample_cuda_probe_payload() -> dict[str, object]:
     }
 
 
+def materialize_sample_build_artifact(source_root: pathlib.Path) -> pathlib.Path:
+    target = source_root / "platforms" / "linux64GccDPInt32Opt" / "bin" / "pimpleFoam"
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_text("binary", encoding="utf-8")
+    target.chmod(0o755)
+    return target
+
+
 class Phase1BuildTests(unittest.TestCase):
     def test_plan_phase1_build_emits_build_manifests_metadata_and_env(self) -> None:
         bundle = load_authority_bundle(repo_root())
@@ -127,6 +136,7 @@ class Phase1BuildTests(unittest.TestCase):
             )
             source_root = temp_root / "spuma"
             source_root.mkdir()
+            materialize_sample_build_artifact(source_root)
             allwmake = source_root / "Allwmake"
             allwmake.write_text("#!/usr/bin/env bash\nexit 0\n", encoding="utf-8")
             allwmake.chmod(0o755)
@@ -259,6 +269,7 @@ class Phase1BuildTests(unittest.TestCase):
             )
             source_root = temp_root / "spuma"
             source_root.mkdir()
+            materialize_sample_build_artifact(source_root)
             allwmake = source_root / "Allwmake"
             allwmake.write_text("#!/usr/bin/env bash\nexit 0\n", encoding="utf-8")
             allwmake.chmod(0o755)
@@ -323,6 +334,7 @@ class Phase1BuildTests(unittest.TestCase):
             )
             source_root = temp_root / "spuma"
             source_root.mkdir()
+            materialize_sample_build_artifact(source_root)
             allwmake = source_root / "Allwmake"
             allwmake.write_text("#!/usr/bin/env bash\nexit 0\n", encoding="utf-8")
             allwmake.chmod(0o755)
@@ -502,6 +514,7 @@ class Phase1BuildTests(unittest.TestCase):
             )
             source_root = temp_root / "spuma"
             source_root.mkdir()
+            materialize_sample_build_artifact(source_root)
             allwmake = source_root / "Allwmake"
             allwmake.write_text(
                 (
@@ -536,7 +549,7 @@ class Phase1BuildTests(unittest.TestCase):
         self.assertIn("NVARCH=120", build_log)
         self.assertIn(f"CUDA_HOME={tool_root.as_posix()}", build_log)
         self.assertIn("SPUMA_ENABLE_NVTX=1", build_log)
-        self.assertEqual(run_subprocess.call_count, 2)
+        self.assertEqual(run_subprocess.call_count, 4)
 
     @mock.patch("scripts.authority.phase1_build.subprocess.run")
     def test_run_phase1_build_temporarily_wires_extra_nvcc_flags_into_cuda_rules(
@@ -559,6 +572,7 @@ class Phase1BuildTests(unittest.TestCase):
             )
             source_root = temp_root / "spuma"
             source_root.mkdir()
+            materialize_sample_build_artifact(source_root)
             allwmake = source_root / "Allwmake"
             allwmake.write_text("#!/usr/bin/env bash\nexit 0\n", encoding="utf-8")
             allwmake.chmod(0o755)
@@ -578,6 +592,16 @@ class Phase1BuildTests(unittest.TestCase):
                 if probe_calls == 1:
                     return subprocess_completed(
                         stdout=sample_repo_native_probe_output(tool_root=tool_root),
+                        returncode=0,
+                    )
+                if "-sass" in args[0]:
+                    return subprocess_completed(
+                        stdout="Fatbin elf code:\n================\narch = sm_120\n",
+                        returncode=0,
+                    )
+                if "-ptx" in args[0]:
+                    return subprocess_completed(
+                        stdout=".version 8.0\n.target sm_120\n.address_size 64\n",
                         returncode=0,
                     )
                 patched_rules = cuda_rules.read_text(encoding="utf-8")
@@ -606,7 +630,7 @@ class Phase1BuildTests(unittest.TestCase):
             restored_cuda_rules = cuda_rules.read_text(encoding="utf-8")
 
         self.assertEqual(restored_cuda_rules, original_cuda_rules)
-        self.assertEqual(run_subprocess.call_count, 2)
+        self.assertEqual(run_subprocess.call_count, 4)
 
     @mock.patch("scripts.authority.phase1_build.subprocess.run")
     def test_run_phase1_build_maps_host_flags_to_repo_native_cxx_env(
@@ -631,6 +655,7 @@ class Phase1BuildTests(unittest.TestCase):
             )
             source_root = temp_root / "spuma"
             source_root.mkdir()
+            materialize_sample_build_artifact(source_root)
             allwmake = source_root / "Allwmake"
             allwmake.write_text("#!/usr/bin/env bash\nexit 0\n", encoding="utf-8")
             allwmake.chmod(0o755)
@@ -641,6 +666,16 @@ class Phase1BuildTests(unittest.TestCase):
                 if probe_calls == 1:
                     return subprocess_completed(
                         stdout=sample_repo_native_probe_output(tool_root=tool_root),
+                        returncode=0,
+                    )
+                if "-sass" in args[0]:
+                    return subprocess_completed(
+                        stdout="Fatbin elf code:\n================\narch = sm_120\n",
+                        returncode=0,
+                    )
+                if "-ptx" in args[0]:
+                    return subprocess_completed(
+                        stdout=".version 8.0\n.target sm_120\n.address_size 64\n",
                         returncode=0,
                     )
                 observed_shell_command.extend(args[0])
@@ -661,7 +696,7 @@ class Phase1BuildTests(unittest.TestCase):
             )
             run_phase1_build(plan)
 
-        self.assertEqual(run_subprocess.call_count, 2)
+        self.assertEqual(run_subprocess.call_count, 4)
         self.assertIn(
             'export FOAM_EXTRA_CXXFLAGS="${FOAM_EXTRA_CXXFLAGS:+${FOAM_EXTRA_CXXFLAGS} }${SPUMA_EXTRA_CXX_FLAGS}"',
             observed_shell_command[-1],
@@ -692,6 +727,7 @@ class Phase1BuildTests(unittest.TestCase):
             )
             source_root = temp_root / "spuma"
             source_root.mkdir()
+            materialize_sample_build_artifact(source_root)
             etc_dir = source_root / "etc"
             etc_dir.mkdir()
             bashrc = etc_dir / "bashrc"
@@ -722,7 +758,7 @@ class Phase1BuildTests(unittest.TestCase):
             build_log = plan.log_path.read_text(encoding="utf-8")
 
         self.assertIn("SPUMA_BASHRC_MARKER=enabled", build_log)
-        self.assertEqual(run_subprocess.call_count, 2)
+        self.assertEqual(run_subprocess.call_count, 4)
 
     @mock.patch("scripts.authority.phase1_build.subprocess.run")
     def test_run_phase1_build_preserves_bashrc_path_updates(
@@ -749,6 +785,7 @@ class Phase1BuildTests(unittest.TestCase):
             )
             source_root = temp_root / "spuma"
             source_root.mkdir()
+            materialize_sample_build_artifact(source_root)
             mockbin = source_root / "mockbin"
             mockbin.mkdir()
             helper = mockbin / "bashrc-helper"
@@ -787,7 +824,7 @@ class Phase1BuildTests(unittest.TestCase):
             build_log = plan.log_path.read_text(encoding="utf-8")
 
         self.assertIn("bashrc-helper-ok", build_log)
-        self.assertEqual(run_subprocess.call_count, 2)
+        self.assertEqual(run_subprocess.call_count, 4)
 
     @mock.patch("scripts.authority.phase1_build.subprocess.run")
     def test_run_phase1_build_fails_fast_when_nvc_is_missing(
@@ -881,6 +918,7 @@ class Phase1BuildTests(unittest.TestCase):
             )
             source_root = temp_root / "spuma"
             source_root.mkdir()
+            materialize_sample_build_artifact(source_root)
             allwmake = source_root / "Allwmake"
             allwmake.write_text("#!/usr/bin/env bash\nexit 0\n", encoding="utf-8")
             allwmake.chmod(0o755)
@@ -936,6 +974,7 @@ class Phase1BuildTests(unittest.TestCase):
             )
             source_root = temp_root / "spuma"
             source_root.mkdir()
+            materialize_sample_build_artifact(source_root)
             allwmake = source_root / "Allwmake"
             allwmake.write_text("#!/usr/bin/env bash\nexit 0\n", encoding="utf-8")
             allwmake.chmod(0o755)
@@ -991,6 +1030,7 @@ class Phase1BuildTests(unittest.TestCase):
             )
             source_root = temp_root / "spuma"
             source_root.mkdir()
+            materialize_sample_build_artifact(source_root)
             allwmake = source_root / "Allwmake"
             allwmake.write_text("#!/usr/bin/env bash\nexit 0\n", encoding="utf-8")
             allwmake.chmod(0o755)
@@ -1049,6 +1089,7 @@ class Phase1BuildTests(unittest.TestCase):
             )
             source_root = temp_root / "spuma"
             source_root.mkdir()
+            materialize_sample_build_artifact(source_root)
             allwmake = source_root / "Allwmake"
             allwmake.write_text("#!/usr/bin/env bash\nexit 0\n", encoding="utf-8")
             allwmake.chmod(0o755)
@@ -1221,6 +1262,7 @@ class Phase1BuildTests(unittest.TestCase):
             )
             source_root = temp_root / "spuma"
             source_root.mkdir()
+            materialize_sample_build_artifact(source_root)
             allwmake = source_root / "Allwmake"
             allwmake.write_text("#!/usr/bin/env bash\nexit 0\n", encoding="utf-8")
             allwmake.chmod(0o755)
@@ -1232,6 +1274,16 @@ class Phase1BuildTests(unittest.TestCase):
                     stdout_handle.write("Allwmake ok\n")
                     stdout_handle.flush()
                     return subprocess_completed(returncode=0)
+                if "-sass" in args[0]:
+                    return subprocess_completed(
+                        stdout="Fatbin elf code:\n================\narch = sm_120\n",
+                        returncode=0,
+                    )
+                if "-ptx" in args[0]:
+                    return subprocess_completed(
+                        stdout=".version 8.0\n.target sm_120\n.address_size 64\n",
+                        returncode=0,
+                    )
                 return subprocess_completed(
                     stdout=sample_repo_native_probe_output(tool_root=tool_root),
                     returncode=0,
@@ -1259,8 +1311,8 @@ class Phase1BuildTests(unittest.TestCase):
                     os.environ["PATH"] = original_path
 
         self.assertTrue(result.succeeded)
-        self.assertEqual(run_subprocess.call_count, 2)
-        self.assertIn((tool_root / "bin").as_posix(), observed_probe_command[-1])
+        self.assertEqual(run_subprocess.call_count, 4)
+        self.assertIn((tool_root / "bin").as_posix(), "\n".join(observed_probe_command))
 
     @mock.patch("scripts.authority.phase1_build.subprocess.run")
     def test_run_phase1_build_fails_fast_when_recorded_tool_path_is_missing_on_current_host(
@@ -1323,6 +1375,16 @@ def phase1_build_subprocess_side_effect(
                 stdout=sample_repo_native_probe_output(tool_root=tool_root),
                 returncode=0,
             )
+        if "-sass" in args[0]:
+            return subprocess_completed(
+                stdout="Fatbin elf code:\n================\narch = sm_120\n",
+                returncode=0,
+            )
+        if "-ptx" in args[0]:
+            return subprocess_completed(
+                stdout=".version 8.0\n.target sm_120\n.address_size 64\n",
+                returncode=0,
+            )
         stdout_handle = kwargs["stdout"]
         stdout_handle.write(build_stdout)
         stdout_handle.flush()
@@ -1341,6 +1403,7 @@ def sample_repo_native_probe_output(*, tool_root: pathlib.Path | None = None) ->
             "nsys": "/usr/bin/nsys",
             "compute_sanitizer": "/usr/bin/compute-sanitizer",
             "nvidia_smi": "/usr/bin/nvidia-smi",
+            "cuobjdump": "/usr/bin/cuobjdump",
         }
     )
     return (
