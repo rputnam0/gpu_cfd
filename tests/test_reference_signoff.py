@@ -397,7 +397,9 @@ class ReferenceSignoffTests(unittest.TestCase):
         self.assertEqual(compare_json["compared_case_roles"], ["R1", "R0"])
         self.assertEqual([case["status"] for case in compare_json["cases"]], ["pass", "pass"])
         self.assertEqual(compare_json["human_signoff"]["status"], "pending")
-        self.assertEqual(archive_index["outputs"]["compare_json"], PHASE0_COMPARE_JSON_NAME)
+        self.assertTrue(compare_json["outputs"]["compare_json"].endswith(PHASE0_COMPARE_JSON_NAME))
+        self.assertTrue(compare_json["archive_index"].endswith(PHASE0_ARCHIVE_INDEX_NAME))
+        self.assertTrue(archive_index["outputs"]["compare_json"].endswith(PHASE0_COMPARE_JSON_NAME))
         self.assertEqual(provenance_manifest["case_count"], 2)
         self.assertIn("`R1`", compare_markdown)
         self.assertIn("`R0`", compare_markdown)
@@ -607,6 +609,44 @@ class ReferenceSignoffTests(unittest.TestCase):
         self.assertEqual(packet["status"], "pass")
         self.assertEqual(r1_case["status"], "pass")
         self.assertEqual(air_core_check["status"], "pass")
+
+    def test_publish_phase0_signoff_packet_records_custom_output_paths(self) -> None:
+        bundle = load_authority_bundle(repo_root())
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            artifact_root = pathlib.Path(temp_dir)
+            for baseline, runtime_base in (("Baseline A", "OpenFOAM 12"), ("Baseline B", "SPUMA v2412")):
+                for case_role in ("R1", "R0"):
+                    write_case_artifact_dir(
+                        artifact_root,
+                        case_role=case_role,
+                        baseline=baseline,
+                        runtime_base=runtime_base,
+                    )
+
+            json_out = artifact_root / "reports" / "json" / "compare-output.json"
+            markdown_out = artifact_root / "reports" / "markdown" / "compare-output.md"
+            archive_index_out = artifact_root / "reports" / "meta" / "archive-output.json"
+            provenance_manifest_out = artifact_root / "reports" / "meta" / "provenance-output.json"
+
+            packet = publish_phase0_signoff_packet(
+                bundle,
+                artifact_root=artifact_root,
+                json_out=json_out,
+                markdown_out=markdown_out,
+                archive_index_out=archive_index_out,
+                provenance_manifest_out=provenance_manifest_out,
+            )
+
+            archive_index = json.loads(archive_index_out.read_text(encoding="utf-8"))
+            self.assertTrue(json_out.exists())
+            self.assertTrue(markdown_out.exists())
+            self.assertTrue(archive_index_out.exists())
+            self.assertTrue(provenance_manifest_out.exists())
+            self.assertEqual(packet["outputs"]["compare_json"], json_out.as_posix())
+            self.assertEqual(packet["outputs"]["compare_markdown"], markdown_out.as_posix())
+            self.assertEqual(archive_index["outputs"]["compare_json"], json_out.as_posix())
+            self.assertEqual(archive_index["outputs"]["compare_markdown"], markdown_out.as_posix())
 
 
 if __name__ == "__main__":

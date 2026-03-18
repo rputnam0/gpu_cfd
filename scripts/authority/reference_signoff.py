@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import datetime as dt
 import json
+import os
 import pathlib
 from typing import Any, Mapping, Sequence
 
@@ -107,6 +108,31 @@ def publish_phase0_signoff_packet(
         "notes": [str(note) for note in (review_notes or ()) if str(note).strip()],
         "required": True,
     }
+    json_path = (
+        pathlib.Path(json_out)
+        if json_out is not None
+        else comparison_root / PHASE0_COMPARE_JSON_NAME
+    )
+    markdown_path = (
+        pathlib.Path(markdown_out)
+        if markdown_out is not None
+        else comparison_root / PHASE0_COMPARE_MARKDOWN_NAME
+    )
+    archive_index_path = (
+        pathlib.Path(archive_index_out)
+        if archive_index_out is not None
+        else comparison_root / PHASE0_ARCHIVE_INDEX_NAME
+    )
+    provenance_manifest_path = (
+        pathlib.Path(provenance_manifest_out)
+        if provenance_manifest_out is not None
+        else comparison_root / PHASE0_PROVENANCE_MANIFEST_NAME
+    )
+    output_root = pathlib.Path(
+        _common_output_root(
+            (json_path, markdown_path, archive_index_path, provenance_manifest_path)
+        )
+    )
 
     packet = {
         "schema_version": PHASE0_SIGNOFF_SCHEMA_VERSION,
@@ -129,8 +155,14 @@ def publish_phase0_signoff_packet(
             },
         ],
         "authority_revisions": dict(baseline_a_index["authority_revisions"]),
-        "archive_index": PHASE0_ARCHIVE_INDEX_NAME,
-        "provenance_manifest": PHASE0_PROVENANCE_MANIFEST_NAME,
+        "archive_index": archive_index_path.as_posix(),
+        "provenance_manifest": provenance_manifest_path.as_posix(),
+        "outputs": {
+            "compare_json": json_path.as_posix(),
+            "compare_markdown": markdown_path.as_posix(),
+            "archive_index": archive_index_path.as_posix(),
+            "provenance_manifest": provenance_manifest_path.as_posix(),
+        },
         "human_signoff": human_signoff,
         "cases": case_reports,
     }
@@ -139,12 +171,12 @@ def publish_phase0_signoff_packet(
         "schema_version": PHASE0_SIGNOFF_SCHEMA_VERSION,
         "generated_at": _timestamp_now(),
         "phase_gate": "Phase 0",
-        "comparison_root": comparison_root.as_posix(),
+        "comparison_root": output_root.as_posix(),
         "outputs": {
-            "compare_json": PHASE0_COMPARE_JSON_NAME,
-            "compare_markdown": PHASE0_COMPARE_MARKDOWN_NAME,
-            "archive_index": PHASE0_ARCHIVE_INDEX_NAME,
-            "provenance_manifest": PHASE0_PROVENANCE_MANIFEST_NAME,
+            "compare_json": json_path.as_posix(),
+            "compare_markdown": markdown_path.as_posix(),
+            "archive_index": archive_index_path.as_posix(),
+            "provenance_manifest": provenance_manifest_path.as_posix(),
         },
         "baselines": [
             {
@@ -182,28 +214,8 @@ def publish_phase0_signoff_packet(
         "cases": provenance_cases,
     }
 
-    json_path = (
-        pathlib.Path(json_out)
-        if json_out is not None
-        else comparison_root / PHASE0_COMPARE_JSON_NAME
-    )
-    markdown_path = (
-        pathlib.Path(markdown_out)
-        if markdown_out is not None
-        else comparison_root / PHASE0_COMPARE_MARKDOWN_NAME
-    )
-    archive_index_path = (
-        pathlib.Path(archive_index_out)
-        if archive_index_out is not None
-        else comparison_root / PHASE0_ARCHIVE_INDEX_NAME
-    )
-    provenance_manifest_path = (
-        pathlib.Path(provenance_manifest_out)
-        if provenance_manifest_out is not None
-        else comparison_root / PHASE0_PROVENANCE_MANIFEST_NAME
-    )
-
     _write_json(json_path, packet)
+    markdown_path.parent.mkdir(parents=True, exist_ok=True)
     markdown_path.write_text(render_phase0_signoff_summary(packet), encoding="utf-8")
     _write_json(archive_index_path, archive_index)
     _write_json(provenance_manifest_path, provenance_manifest)
@@ -970,6 +982,11 @@ def _relative_diff_pct(baseline_a: float, baseline_b: float) -> float:
     if baseline_a == 0.0:
         return 0.0 if baseline_b == 0.0 else float("inf")
     return abs(baseline_b - baseline_a) / abs(baseline_a) * 100.0
+
+
+def _common_output_root(paths: Sequence[pathlib.Path]) -> str:
+    resolved_paths = [path.resolve().as_posix() for path in paths]
+    return pathlib.Path(os.path.commonpath(resolved_paths)).as_posix()
 
 
 def _summarize_status(statuses: Sequence[str] | Any) -> str:
