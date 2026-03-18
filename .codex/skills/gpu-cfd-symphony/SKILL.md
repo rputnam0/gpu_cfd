@@ -34,8 +34,9 @@ repository's authority docs, backlog dependencies, and PR-card scope.
 
 1. Extract the card's `Objective`, `Depends on`, `Concrete task slices`, `Validation`, and
    `Done criteria`.
-2. Write or update the canonical Linear workpad comment before edits and use it as durable working
-   memory for the run.
+2. After you have read `AGENTS.md`, this skill, the exact PR card, and the cited sections needed to
+   understand the task, write or update the canonical Linear workpad comment before broader
+   codebase exploration or edits, and use it as durable working memory for the run.
    Prefer Symphony's injected `linear_graphql` tool when it is present. On the WSL worker host,
    the official Linear MCP is also configured and authenticated for individual Codex workers.
 3. Use a non-interactive planning pass before edits. Capture the current plan, assumptions,
@@ -44,15 +45,20 @@ repository's authority docs, backlog dependencies, and PR-card scope.
    by repo policy.
 4. Use native Codex sub-agents as bounded recursive research helpers when context discovery is the
    bottleneck. The implementation worker profile explicitly enables multi-agent support and the
-   project child-agent definitions. Prefer `gpt-5.4-mini` for those helper agents.
+   project child-agent definitions. Use `gpt-5.4-mini` for those helper agents.
    Good helper tasks: locate exact doc sections, trace code paths, summarize nearby tests or APIs,
    inspect review payloads, and compare adjacent implementations.
    Prefer the project helper agents in `.codex/agents/` when they fit: `docs_scout`,
    `codepath_scout`, and `review_payload_scout`.
+   If you spawn a helper directly instead of using a project-defined agent, explicitly set that
+   helper's model to `gpt-5.4-mini`.
    Keep each helper narrowly scoped and ask for short path/citation-focused findings.
    The main `gpt-5.4` worker remains the orchestrator: do not delegate code edits, test authoring,
    branch management, Linear updates, PR handoff, or final technical judgment to
    `gpt-5.4-mini`.
+   Do not fetch full Linear details for already-done dependency issues unless the exact dependency
+   contract is still unclear after reading the cited repo task card section. Prefer the repo task
+   card and cited docs over loading blocker issue descriptions from Linear.
 5. Confirm the branch state and reproduce the current behavior before editing.
 6. Implement with TDD where practical, following `AGENTS.md`.
 7. Keep the workpad current as plan, progress, decisions, rationale, validation, review findings,
@@ -60,9 +66,13 @@ repository's authority docs, backlog dependencies, and PR-card scope.
 8. Run the smallest direct validation first, then any broader checks required by the card.
 9. When implementation or rework is ready for review, commit and push the branch, then run
    `python3 scripts/symphony/pr_handoff.py --workspace "$PWD"`.
-   Run that helper from the issue workspace directly. If the workspace still has unrelated dirty
-   control-plane files, the helper creates its own clean committed review clone; do not invent a
-   separate manual clean-clone workflow.
+   Run that helper from the issue workspace directly. The dispatch wrapper and handoff helper
+   refresh `origin` before review or PR automation. If the helper reports
+   `branch_refresh_required`, stay in the same worker run, refresh the branch against the latest
+   `origin/main`, rerun the smallest relevant validation, and rerun the handoff helper. Do not
+   open or update a conflicted PR. If the workspace still has unrelated dirty control-plane files,
+   the helper creates its own clean committed review clone; do not invent a separate manual
+   clean-clone workflow.
 10. If the handoff helper reports findings on remediation pass 1 or 2, inspect the latest artifact
    under `.codex/review_artifacts/`, fix the valid findings in the same implementation run, rerun
    targeted validation, and rerun the handoff helper.
