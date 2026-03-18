@@ -4,6 +4,7 @@ import json
 import pathlib
 import tempfile
 import unittest
+from unittest import mock
 
 from scripts.authority import emit_phase1_discovery_artifacts, load_authority_bundle
 from scripts.authority.phase1_build import (
@@ -375,6 +376,55 @@ class Phase1BuildTests(unittest.TestCase):
             build_log = plan.log_path.read_text(encoding="utf-8")
 
         self.assertIn("bashrc-helper-ok", build_log)
+
+    @mock.patch("scripts.authority.phase1_build.subprocess.run")
+    def test_run_phase1_build_fails_fast_when_nvc_is_missing(
+        self,
+        run_subprocess: mock.Mock,
+    ) -> None:
+        bundle = load_authority_bundle(repo_root())
+        run_subprocess.side_effect = [
+            subprocess_completed(stdout="WM_COMPILER=Nvidia\nNVC=\n", returncode=0),
+        ]
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_root = pathlib.Path(temp_dir)
+            emitted = emit_phase1_discovery_artifacts(
+                bundle,
+                output_dir=temp_root / "discovery",
+                lane="primary",
+                host_observations=sample_host_observations(),
+                cuda_probe=sample_cuda_probe_payload(),
+                local_mirror_refs=sample_local_mirror_refs(),
+                repo_commit="abc123def456",
+            )
+            source_root = temp_root / "spuma"
+            source_root.mkdir()
+            etc_dir = source_root / "etc"
+            etc_dir.mkdir()
+            bashrc = etc_dir / "bashrc"
+            bashrc.write_text("export WM_COMPILER=Nvidia\n", encoding="utf-8")
+            allwmake = source_root / "Allwmake"
+            allwmake.write_text("#!/usr/bin/env bash\nexit 0\n", encoding="utf-8")
+            allwmake.chmod(0o755)
+
+            plan = plan_phase1_build(
+                bundle,
+                source_root=source_root,
+                output_dir=temp_root / "build",
+                discovery_host_env_path=emitted.host_env_path,
+                discovery_manifest_refs_path=emitted.manifest_refs_path,
+                cuda_probe_path=emitted.cuda_probe_path,
+            )
+
+            with self.assertRaisesRegex(Phase1BuildError, "nvc|Nvidia HPC"):
+                run_phase1_build(plan)
+
+        self.assertEqual(run_subprocess.call_count, 1)
+
+
+def subprocess_completed(*, stdout: str = "", returncode: int = 0):
+    return mock.Mock(stdout=stdout, returncode=returncode)
 
 
 if __name__ == "__main__":

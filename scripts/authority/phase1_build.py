@@ -193,6 +193,7 @@ def render_phase1_env_exports(plan: Phase1BuildPlan) -> str:
 
 
 def run_phase1_build(plan: Phase1BuildPlan) -> Phase1BuildResult:
+    _validate_repo_native_toolchain(plan)
     env = os.environ.copy()
     with plan.log_path.open("w", encoding="utf-8") as handle:
         completed = subprocess.run(
@@ -535,6 +536,13 @@ def _resolve_repo_bashrc(source_root: pathlib.Path) -> pathlib.Path | None:
 
 
 def _build_shell_command(plan: Phase1BuildPlan) -> list[str]:
+    segments = _build_shell_preamble(plan)
+    command_text = " ".join(shlex.quote(part) for part in plan.build_command)
+    segments.append(f"exec {command_text}")
+    return ["bash", "--noprofile", "--norc", "-c", "\n".join(segments)]
+
+
+def _build_shell_preamble(plan: Phase1BuildPlan) -> list[str]:
     segments: list[str] = []
     if plan.bashrc_path is not None:
         segments.append(f". {shlex.quote(plan.bashrc_path.as_posix())}")
@@ -543,12 +551,42 @@ def _build_shell_command(plan: Phase1BuildPlan) -> list[str]:
             segments.append('export PATH="$CUDA_HOME/bin:${PATH:-}"')
             continue
         if key == "LD_LIBRARY_PATH":
-            segments.append('export LD_LIBRARY_PATH="$CUDA_HOME/lib64${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"')
+            segments.append(
+                'export LD_LIBRARY_PATH="$CUDA_HOME/lib64${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"'
+            )
             continue
         segments.append(f"export {key}={shlex.quote(value)}")
-    command_text = " ".join(shlex.quote(part) for part in plan.build_command)
-    segments.append(f"exec {command_text}")
-    return ["bash", "--noprofile", "--norc", "-c", "\n".join(segments)]
+    return segments
+
+
+def _validate_repo_native_toolchain(plan: Phase1BuildPlan) -> None:
+    probe_segments = _build_shell_preamble(plan)
+    probe_segments.append(
+        'printf "WM_COMPILER=%s\\nNVC=%s\\n" "${WM_COMPILER:-}" "$(command -v nvc || true)"'
+    )
+    completed = subprocess.run(
+        ["bash", "--noprofile", "--norc", "-c", "\n".join(probe_segments)],
+        cwd=plan.source_root,
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+    if completed.returncode != 0:
+        raise Phase1BuildError(
+            "unable to validate the repo-native build environment before running Allwmake"
+        )
+    compiler = ""
+    nvc_path = ""
+    for line in completed.stdout.splitlines():
+        if line.startswith("WM_COMPILER="):
+            compiler = line.partition("=")[2].strip()
+        if line.startswith("NVC="):
+            nvc_path = line.partition("=")[2].strip()
+    if compiler == "Nvidia" and not nvc_path:
+        raise Phase1BuildError(
+            "repo-native environment selects WM_COMPILER=Nvidia but nvc is unavailable; "
+            "the SPUMA GPU build requires Nvidia HPC plus CUDA"
+        )
 
 
 def _infer_cuda_home(selected_lane_value: str) -> str:
