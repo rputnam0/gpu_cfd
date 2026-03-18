@@ -317,9 +317,12 @@ class Phase1BuildTests(unittest.TestCase):
                 "    $(FOAM_EXTRA_CXXFLAGS) $(CU_LIB_HEADER_DIRS)\n"
             )
             cuda_rules.write_text(original_cuda_rules, encoding="utf-8")
+            probe_calls = 0
 
             def side_effect(*args, **kwargs):
-                if run_subprocess.call_count == 0:
+                nonlocal probe_calls
+                probe_calls += 1
+                if probe_calls == 1:
                     return subprocess_completed(
                         stdout=sample_repo_native_probe_output(),
                         returncode=0,
