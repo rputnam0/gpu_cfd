@@ -31,7 +31,7 @@ permissions:
   statuses: write
 
 concurrency:
-  group: review-state-reconcile-${{ github.run_id }}
+  group: review-state-reconcile-${{ github.repository }}
 
 jobs:
   review-state-reconcile:

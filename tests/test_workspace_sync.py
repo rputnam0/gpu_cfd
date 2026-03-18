@@ -91,6 +91,12 @@ class WorkspaceSyncTests(unittest.TestCase):
     def test_sync_control_plane_blocks_dirty_workspace_files(self) -> None:
         control, workspace = self.make_control_and_workspace()
 
+        self.write_file(control, "WORKFLOW.md", "canonical-v2\n")
+        self.write_file(control, "scripts/symphony/runtime_config.toml", "[codex]\nmodel = 'gpt-5.4'\n")
+        self.git(control, "add", "WORKFLOW.md", "scripts/symphony/runtime_config.toml")
+        self.git(control, "commit", "-m", "update control plane")
+        self.git(control, "push", "origin", "main")
+
         self.write_file(workspace, "WORKFLOW.md", "dirty change\n")
 
         with self.assertRaisesRegex(
@@ -98,6 +104,12 @@ class WorkspaceSyncTests(unittest.TestCase):
             "refusing to overwrite dirty control-plane files",
         ):
             workspace_sync.sync_control_plane(control, workspace)
+
+        self.assertEqual((workspace / "WORKFLOW.md").read_text(encoding="utf-8"), "dirty change\n")
+        self.assertEqual(
+            (workspace / "scripts/symphony/runtime_config.toml").read_text(encoding="utf-8"),
+            "[codex]\n",
+        )
 
 
 if __name__ == "__main__":

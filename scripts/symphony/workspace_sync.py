@@ -159,6 +159,7 @@ def sync_control_plane(
     synced: list[str] = []
     branch_owned: list[str] = []
     blocked_dirty: list[str] = []
+    sync_candidates: list[str] = []
 
     for relative_path in expand_control_plane_paths(repo, patterns=patterns):
         if workspace_has_uncommitted_path(workspace, relative_path):
@@ -167,6 +168,15 @@ def sync_control_plane(
         if branch_owns_path(workspace, relative_path, source_ref=source_ref):
             branch_owned.append(relative_path)
             continue
+        sync_candidates.append(relative_path)
+
+    if blocked_dirty:
+        raise WorkspaceSyncError(
+            "refusing to overwrite dirty control-plane files in the issue workspace: "
+            + ", ".join(blocked_dirty)
+        )
+
+    for relative_path in sync_candidates:
         target_path = workspace / relative_path
         target_path.parent.mkdir(parents=True, exist_ok=True)
         target_path.write_text(
@@ -184,9 +194,4 @@ def sync_control_plane(
         "blocked_dirty_paths": blocked_dirty,
         "status": "blocked" if blocked_dirty else "ok",
     }
-    if blocked_dirty:
-        raise WorkspaceSyncError(
-            "refusing to overwrite dirty control-plane files in the issue workspace: "
-            + ", ".join(blocked_dirty)
-        )
     return result

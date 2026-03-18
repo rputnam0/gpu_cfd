@@ -139,23 +139,7 @@ mutation($id: String!, $stateId: String!) {
 }
 """
 
-ISSUE_UPDATE_MUTATION = """
-mutation(
-  $id: String!,
-  $stateId: String,
-  $description: String,
-  $parentId: String,
-  $labelIds: [String!]
-) {
-  issueUpdate(
-    id: $id,
-    input: {
-      stateId: $stateId,
-      description: $description,
-      parentId: $parentId,
-      labelIds: $labelIds
-    }
-  ) {
+ISSUE_UPDATE_MUTATION_SELECTION = """
     success
     issue {
       id
@@ -175,8 +159,6 @@ mutation(
         name
       }
     }
-  }
-}
 """
 
 ISSUE_UPDATE_DESCRIPTION_MUTATION = """
@@ -548,19 +530,16 @@ def update_issue(
         for node in (issue.get("labels") or {}).get("nodes", [])
         if str(node.get("name") or "").strip()
     ]
+    mutation_input: dict[str, Any] = {}
 
     if target_state_name is not _UNSET:
         if previous_state != target_state_name:
-            variables["stateId"] = resolve_state_id(issue, str(target_state_name))
+            mutation_input["stateId"] = resolve_state_id(issue, str(target_state_name))
             changed = True
-        else:
-            variables["stateId"] = None
     if description is not _UNSET:
         if previous_description != str(description):
-            variables["description"] = description
+            mutation_input["description"] = description
             changed = True
-        else:
-            variables["description"] = previous_description
     if parent_identifier is not _UNSET:
         normalized_parent = (
             normalize_issue_identifier(str(parent_identifier))
@@ -568,19 +547,15 @@ def update_issue(
             else None
         )
         if previous_parent_identifier != (normalized_parent or ""):
-            variables["parentId"] = (
+            mutation_input["parentId"] = (
                 fetch_issue(normalized_parent)["id"] if normalized_parent else None
             )
             changed = True
-        else:
-            variables["parentId"] = issue.get("parent", {}).get("id") if issue.get("parent") else None
     if label_names is not _UNSET:
         normalized_labels = sorted({name.strip() for name in list(label_names) if name.strip()})
         if sorted(previous_labels) != normalized_labels:
-            variables["labelIds"] = resolve_label_ids(normalized_labels)
+            mutation_input["labelIds"] = resolve_label_ids(normalized_labels)
             changed = True
-        else:
-            variables["labelIds"] = resolve_label_ids(previous_labels)
 
     if not changed:
         return {
@@ -596,7 +571,8 @@ def update_issue(
             "current_labels": previous_labels,
         }
 
-    mutation_data = graphql(ISSUE_UPDATE_MUTATION, variables)
+    variables.update(mutation_input)
+    mutation_data = graphql(build_issue_update_mutation(mutation_input.keys()), variables)
     updated_issue = mutation_data["issueUpdate"]["issue"]
     updated_parent_identifier = str(
         ((updated_issue.get("parent") or {}).get("identifier")) or ""
@@ -618,6 +594,31 @@ def update_issue(
         "previous_labels": previous_labels,
         "current_labels": updated_labels,
     }
+
+
+def build_issue_update_mutation(input_keys: Any) -> str:
+    field_types = {
+        "stateId": "String",
+        "description": "String",
+        "parentId": "String",
+        "labelIds": "[String!]",
+    }
+    ordered_keys = [key for key in field_types if key in set(input_keys)]
+    variable_definitions = ["$id: String!"] + [
+        f"${key}: {field_types[key]}" for key in ordered_keys
+    ]
+    input_fields = ", ".join(f"{key}: ${key}" for key in ordered_keys)
+    return (
+        "mutation("
+        + ", ".join(variable_definitions)
+        + ") {\n"
+        + "  issueUpdate(id: $id, input: { "
+        + input_fields
+        + " }) {\n"
+        + ISSUE_UPDATE_MUTATION_SELECTION
+        + "  }\n"
+        + "}\n"
+    )
 
 
 def update_issue_description(issue_identifier: str, description: str) -> dict[str, Any]:

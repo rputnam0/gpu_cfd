@@ -164,9 +164,10 @@ def reconcile_snapshot(
                 "current_state": update_result["current_state"],
                 "target_state": devin_review_gate.DEFAULT_REWORK_STATE,
             }
-            workpad_warning = devin_review_gate.sync_rework_workpad_best_effort(
+            workpad_warning = devin_review_gate.sync_followup_workpad_best_effort(
                 issue_identifier,
                 summary,
+                target_state=devin_review_gate.DEFAULT_REWORK_STATE,
             )
             if workpad_warning:
                 result["workpad_sync_warning"] = workpad_warning
