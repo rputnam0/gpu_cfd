@@ -6,10 +6,13 @@ import json
 import os
 import pathlib
 import shlex
+import sys
 from dataclasses import dataclass
 from typing import Any, Mapping
 
 from .env_probe import OpenFOAMBaselineProbeReport
+
+REPO_PYTHONPATH = pathlib.Path(__file__).resolve().parents[2].as_posix()
 
 
 @dataclass(frozen=True)
@@ -149,6 +152,8 @@ def wrap_stage_command(
         "-i",
         "HOME=" + os.path.expanduser("~"),
         "PATH=/usr/bin:/bin",
+        "GPU_CFD_PYTHON=" + sys.executable,
+        "PYTHONPATH=" + REPO_PYTHONPATH,
         "bash",
         "--noprofile",
         "--norc",

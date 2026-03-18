@@ -8,6 +8,15 @@ from dataclasses import dataclass
 from typing import Any, Mapping, Sequence
 
 from .bundle import AuthorityBundle, ReferenceCase
+from .reference_io import (
+    REFERENCE_IO_COMPARISON_SCOPE,
+    REFERENCE_IO_OVERLAY_ARTIFACT,
+    REFERENCE_IO_POLICY,
+    REFERENCE_IO_STAGE_KIND,
+    REFERENCE_IO_STAGE_NAME,
+    build_reference_io_normalization_payload,
+    reference_io_overlay_stage,
+)
 from .stage_runner import StageRunnerContext
 
 
@@ -15,6 +24,14 @@ MANIFEST_SCHEMA_VERSION = "1.0.0"
 CANONICAL_CASE_META_NAME = "case_meta.json"
 CANONICAL_STAGE_PLAN_NAME = "stage_plan.json"
 REQUIRED_PROVENANCE_FIELDS = ("probe_payload", "host_env", "manifest_refs")
+REQUIRED_IO_NORMALIZATION_FIELDS = (
+    "stage_name",
+    "stage_kind",
+    "overlay_artifact",
+    "comparison_scope",
+    "preserves_numerics",
+    "policy",
+)
 
 
 class AuthoritySelectionError(ValueError):
@@ -139,6 +156,34 @@ def resolve_phase_gate_case(
     return resolve_reference_case(bundle, case_role=case_role)
 
 
+def _io_normalization_schema() -> dict[str, Any]:
+    return {
+        "type": "object",
+        "required": list(REQUIRED_IO_NORMALIZATION_FIELDS),
+        "properties": {
+            "stage_name": {"const": REFERENCE_IO_STAGE_NAME},
+            "stage_kind": {"const": REFERENCE_IO_STAGE_KIND},
+            "overlay_artifact": {
+                "type": "string",
+                "minLength": 1,
+                "pattern": r".*\S.*",
+            },
+            "comparison_scope": {"const": REFERENCE_IO_COMPARISON_SCOPE},
+            "preserves_numerics": {"const": True},
+            "policy": {
+                "type": "object",
+                "required": list(REFERENCE_IO_POLICY),
+                "properties": {
+                    "write_format": {"const": REFERENCE_IO_POLICY["write_format"]},
+                    "write_compression": {"const": REFERENCE_IO_POLICY["write_compression"]},
+                    "write_precision": {"const": REFERENCE_IO_POLICY["write_precision"]},
+                    "time_precision": {"const": REFERENCE_IO_POLICY["time_precision"]},
+                },
+            },
+        },
+    }
+
+
 def case_meta_schema(bundle: AuthorityBundle) -> dict[str, Any]:
     ordered_case_roles = list(bundle.ladder.ordered_case_ids)
     schema = {
@@ -185,6 +230,7 @@ def case_meta_schema(bundle: AuthorityBundle) -> dict[str, Any]:
             "DeltaP_effective_Pa",
             "check_valve_loss_applied",
             "provenance",
+            "io_normalization",
         ],
         "properties": {
             "schema_version": {"const": MANIFEST_SCHEMA_VERSION},
@@ -255,6 +301,7 @@ def case_meta_schema(bundle: AuthorityBundle) -> dict[str, Any]:
                     "manifest_refs": {"type": "string", "minLength": 1, "pattern": r".*\S.*"},
                 },
             },
+            "io_normalization": _io_normalization_schema(),
         },
     }
     schema["allOf"] = [{"oneOf": _case_meta_variants(bundle)}]
@@ -304,6 +351,7 @@ def validate_case_meta(bundle: AuthorityBundle, payload: dict[str, Any]) -> dict
             "DeltaP_effective_Pa",
             "check_valve_loss_applied",
             "provenance",
+            "io_normalization",
         ),
         artifact_name=CANONICAL_CASE_META_NAME,
     )
@@ -432,6 +480,7 @@ def validate_case_meta(bundle: AuthorityBundle, payload: dict[str, Any]) -> dict
             artifact_name=CANONICAL_CASE_META_NAME,
         )
     _validate_provenance_payload(payload, artifact_name=CANONICAL_CASE_META_NAME)
+    _validate_io_normalization_payload(payload, artifact_name=CANONICAL_CASE_META_NAME)
 
     return payload
 
@@ -453,6 +502,7 @@ def stage_plan_schema(bundle: AuthorityBundle) -> dict[str, Any]:
             "runtime_base",
             "reviewed_source_tuple_id",
             "provenance",
+            "io_normalization",
         ],
         "properties": {
             "schema_version": {"const": MANIFEST_SCHEMA_VERSION},
@@ -475,6 +525,7 @@ def stage_plan_schema(bundle: AuthorityBundle) -> dict[str, Any]:
                     "manifest_refs": {"type": "string", "minLength": 1, "pattern": r".*\S.*"},
                 },
             },
+            "io_normalization": _io_normalization_schema(),
             "phase_gate_selection": {
                 "type": "object",
                 "required": [
@@ -525,6 +576,8 @@ def stage_plan_schema(bundle: AuthorityBundle) -> dict[str, Any]:
                         "name": {"type": "string", "minLength": 1, "pattern": r".*\S.*"},
                         "cmd": {"type": "string", "minLength": 1, "pattern": r".*\S.*"},
                         "cwd": {"type": "string"},
+                        "stage_kind": {"type": "string", "minLength": 1, "pattern": r".*\S.*"},
+                        "overlay_artifact": {"type": "string", "minLength": 1, "pattern": r".*\S.*"},
                     },
                 },
             },
@@ -548,6 +601,7 @@ def validate_stage_plan(bundle: AuthorityBundle, payload: dict[str, Any]) -> dic
             "runtime_base",
             "reviewed_source_tuple_id",
             "provenance",
+            "io_normalization",
         ),
         artifact_name=CANONICAL_STAGE_PLAN_NAME,
     )
@@ -683,6 +737,10 @@ def validate_stage_plan(bundle: AuthorityBundle, payload: dict[str, Any]) -> dic
         artifact_name=CANONICAL_STAGE_PLAN_NAME,
     )
     _validate_provenance_payload(payload, artifact_name=CANONICAL_STAGE_PLAN_NAME)
+    validated_io_normalization = _validate_io_normalization_payload(
+        payload,
+        artifact_name=CANONICAL_STAGE_PLAN_NAME,
+    )
 
     stages = payload["stages"]
     if not isinstance(stages, list) or not stages:
@@ -702,6 +760,27 @@ def validate_stage_plan(bundle: AuthorityBundle, payload: dict[str, Any]) -> dic
             raise AuthoritySelectionError(
                 f"{CANONICAL_STAGE_PLAN_NAME} stage cwd must be a string when provided"
             )
+        for field_name in ("stage_kind", "overlay_artifact"):
+            if field_name in stage and (
+                not isinstance(stage[field_name], str) or not stage[field_name].strip()
+            ):
+                raise AuthoritySelectionError(
+                    f"{CANONICAL_STAGE_PLAN_NAME} stage {field_name} must be a non-empty string when provided"
+                )
+    normalization_stage = _find_reference_io_stage(stages, io_normalization=validated_io_normalization)
+    if normalization_stage is None:
+        raise AuthoritySelectionError(
+            f"{CANONICAL_STAGE_PLAN_NAME} stages must include the canonical "
+            f"{REFERENCE_IO_STAGE_KIND!r} stage {REFERENCE_IO_STAGE_NAME!r}"
+        )
+    if normalization_stage.get("stage_kind") != validated_io_normalization["stage_kind"]:
+        raise AuthoritySelectionError(
+            f"{CANONICAL_STAGE_PLAN_NAME} reference I/O stage_kind must match io_normalization"
+        )
+    if normalization_stage.get("overlay_artifact") != validated_io_normalization["overlay_artifact"]:
+        raise AuthoritySelectionError(
+            f"{CANONICAL_STAGE_PLAN_NAME} reference I/O overlay_artifact must match io_normalization"
+        )
 
     return payload
 
@@ -718,6 +797,7 @@ def build_case_meta_payload(
     numerics: Mapping[str, Any],
     startup: Mapping[str, Any],
     pressure: Mapping[str, Any],
+    io_normalization: Mapping[str, Any] | None = None,
     provenance: Mapping[str, Any] | None = None,
 ) -> dict[str, Any]:
     resolved_case = resolve_reference_case(bundle, case_role=case_role)
@@ -794,6 +874,7 @@ def build_case_meta_payload(
             artifact_name=CANONICAL_CASE_META_NAME,
         ),
         "provenance": _build_provenance_payload(context, extra=provenance),
+        "io_normalization": _build_reference_io_normalization_payload(extra=io_normalization),
     }
     return validate_case_meta(bundle, payload)
 
@@ -806,6 +887,7 @@ def build_stage_plan_payload(
     phase_gate: str,
     stages: Sequence[Mapping[str, Any]],
     conditional_reason: str | None = None,
+    io_normalization: Mapping[str, Any] | None = None,
     provenance: Mapping[str, Any] | None = None,
 ) -> dict[str, Any]:
     resolved_case = resolve_reference_case(bundle, case_role=case_role)
@@ -826,6 +908,7 @@ def build_stage_plan_payload(
     }
     if conditional_reason is not None:
         phase_gate_selection["conditional_reason"] = conditional_reason
+    resolved_io_normalization = _build_reference_io_normalization_payload(extra=io_normalization)
 
     payload = {
         "schema_version": MANIFEST_SCHEMA_VERSION,
@@ -836,8 +919,10 @@ def build_stage_plan_payload(
         "runtime_base": context.runtime_base,
         "reviewed_source_tuple_id": context.reviewed_source_tuple_id,
         "provenance": _build_provenance_payload(context, extra=provenance),
+        "io_normalization": resolved_io_normalization,
         "phase_gate_selection": phase_gate_selection,
-        "stages": [dict(stage) for stage in stages],
+        "stages": [reference_io_overlay_stage(overlay_artifact=resolved_io_normalization["overlay_artifact"])]
+        + [dict(stage) for stage in stages],
     }
     return validate_stage_plan(bundle, payload)
 
@@ -873,6 +958,11 @@ def emit_case_bundle(
                 f"case bundle provenance {field_name} mismatch between "
                 f"{CANONICAL_CASE_META_NAME} and {CANONICAL_STAGE_PLAN_NAME}"
             )
+    if validated_case_meta["io_normalization"] != validated_stage_plan["io_normalization"]:
+        raise AuthoritySelectionError(
+            f"case bundle io_normalization mismatch between {CANONICAL_CASE_META_NAME} "
+            f"and {CANONICAL_STAGE_PLAN_NAME}"
+        )
 
     target_dir = pathlib.Path(output_dir)
     target_dir.mkdir(parents=True, exist_ok=True)
@@ -1231,6 +1321,72 @@ def _validate_provenance_payload(payload: Mapping[str, Any], *, artifact_name: s
         )
 
 
+def _validate_io_normalization_payload(
+    payload: Mapping[str, Any],
+    *,
+    artifact_name: str,
+) -> dict[str, Any]:
+    io_normalization = payload.get("io_normalization")
+    if not isinstance(io_normalization, dict):
+        raise AuthoritySelectionError(f"{artifact_name} io_normalization must be an object")
+    _validate_required_fields(
+        io_normalization,
+        required_fields=REQUIRED_IO_NORMALIZATION_FIELDS,
+        artifact_name=f"{artifact_name} io_normalization",
+    )
+
+    stage_name = io_normalization.get("stage_name")
+    if stage_name != REFERENCE_IO_STAGE_NAME:
+        raise AuthoritySelectionError(
+            f"{artifact_name} io_normalization stage_name must remain {REFERENCE_IO_STAGE_NAME!r}"
+        )
+    stage_kind = io_normalization.get("stage_kind")
+    if stage_kind != REFERENCE_IO_STAGE_KIND:
+        raise AuthoritySelectionError(
+            f"{artifact_name} io_normalization stage_kind must remain {REFERENCE_IO_STAGE_KIND!r}"
+        )
+    _validate_non_empty_string_field(
+        io_normalization,
+        "overlay_artifact",
+        artifact_name=f"{artifact_name} io_normalization",
+    )
+    comparison_scope = io_normalization.get("comparison_scope")
+    if comparison_scope != REFERENCE_IO_COMPARISON_SCOPE:
+        raise AuthoritySelectionError(
+            f"{artifact_name} io_normalization comparison_scope must remain "
+            f"{REFERENCE_IO_COMPARISON_SCOPE!r}"
+        )
+    if io_normalization.get("preserves_numerics") is not True:
+        raise AuthoritySelectionError(
+            f"{artifact_name} io_normalization preserves_numerics must remain true"
+        )
+    policy = io_normalization.get("policy")
+    if not isinstance(policy, dict):
+        raise AuthoritySelectionError(f"{artifact_name} io_normalization policy must be an object")
+    _validate_required_fields(
+        policy,
+        required_fields=tuple(REFERENCE_IO_POLICY),
+        artifact_name=f"{artifact_name} io_normalization policy",
+    )
+    for key, expected_value in REFERENCE_IO_POLICY.items():
+        if policy.get(key) != expected_value:
+            raise AuthoritySelectionError(
+                f"{artifact_name} io_normalization policy {key} must remain {expected_value}"
+            )
+    return dict(io_normalization)
+
+
+def _find_reference_io_stage(
+    stages: Sequence[Mapping[str, Any]],
+    *,
+    io_normalization: Mapping[str, Any],
+) -> Mapping[str, Any] | None:
+    for stage in stages:
+        if stage.get("name") == io_normalization["stage_name"]:
+            return stage
+    return None
+
+
 def _build_provenance_payload(
     context: StageRunnerContext,
     *,
@@ -1245,6 +1401,22 @@ def _build_provenance_payload(
     if extra:
         for key, value in extra.items():
             if key in REQUIRED_PROVENANCE_FIELDS:
+                continue
+            payload[key] = value
+    return payload
+
+
+def _build_reference_io_normalization_payload(
+    *,
+    extra: Mapping[str, Any] | None = None,
+) -> dict[str, Any]:
+    overlay_artifact = REFERENCE_IO_OVERLAY_ARTIFACT
+    if extra is not None and isinstance(extra.get("overlay_artifact"), str):
+        overlay_artifact = str(extra["overlay_artifact"]).strip() or REFERENCE_IO_OVERLAY_ARTIFACT
+    payload = build_reference_io_normalization_payload(overlay_artifact=overlay_artifact)
+    if extra:
+        for key, value in extra.items():
+            if key == "overlay_artifact":
                 continue
             payload[key] = value
     return payload

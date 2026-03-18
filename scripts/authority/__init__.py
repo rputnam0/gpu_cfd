@@ -65,6 +65,17 @@ from .pins import (
     emit_environment_manifests,
     resolve_consumer_pin_manifest,
 )
+from .reference_io import (
+    REFERENCE_IO_COMPARISON_SCOPE,
+    REFERENCE_IO_OVERLAY_ARTIFACT,
+    REFERENCE_IO_POLICY,
+    REFERENCE_IO_STAGE_KIND,
+    REFERENCE_IO_STAGE_NAME,
+    apply_reference_io_overlay,
+    build_reference_io_normalization_payload,
+    reference_io_overlay_command,
+    reference_io_overlay_stage,
+)
 from .source_audit import (
     ResolvedSourceAuditSurface,
     SOURCE_AUDIT_OWNERSHIP_SCOPE_PLACEHOLDER,
@@ -117,6 +128,11 @@ __all__ = [
     "ReferenceProblemArtifacts",
     "ResolvedSourceAuditSurface",
     "SOURCE_AUDIT_OWNERSHIP_SCOPE_PLACEHOLDER",
+    "REFERENCE_IO_COMPARISON_SCOPE",
+    "REFERENCE_IO_OVERLAY_ARTIFACT",
+    "REFERENCE_IO_POLICY",
+    "REFERENCE_IO_STAGE_KIND",
+    "REFERENCE_IO_STAGE_NAME",
     "StageRegistryReport",
     "SupportBoundaryCondition",
     "SupportFunctionObject",
@@ -147,7 +163,10 @@ __all__ = [
     "probe_openfoam_baselines",
     "compute_field_signatures",
     "compute_mesh_patch_fingerprint",
+    "apply_reference_io_overlay",
     "render_source_audit_note",
+    "reference_io_overlay_command",
+    "reference_io_overlay_stage",
     "repo_root",
     "render_stage_runner_log_context",
     "resolve_accepted_tuple",
@@ -166,4 +185,5 @@ __all__ = [
     "validate_case_meta",
     "validate_frozen_ladder",
     "wrap_stage_command",
+    "build_reference_io_normalization_payload",
 ]
