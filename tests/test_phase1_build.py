@@ -443,11 +443,21 @@ class Phase1BuildTests(unittest.TestCase):
                 discovery_manifest_refs_path=emitted.manifest_refs_path,
                 cuda_probe_path=emitted.cuda_probe_path,
             )
+            plan.log_path.write_text("stale prior run output\n", encoding="utf-8")
 
             with self.assertRaisesRegex(Phase1BuildError, "nvc|Nvidia HPC"):
                 run_phase1_build(plan)
 
+            metadata = json.loads(plan.metadata_path.read_text(encoding="utf-8"))
+            build_log = plan.log_path.read_text(encoding="utf-8")
+
         self.assertEqual(run_subprocess.call_count, 1)
+        self.assertFalse(metadata["succeeded"])
+        self.assertIsNone(metadata["returncode"])
+        self.assertEqual(metadata["failure_stage"], "preflight")
+        self.assertIn("nvc is unavailable", metadata["failure_reason"])
+        self.assertIn("nvc is unavailable", build_log)
+        self.assertNotIn("stale prior run output", build_log)
 
     @mock.patch("scripts.authority.phase1_build.subprocess.run")
     def test_run_phase1_build_fails_fast_when_nvcc_version_mismatches_frozen_lane(
@@ -559,12 +569,62 @@ class Phase1BuildTests(unittest.TestCase):
 
         self.assertEqual(run_subprocess.call_count, 1)
 
+    @mock.patch("scripts.authority.phase1_build.subprocess.run")
+    def test_run_phase1_build_records_build_command_failures(
+        self,
+        run_subprocess: mock.Mock,
+    ) -> None:
+        bundle = load_authority_bundle(repo_root())
+        run_subprocess.side_effect = phase1_build_subprocess_side_effect(
+            build_stdout="Allwmake failed\n",
+            build_returncode=5,
+        )
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_root = pathlib.Path(temp_dir)
+            emitted = emit_phase1_discovery_artifacts(
+                bundle,
+                output_dir=temp_root / "discovery",
+                lane="primary",
+                host_observations=sample_host_observations(),
+                cuda_probe=sample_cuda_probe_payload(),
+                local_mirror_refs=sample_local_mirror_refs(),
+                repo_commit="abc123def456",
+            )
+            source_root = temp_root / "spuma"
+            source_root.mkdir()
+            allwmake = source_root / "Allwmake"
+            allwmake.write_text("#!/usr/bin/env bash\nexit 5\n", encoding="utf-8")
+            allwmake.chmod(0o755)
+
+            plan = plan_phase1_build(
+                bundle,
+                source_root=source_root,
+                output_dir=temp_root / "build",
+                discovery_host_env_path=emitted.host_env_path,
+                discovery_manifest_refs_path=emitted.manifest_refs_path,
+                cuda_probe_path=emitted.cuda_probe_path,
+            )
+
+            with self.assertRaisesRegex(Phase1BuildError, "exit code 5"):
+                run_phase1_build(plan)
+
+            metadata = json.loads(plan.metadata_path.read_text(encoding="utf-8"))
+            build_log = plan.log_path.read_text(encoding="utf-8")
+
+        self.assertEqual(run_subprocess.call_count, 2)
+        self.assertFalse(metadata["succeeded"])
+        self.assertEqual(metadata["returncode"], 5)
+        self.assertEqual(metadata["failure_stage"], "build")
+        self.assertIn("exit code 5", metadata["failure_reason"])
+        self.assertIn("Allwmake failed", build_log)
+
 
 def subprocess_completed(*, stdout: str = "", returncode: int = 0):
     return mock.Mock(stdout=stdout, returncode=returncode)
 
 
-def phase1_build_subprocess_side_effect(*, build_stdout: str):
+def phase1_build_subprocess_side_effect(*, build_stdout: str, build_returncode: int = 0):
     call_count = 0
 
     def side_effect(*args, **kwargs):
@@ -578,7 +638,7 @@ def phase1_build_subprocess_side_effect(*, build_stdout: str):
         stdout_handle = kwargs["stdout"]
         stdout_handle.write(build_stdout)
         stdout_handle.flush()
-        return subprocess_completed(returncode=0)
+        return subprocess_completed(returncode=build_returncode)
 
     return side_effect
 

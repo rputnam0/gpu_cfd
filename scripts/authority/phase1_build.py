@@ -193,7 +193,19 @@ def render_phase1_env_exports(plan: Phase1BuildPlan) -> str:
 
 
 def run_phase1_build(plan: Phase1BuildPlan) -> Phase1BuildResult:
-    _validate_repo_native_toolchain(plan)
+    try:
+        _validate_repo_native_toolchain(plan)
+    except Phase1BuildError as exc:
+        _write_build_log_message(plan.log_path, str(exc))
+        _record_build_outcome(
+            plan,
+            returncode=None,
+            succeeded=False,
+            failure_stage="preflight",
+            failure_reason=str(exc),
+        )
+        raise
+
     env = os.environ.copy()
     with plan.log_path.open("w", encoding="utf-8") as handle:
         completed = subprocess.run(
@@ -206,11 +218,6 @@ def run_phase1_build(plan: Phase1BuildPlan) -> Phase1BuildResult:
             check=False,
         )
 
-    metadata = _read_json_payload(plan.metadata_path)
-    metadata["returncode"] = completed.returncode
-    metadata["succeeded"] = completed.returncode == 0
-    write_json(plan.metadata_path, metadata)
-
     result = Phase1BuildResult(
         succeeded=completed.returncode == 0,
         returncode=completed.returncode,
@@ -218,9 +225,26 @@ def run_phase1_build(plan: Phase1BuildPlan) -> Phase1BuildResult:
         metadata_path=plan.metadata_path,
     )
     if completed.returncode != 0:
-        raise Phase1BuildError(
+        failure_reason = (
             f"build command failed with exit code {completed.returncode}; see {plan.log_path}"
         )
+        _record_build_outcome(
+            plan,
+            returncode=completed.returncode,
+            succeeded=False,
+            failure_stage="build",
+            failure_reason=failure_reason,
+        )
+        raise Phase1BuildError(
+            failure_reason
+        )
+    _record_build_outcome(
+        plan,
+        returncode=completed.returncode,
+        succeeded=True,
+        failure_stage=None,
+        failure_reason=None,
+    )
     return result
 
 
@@ -415,8 +439,35 @@ def _build_metadata_payload(
             "passed": not nvtx_audit_hits,
             "banned_include_hits": list(nvtx_audit_hits),
         },
+        "returncode": None,
+        "succeeded": None,
+        "failure_stage": None,
+        "failure_reason": None,
         "authority_revisions": bundle.authority_revisions,
     }
+
+
+def _record_build_outcome(
+    plan: Phase1BuildPlan,
+    *,
+    returncode: int | None,
+    succeeded: bool,
+    failure_stage: str | None,
+    failure_reason: str | None,
+) -> None:
+    metadata = _read_json_payload(plan.metadata_path)
+    metadata["returncode"] = returncode
+    metadata["succeeded"] = succeeded
+    metadata["failure_stage"] = failure_stage
+    metadata["failure_reason"] = failure_reason
+    write_json(plan.metadata_path, metadata)
+
+
+def _write_build_log_message(log_path: pathlib.Path, message: str) -> None:
+    with log_path.open("w", encoding="utf-8") as handle:
+        handle.write(message)
+        if not message.endswith("\n"):
+            handle.write("\n")
 
 
 def _build_mode_flags(mode: str, *, nvarch: int) -> tuple[str, str]:
