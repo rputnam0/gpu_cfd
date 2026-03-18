@@ -65,6 +65,12 @@ from .pins import (
     emit_environment_manifests,
     resolve_consumer_pin_manifest,
 )
+from .phase1_discovery import (
+    EmittedPhase1DiscoveryArtifacts,
+    build_cuda_probe_payload,
+    collect_host_observations,
+    emit_phase1_discovery_artifacts,
+)
 from .reference_io import (
     REFERENCE_IO_COMPARISON_SCOPE,
     REFERENCE_IO_OVERLAY_ARTIFACT,
@@ -137,6 +143,7 @@ __all__ = [
     "ConsumerPinResolution",
     "EmittedCaseArtifacts",
     "EmittedEnvironmentManifests",
+    "EmittedPhase1DiscoveryArtifacts",
     "GraphRegistryValidationError",
     "GraphStageRegistry",
     "OpenFOAMBaselineProbeReport",
@@ -177,11 +184,13 @@ __all__ = [
     "case_meta_schema",
     "build_feature_extractor_metrics_json",
     "emit_environment_manifests",
+    "emit_phase1_discovery_artifacts",
     "emit_case_bundle",
     "emit_reference_problem_artifacts",
     "enforce_support_scan",
     "evaluate_acceptance",
     "load_authority_bundle",
+    "collect_host_observations",
     "load_graph_stage_registry",
     "main",
     "probe_openfoam_baselines",
@@ -205,6 +214,7 @@ __all__ = [
     "resolve_stage_runner_context",
     "resolve_source_audit_surfaces",
     "scan_support_matrix",
+    "build_cuda_probe_payload",
     "validate_acceptance_tuple_stage_requirements",
     "validate_tuple_stage_requirements",
     "validate_source_audit_note",
