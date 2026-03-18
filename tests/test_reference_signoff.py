@@ -36,6 +36,9 @@ def sample_case_meta_payload(
     baseline: str,
     runtime_base: str,
     source_tuple_id: str,
+    requested_vof_solver_mode: str = "vof_transient_preconditioned",
+    resolved_vof_solver_exec: str = "incompressibleVoF",
+    resolved_pressure_backend: str = "native_cpu",
 ) -> dict[str, Any]:
     resolved = resolve_reference_case(bundle, case_role=case_role)
     baseline_slug = baseline_artifact_slug(baseline)
@@ -48,9 +51,9 @@ def sample_case_meta_payload(
         "baseline": baseline,
         "runtime_base": runtime_base,
         "reviewed_source_tuple_id": source_tuple_id,
-        "requested_vof_solver_mode": "vof_transient_preconditioned",
-        "resolved_vof_solver_exec": "incompressibleVoF",
-        "resolved_pressure_backend": "native_cpu",
+        "requested_vof_solver_mode": requested_vof_solver_mode,
+        "resolved_vof_solver_exec": resolved_vof_solver_exec,
+        "resolved_pressure_backend": resolved_pressure_backend,
         "openfoam_bashrc_used": f"/envs/{baseline_slug}/etc/bashrc",
         "available_commands": {
             "foamRun": f"/envs/{baseline_slug}/bin/foamRun",
@@ -302,6 +305,9 @@ def write_case_artifact_dir(
     runtime_base: str,
     source_tuple_id: str = "SRC_CPU_PHASE0_ACCEPTED",
     angle_source: str = "geometric_a",
+    requested_vof_solver_mode: str = "vof_transient_preconditioned",
+    resolved_vof_solver_exec: str = "incompressibleVoF",
+    resolved_pressure_backend: str = "native_cpu",
 ) -> pathlib.Path:
     bundle = load_authority_bundle(repo_root())
     resolved = resolve_reference_case(bundle, case_role=case_role)
@@ -324,6 +330,9 @@ def write_case_artifact_dir(
             baseline=baseline,
             runtime_base=runtime_base,
             source_tuple_id=source_tuple_id,
+            requested_vof_solver_mode=requested_vof_solver_mode,
+            resolved_vof_solver_exec=resolved_vof_solver_exec,
+            resolved_pressure_backend=resolved_pressure_backend,
         ),
     )
     write_json(
@@ -475,6 +484,129 @@ class ReferenceSignoffTests(unittest.TestCase):
         self.assertEqual(packet["status"], "fail")
         self.assertEqual(r1_case["status"], "fail")
         self.assertEqual(flow_check["status"], "fail")
+
+    def test_publish_phase0_signoff_packet_fails_on_requested_solver_mode_mismatch(self) -> None:
+        bundle = load_authority_bundle(repo_root())
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            artifact_root = pathlib.Path(temp_dir)
+            for baseline, runtime_base in (("Baseline A", "OpenFOAM 12"), ("Baseline B", "SPUMA v2412")):
+                for case_role in ("R1", "R0"):
+                    write_case_artifact_dir(
+                        artifact_root,
+                        case_role=case_role,
+                        baseline=baseline,
+                        runtime_base=runtime_base,
+                        requested_vof_solver_mode=(
+                            "vof_transient_preconditioned"
+                            if baseline == "Baseline A"
+                            else "vof_shadow_variant"
+                        )
+                        if case_role == "R1"
+                        else "vof_transient_preconditioned",
+                    )
+
+            packet = publish_phase0_signoff_packet(bundle, artifact_root=artifact_root)
+
+        r1_case = next(case for case in packet["cases"] if case["case_role"] == "R1")
+        requested_mode_check = next(
+            check for check in r1_case["checks"] if check["check_id"] == "requested_vof_solver_mode_exact"
+        )
+        self.assertEqual(packet["status"], "fail")
+        self.assertEqual(r1_case["status"], "fail")
+        self.assertEqual(requested_mode_check["status"], "fail")
+
+    def test_publish_phase0_signoff_packet_marks_solver_family_split_as_review(self) -> None:
+        bundle = load_authority_bundle(repo_root())
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            artifact_root = pathlib.Path(temp_dir)
+            for baseline, runtime_base in (("Baseline A", "OpenFOAM 12"), ("Baseline B", "SPUMA v2412")):
+                for case_role in ("R1", "R0"):
+                    write_case_artifact_dir(
+                        artifact_root,
+                        case_role=case_role,
+                        baseline=baseline,
+                        runtime_base=runtime_base,
+                        resolved_vof_solver_exec=(
+                            "incompressibleVoF" if baseline == "Baseline A" else "interIsoFoam"
+                        )
+                        if case_role == "R0"
+                        else "incompressibleVoF",
+                    )
+
+            packet = publish_phase0_signoff_packet(bundle, artifact_root=artifact_root)
+
+        r0_case = next(case for case in packet["cases"] if case["case_role"] == "R0")
+        solver_family_check = next(
+            check for check in r0_case["checks"] if check["check_id"] == "resolved_solver_family_exact"
+        )
+        self.assertEqual(packet["status"], "review")
+        self.assertEqual(r0_case["status"], "review")
+        self.assertEqual(solver_family_check["status"], "review")
+
+    def test_publish_phase0_signoff_packet_marks_backend_mismatch_as_review(self) -> None:
+        bundle = load_authority_bundle(repo_root())
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            artifact_root = pathlib.Path(temp_dir)
+            for baseline, runtime_base in (("Baseline A", "OpenFOAM 12"), ("Baseline B", "SPUMA v2412")):
+                for case_role in ("R1", "R0"):
+                    write_case_artifact_dir(
+                        artifact_root,
+                        case_role=case_role,
+                        baseline=baseline,
+                        runtime_base=runtime_base,
+                        resolved_pressure_backend=(
+                            "native_cpu" if baseline == "Baseline A" else "native_cpu_fallback"
+                        )
+                        if case_role == "R1"
+                        else "native_cpu",
+                    )
+
+            packet = publish_phase0_signoff_packet(bundle, artifact_root=artifact_root)
+
+        r1_case = next(case for case in packet["cases"] if case["case_role"] == "R1")
+        backend_check = next(
+            check for check in r1_case["checks"] if check["check_id"] == "resolved_pressure_backend_exact"
+        )
+        self.assertEqual(packet["status"], "review")
+        self.assertEqual(r1_case["status"], "review")
+        self.assertEqual(backend_check["status"], "review")
+
+    def test_publish_phase0_signoff_packet_uses_or_semantics_for_air_core_review_gate(self) -> None:
+        bundle = load_authority_bundle(repo_root())
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            artifact_root = pathlib.Path(temp_dir)
+            for baseline, runtime_base in (("Baseline A", "OpenFOAM 12"), ("Baseline B", "SPUMA v2412")):
+                for case_role in ("R1", "R0"):
+                    write_case_artifact_dir(
+                        artifact_root,
+                        case_role=case_role,
+                        baseline=baseline,
+                        runtime_base=runtime_base,
+                    )
+
+            baseline_b_metrics_path = (
+                artifact_root
+                / "baseline_b"
+                / resolve_reference_case(bundle, case_role="R1").frozen_id
+                / "metrics.json"
+            )
+            baseline_b_metrics = json.loads(baseline_b_metrics_path.read_text(encoding="utf-8"))
+            baseline_b_metrics["metrics"]["air_core_area_ratio"]["value"] = 0.39
+            write_json(baseline_b_metrics_path, baseline_b_metrics)
+
+            packet = publish_phase0_signoff_packet(bundle, artifact_root=artifact_root)
+
+        r1_case = next(case for case in packet["cases"] if case["case_role"] == "R1")
+        air_core_check = next(
+            check for check in r1_case["checks"] if check["check_id"] == "air_core_area_ratio_within_threshold"
+        )
+        self.assertEqual(packet["status"], "pass")
+        self.assertEqual(r1_case["status"], "pass")
+        self.assertEqual(air_core_check["status"], "pass")
 
 
 if __name__ == "__main__":

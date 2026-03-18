@@ -355,12 +355,30 @@ def _build_case_report(
     checks = [
         _bundle_status_check("baseline_a_bundle_status", baseline_a, "Baseline A"),
         _bundle_status_check("baseline_b_bundle_status", baseline_b, "Baseline B"),
+        _match_check(
+            "requested_vof_solver_mode_exact",
+            baseline_a=baseline_a["case_meta"].get("requested_vof_solver_mode"),
+            baseline_b=baseline_b["case_meta"].get("requested_vof_solver_mode"),
+            gate_class="hard",
+        ),
         _exact_check(
             "case_id_exact",
             expected=expected_case_id,
             baseline_a=baseline_a["case_meta"]["case_id"],
             baseline_b=baseline_b["case_meta"]["case_id"],
             gate_class="hard",
+        ),
+        _match_check(
+            "resolved_solver_family_exact",
+            baseline_a=baseline_a["case_meta"].get("resolved_vof_solver_exec"),
+            baseline_b=baseline_b["case_meta"].get("resolved_vof_solver_exec"),
+            gate_class="review",
+        ),
+        _match_check(
+            "resolved_pressure_backend_exact",
+            baseline_a=baseline_a["case_meta"].get("resolved_pressure_backend"),
+            baseline_b=baseline_b["case_meta"].get("resolved_pressure_backend"),
+            gate_class="review",
         ),
         _truthy_check(
             "patch_schema_exact",
@@ -642,6 +660,33 @@ def _exact_check(
     }
 
 
+def _match_check(
+    check_id: str,
+    *,
+    baseline_a: Any,
+    baseline_b: Any,
+    gate_class: str,
+) -> dict[str, Any]:
+    baseline_a_value = None if baseline_a is None else str(baseline_a)
+    baseline_b_value = None if baseline_b is None else str(baseline_b)
+    passed = bool(baseline_a_value) and bool(baseline_b_value) and baseline_a_value == baseline_b_value
+    failing_status = "fail" if gate_class == "hard" else "review"
+    details = None
+    if not passed:
+        if baseline_a_value and baseline_b_value:
+            details = f"baseline mismatch: {baseline_a_value!r} vs {baseline_b_value!r}"
+        else:
+            details = "missing required provenance observation"
+    return {
+        "check_id": check_id,
+        "gate_class": gate_class,
+        "status": "pass" if passed else failing_status,
+        "baseline_a": baseline_a,
+        "baseline_b": baseline_b,
+        "details": details,
+    }
+
+
 def _truthy_check(
     check_id: str,
     *,
@@ -788,9 +833,14 @@ def _review_threshold_check(
         }
     absolute_diff = abs(baseline_a_value - baseline_b_value)
     relative_diff_pct = _relative_diff_pct(baseline_a_value, baseline_b_value)
-    abs_passed = threshold_abs is None or absolute_diff <= threshold_abs
-    rel_passed = threshold_pct is None or relative_diff_pct <= threshold_pct
-    passed = abs_passed and rel_passed
+    abs_passed = threshold_abs is not None and absolute_diff <= threshold_abs
+    rel_passed = threshold_pct is not None and relative_diff_pct <= threshold_pct
+    if threshold_abs is not None and threshold_pct is not None:
+        passed = abs_passed or rel_passed
+    elif threshold_abs is not None:
+        passed = abs_passed
+    else:
+        passed = rel_passed
     details = None
     if not passed:
         if threshold_abs is not None and threshold_pct is not None:
