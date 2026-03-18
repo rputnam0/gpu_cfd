@@ -287,6 +287,67 @@ class Phase1BuildTests(unittest.TestCase):
         self.assertEqual(run_subprocess.call_count, 2)
 
     @mock.patch("scripts.authority.phase1_build.subprocess.run")
+    def test_run_phase1_build_temporarily_wires_extra_nvcc_flags_into_cuda_rules(
+        self,
+        run_subprocess: mock.Mock,
+    ) -> None:
+        bundle = load_authority_bundle(repo_root())
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_root = pathlib.Path(temp_dir)
+            emitted = emit_phase1_discovery_artifacts(
+                bundle,
+                output_dir=temp_root / "discovery",
+                lane="primary",
+                host_observations=sample_host_observations(),
+                cuda_probe=sample_cuda_probe_payload(),
+                local_mirror_refs=sample_local_mirror_refs(),
+                repo_commit="abc123def456",
+            )
+            source_root = temp_root / "spuma"
+            source_root.mkdir()
+            allwmake = source_root / "Allwmake"
+            allwmake.write_text("#!/usr/bin/env bash\nexit 0\n", encoding="utf-8")
+            allwmake.chmod(0o755)
+            cuda_rules = source_root / "wmake" / "rules" / "General" / "cuda"
+            cuda_rules.parent.mkdir(parents=True)
+            original_cuda_rules = (
+                "cuFLAGS    = \\\n"
+                "    $(cuARCH) $(GFLAGS) $(cuWARN) $(cuOPT) $(cuDBUG) $(ptFLAGS) \\\n"
+                "    $(FOAM_EXTRA_CXXFLAGS) $(CU_LIB_HEADER_DIRS)\n"
+            )
+            cuda_rules.write_text(original_cuda_rules, encoding="utf-8")
+
+            def side_effect(*args, **kwargs):
+                if run_subprocess.call_count == 0:
+                    return subprocess_completed(
+                        stdout=sample_repo_native_probe_output(),
+                        returncode=0,
+                    )
+                patched_rules = cuda_rules.read_text(encoding="utf-8")
+                self.assertIn("$(SPUMA_EXTRA_NVCC_FLAGS)", patched_rules)
+                stdout_handle = kwargs["stdout"]
+                stdout_handle.write("Allwmake ok\n")
+                stdout_handle.flush()
+                return subprocess_completed(returncode=0)
+
+            run_subprocess.side_effect = side_effect
+
+            plan = plan_phase1_build(
+                bundle,
+                source_root=source_root,
+                output_dir=temp_root / "build",
+                discovery_host_env_path=emitted.host_env_path,
+                discovery_manifest_refs_path=emitted.manifest_refs_path,
+                cuda_probe_path=emitted.cuda_probe_path,
+            )
+            run_phase1_build(plan)
+            restored_cuda_rules = cuda_rules.read_text(encoding="utf-8")
+
+        self.assertEqual(restored_cuda_rules, original_cuda_rules)
+        self.assertEqual(run_subprocess.call_count, 2)
+
+    @mock.patch("scripts.authority.phase1_build.subprocess.run")
     def test_run_phase1_build_sources_repo_native_bashrc_when_present(
         self,
         run_subprocess: mock.Mock,
@@ -510,6 +571,119 @@ class Phase1BuildTests(unittest.TestCase):
             )
 
             with self.assertRaisesRegex(Phase1BuildError, "nvcc|12.9.1|12.0"):
+                run_phase1_build(plan)
+
+        self.assertEqual(run_subprocess.call_count, 1)
+
+    @mock.patch("scripts.authority.phase1_build.subprocess.run")
+    def test_run_phase1_build_fails_fast_when_nsys_version_mismatches_frozen_lane(
+        self,
+        run_subprocess: mock.Mock,
+    ) -> None:
+        bundle = load_authority_bundle(repo_root())
+        run_subprocess.side_effect = [
+            subprocess_completed(
+                stdout=(
+                    "WM_COMPILER=Gcc\n"
+                    "NVC=\n"
+                    "NVCC=/usr/bin/nvcc\n"
+                    "NVCC_VERSION=Cuda compilation tools, release 12.9, V12.9.1\n"
+                    "NSYS=/usr/bin/nsys\n"
+                    "NSYS_VERSION=NVIDIA Nsight Systems version 2022.4\n"
+                    "COMPUTE_SANITIZER=/usr/bin/compute-sanitizer\n"
+                    "COMPUTE_SANITIZER_VERSION=Compute Sanitizer version 2025.1\n"
+                    "NVIDIA_SMI=/usr/bin/nvidia-smi\n"
+                    "NVIDIA_SMI_GPU=NVIDIA GeForce RTX 5080, 595.50.00, 16384 MiB\n"
+                ),
+                returncode=0,
+            ),
+        ]
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_root = pathlib.Path(temp_dir)
+            emitted = emit_phase1_discovery_artifacts(
+                bundle,
+                output_dir=temp_root / "discovery",
+                lane="primary",
+                host_observations=sample_host_observations(),
+                cuda_probe=sample_cuda_probe_payload(),
+                local_mirror_refs=sample_local_mirror_refs(),
+                repo_commit="abc123def456",
+            )
+            source_root = temp_root / "spuma"
+            source_root.mkdir()
+            allwmake = source_root / "Allwmake"
+            allwmake.write_text("#!/usr/bin/env bash\nexit 0\n", encoding="utf-8")
+            allwmake.chmod(0o755)
+
+            plan = plan_phase1_build(
+                bundle,
+                source_root=source_root,
+                output_dir=temp_root / "build",
+                discovery_host_env_path=emitted.host_env_path,
+                discovery_manifest_refs_path=emitted.manifest_refs_path,
+                cuda_probe_path=emitted.cuda_probe_path,
+            )
+
+            with self.assertRaisesRegex(Phase1BuildError, "nsys|2025.2|2022.4"):
+                run_phase1_build(plan)
+
+        self.assertEqual(run_subprocess.call_count, 1)
+
+    @mock.patch("scripts.authority.phase1_build.subprocess.run")
+    def test_run_phase1_build_fails_fast_when_compute_sanitizer_version_mismatches_frozen_lane(
+        self,
+        run_subprocess: mock.Mock,
+    ) -> None:
+        bundle = load_authority_bundle(repo_root())
+        run_subprocess.side_effect = [
+            subprocess_completed(
+                stdout=(
+                    "WM_COMPILER=Gcc\n"
+                    "NVC=\n"
+                    "NVCC=/usr/bin/nvcc\n"
+                    "NVCC_VERSION=Cuda compilation tools, release 12.9, V12.9.1\n"
+                    "NSYS=/usr/bin/nsys\n"
+                    "NSYS_VERSION=NVIDIA Nsight Systems version 2025.2\n"
+                    "COMPUTE_SANITIZER=/usr/bin/compute-sanitizer\n"
+                    "COMPUTE_SANITIZER_VERSION=Compute Sanitizer version 2022.4\n"
+                    "NVIDIA_SMI=/usr/bin/nvidia-smi\n"
+                    "NVIDIA_SMI_GPU=NVIDIA GeForce RTX 5080, 595.50.00, 16384 MiB\n"
+                ),
+                returncode=0,
+            ),
+        ]
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_root = pathlib.Path(temp_dir)
+            emitted = emit_phase1_discovery_artifacts(
+                bundle,
+                output_dir=temp_root / "discovery",
+                lane="primary",
+                host_observations=sample_host_observations(),
+                cuda_probe=sample_cuda_probe_payload(),
+                local_mirror_refs=sample_local_mirror_refs(),
+                repo_commit="abc123def456",
+            )
+            source_root = temp_root / "spuma"
+            source_root.mkdir()
+            allwmake = source_root / "Allwmake"
+            allwmake.write_text("#!/usr/bin/env bash\nexit 0\n", encoding="utf-8")
+            allwmake.chmod(0o755)
+
+            plan = plan_phase1_build(
+                bundle,
+                source_root=source_root,
+                output_dir=temp_root / "build",
+                discovery_host_env_path=emitted.host_env_path,
+                discovery_manifest_refs_path=emitted.manifest_refs_path,
+                cuda_probe_path=emitted.cuda_probe_path,
+            )
+
+            with self.assertRaisesRegex(
+                Phase1BuildError,
+                "compute-sanitizer|2025.1|2022.4",
+            ):
                 run_phase1_build(plan)
 
         self.assertEqual(run_subprocess.call_count, 1)

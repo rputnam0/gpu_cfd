@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import contextlib
 import json
 import os
 import pathlib
@@ -207,16 +208,17 @@ def run_phase1_build(plan: Phase1BuildPlan) -> Phase1BuildResult:
         raise
 
     env = os.environ.copy()
-    with plan.log_path.open("w", encoding="utf-8") as handle:
-        completed = subprocess.run(
-            _build_shell_command(plan),
-            cwd=plan.source_root,
-            env=env,
-            text=True,
-            stdout=handle,
-            stderr=subprocess.STDOUT,
-            check=False,
-        )
+    with _patched_cuda_rules(plan):
+        with plan.log_path.open("w", encoding="utf-8") as handle:
+            completed = subprocess.run(
+                _build_shell_command(plan),
+                cwd=plan.source_root,
+                env=env,
+                text=True,
+                stdout=handle,
+                stderr=subprocess.STDOUT,
+                check=False,
+            )
 
     result = Phase1BuildResult(
         succeeded=completed.returncode == 0,
@@ -608,6 +610,38 @@ def _build_shell_preamble(plan: Phase1BuildPlan) -> list[str]:
             continue
         segments.append(f"export {key}={shlex.quote(value)}")
     return segments
+
+
+@contextlib.contextmanager
+def _patched_cuda_rules(plan: Phase1BuildPlan):
+    cuda_rules_path = plan.source_root / "wmake" / "rules" / "General" / "cuda"
+    if not cuda_rules_path.is_file():
+        yield
+        return
+
+    original_text = cuda_rules_path.read_text(encoding="utf-8")
+    patched_text = _inject_spuma_extra_nvcc_flags(original_text)
+    if patched_text == original_text:
+        yield
+        return
+
+    cuda_rules_path.write_text(patched_text, encoding="utf-8")
+    try:
+        yield
+    finally:
+        cuda_rules_path.write_text(original_text, encoding="utf-8")
+
+
+def _inject_spuma_extra_nvcc_flags(cuda_rules_text: str) -> str:
+    if "$(SPUMA_EXTRA_NVCC_FLAGS)" in cuda_rules_text:
+        return cuda_rules_text
+    marker = "$(FOAM_EXTRA_CXXFLAGS) $(CU_LIB_HEADER_DIRS)"
+    replacement = "$(FOAM_EXTRA_CXXFLAGS) $(SPUMA_EXTRA_NVCC_FLAGS) $(CU_LIB_HEADER_DIRS)"
+    if marker not in cuda_rules_text:
+        raise Phase1BuildError(
+            "unable to patch SPUMA CUDA rules for deterministic extra nvcc flags"
+        )
+    return cuda_rules_text.replace(marker, replacement, 1)
 
 
 def _validate_repo_native_toolchain(plan: Phase1BuildPlan) -> None:
