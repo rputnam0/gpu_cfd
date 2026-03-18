@@ -1,0 +1,57 @@
+name: review-state-reconcile
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    types:
+      - opened
+      - reopened
+      - synchronize
+      - ready_for_review
+      - closed
+  pull_request_review:
+    types:
+      - submitted
+      - dismissed
+      - edited
+  pull_request_review_comment:
+    types:
+      - created
+      - edited
+      - deleted
+  schedule:
+    - cron: "17 * * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pull-requests: write
+  statuses: write
+
+concurrency:
+  group: review-state-reconcile-${{ github.repository }}
+
+jobs:
+  review-state-reconcile:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v6
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Reconcile open review state
+        env:
+          GH_TOKEN: ${{ secrets.REVIEW_BRIDGE_GH_TOKEN != '' && secrets.REVIEW_BRIDGE_GH_TOKEN || github.token }}
+          LINEAR_API_KEY: ${{ secrets.LINEAR_API_KEY }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+        run: uv run python scripts/symphony/reconcile_review_state.py --repo "$GITHUB_REPOSITORY" --apply

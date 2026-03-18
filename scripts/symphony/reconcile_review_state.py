@@ -27,6 +27,7 @@ PR_FIELDS = ",".join(
         "url",
         "state",
         "isDraft",
+        "mergeStateStatus",
     ]
 )
 
@@ -77,6 +78,11 @@ def list_open_prs(repo: str | None) -> list[devin_review_gate.PullRequestSnapsho
                 url=str(item.get("url") or ""),
                 state=str(item.get("state") or "UNKNOWN"),
                 is_draft=bool(item.get("isDraft")),
+                merge_state_status=(
+                    str(item.get("mergeStateStatus"))
+                    if item.get("mergeStateStatus") is not None
+                    else None
+                ),
             )
         )
     return snapshots
@@ -158,14 +164,42 @@ def reconcile_snapshot(
                 "current_state": update_result["current_state"],
                 "target_state": devin_review_gate.DEFAULT_REWORK_STATE,
             }
-            workpad_warning = devin_review_gate.sync_rework_workpad_best_effort(
+            workpad_warning = devin_review_gate.sync_followup_workpad_best_effort(
                 issue_identifier,
                 summary,
+                target_state=devin_review_gate.DEFAULT_REWORK_STATE,
             )
             if workpad_warning:
                 result["workpad_sync_warning"] = workpad_warning
         result["linear_action"] = linear_action
         result["status"] = "rework_required"
+        return result
+
+    if decision.review_state == "branch_refresh_required":
+        linear_action = {
+            "applied": False,
+            "target_state": devin_review_gate.DEFAULT_REFRESH_REQUIRED_STATE,
+        }
+        if apply_changes:
+            update_result = linear_api.update_issue_state(
+                issue_identifier,
+                devin_review_gate.DEFAULT_REFRESH_REQUIRED_STATE,
+            )
+            linear_action = {
+                "applied": bool(update_result["changed"]),
+                "previous_state": update_result["previous_state"],
+                "current_state": update_result["current_state"],
+                "target_state": devin_review_gate.DEFAULT_REFRESH_REQUIRED_STATE,
+            }
+            workpad_warning = devin_review_gate.sync_followup_workpad_best_effort(
+                issue_identifier,
+                summary,
+                target_state=devin_review_gate.DEFAULT_REFRESH_REQUIRED_STATE,
+            )
+            if workpad_warning:
+                result["workpad_sync_warning"] = workpad_warning
+        result["linear_action"] = linear_action
+        result["status"] = "refresh_required"
         return result
 
     auto_merge_result = {"applied": False, "status": "skipped"}

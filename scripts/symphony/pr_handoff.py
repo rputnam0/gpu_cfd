@@ -17,14 +17,27 @@ from dataclasses import dataclass
 from typing import Any
 
 try:
-    from scripts.symphony import devin_review_gate, linear_api, review_loop, trace
+    from scripts.symphony import (
+        devin_review_gate,
+        linear_api,
+        review_loop,
+        trace,
+        workspace_sync,
+    )
 except ModuleNotFoundError:  # pragma: no cover - script execution fallback
     sys.path.append(str(pathlib.Path(__file__).resolve().parents[2]))
-    from scripts.symphony import devin_review_gate, linear_api, review_loop, trace
+    from scripts.symphony import (
+        devin_review_gate,
+        linear_api,
+        review_loop,
+        trace,
+        workspace_sync,
+    )
 
 
 IN_REVIEW_STATE = "In Review"
 REWORK_STATE = "Rework"
+REFRESH_REQUIRED_STATE = "Refresh Required"
 LOCAL_REMEDIATION_STATE = "In Progress"
 LOCAL_REVIEW_PARKED_STATE = "Ready to Merge"
 DEFAULT_BASE_BRANCH = "origin/main"
@@ -125,7 +138,9 @@ def parse_args() -> argparse.Namespace:
 
 
 def control_repo_root() -> pathlib.Path:
-    return pathlib.Path(__file__).resolve().parents[2]
+    return workspace_sync.resolve_control_repo_root(
+        pathlib.Path(__file__).resolve().parents[2]
+    )
 
 
 def workspace_issue_identifier(workspace: pathlib.Path) -> str:
@@ -165,6 +180,13 @@ def origin_remote_url(workspace: pathlib.Path) -> str:
 
 def refresh_origin_refs(workspace: pathlib.Path) -> None:
     run_checked(["git", "fetch", "origin", "--prune"], cwd=workspace)
+
+
+def sync_control_plane(workspace: pathlib.Path) -> dict[str, Any]:
+    try:
+        return workspace_sync.sync_control_plane(control_repo_root(), workspace)
+    except workspace_sync.WorkspaceSyncError as exc:
+        raise HandoffError(str(exc)) from exc
 
 
 def base_ref_commit(workspace: pathlib.Path, base_ref: str = DEFAULT_BASE_BRANCH) -> str:
@@ -782,7 +804,15 @@ def handle_branch_refresh_required(
     review_workspace_note: str | None = None,
     artifact_copy_note: str | None = None,
 ) -> int:
-    current_status = "rework_refresh_required" if issue_state == REWORK_STATE else "branch_refresh_required"
+    current_status = (
+        "refresh_required"
+        if issue_state == REFRESH_REQUIRED_STATE
+        else (
+            "rework_refresh_required"
+            if issue_state == REWORK_STATE
+            else "branch_refresh_required"
+        )
+    )
     refresh_reason = str(conflict_summary.get("reason") or "conflict")
     if refresh_reason == "behind":
         validation = [
@@ -874,6 +904,67 @@ def handle_branch_refresh_required(
     return 0
 
 
+def handle_refresh_conflict_rework(
+    *,
+    issue_identifier: str,
+    issue_title: str,
+    branch: str,
+    conflict_summary: dict[str, Any],
+) -> int:
+    linear_update = linear_api.update_issue_state(issue_identifier, REWORK_STATE)
+    workpad_warning = sync_workpad_best_effort(
+        issue_identifier=issue_identifier,
+        issue_title=issue_title,
+        current_status="rework",
+        validation=[
+            (
+                f"Refresh against `{conflict_summary['base_ref']}` reported merge conflicts "
+                "and could not return directly to GitHub auto-merge."
+            )
+        ],
+        risks_blockers=[
+            "Manual conflict resolution is required before the branch can return to `In Review`.",
+        ],
+        review_handoff_notes=[
+            (
+                "Refresh-only recovery escalated to `Rework`. Resolve the merge conflicts on "
+                "the current branch, rerun the smallest relevant validation, push, and rerun "
+                "`scripts/symphony/pr_handoff.py`."
+            ),
+            f"Refresh conflict details: {conflict_summary['details']}",
+            "Review cycle phase: refresh_conflict_escalated",
+            "Stop worker: false",
+        ],
+    )
+    result: dict[str, Any] = {
+        "issue_identifier": issue_identifier,
+        "issue_title": issue_title,
+        "branch": branch,
+        "handoff_status": "refresh_conflict_rework",
+        "review_cycle_phase": "refresh_conflict_escalated",
+        "continue_same_worker": True,
+        "stop_worker": False,
+        "next_action": "resolve_merge_conflicts_and_rerun_handoff",
+        "base_ref": conflict_summary["base_ref"],
+        "base_commit": conflict_summary["base_commit"],
+        "review": {
+            "status": "blocked",
+            "message": conflict_summary["details"],
+            "manifest": None,
+        },
+        "linear_update": {
+            "previous_state": linear_update["previous_state"],
+            "current_state": linear_update["current_state"],
+            "changed": linear_update["changed"],
+        },
+    }
+    if workpad_warning:
+        result["workpad_sync_warning"] = workpad_warning
+        print(workpad_warning, file=sys.stderr)
+    print(json.dumps(result, indent=2))
+    return 0
+
+
 def main() -> int:
     args = parse_args()
     workspace = pathlib.Path(args.workspace).resolve()
@@ -882,7 +973,31 @@ def main() -> int:
     issue_title = issue.get("title") or issue_identifier
     issue_state = str(issue.get("state", {}).get("name") or "")
     workspace_branch = current_branch(workspace)
-    refresh_origin_refs(workspace)
+    sync_result = sync_control_plane(workspace)
+    if trace.is_enabled():
+        run_manifest = trace.ensure_run(
+            issue_id=issue_identifier,
+            run_kind="rework" if issue_state in {REWORK_STATE, REFRESH_REQUIRED_STATE} else "implementation",
+            branch=workspace_branch,
+        )
+        sync_artifact = trace.capture_json_artifact(
+            issue_id=issue_identifier,
+            run_id=run_manifest["run_id"],
+            artifact_type="control_plane_sync",
+            label="Workspace Control-plane Sync",
+            payload=sync_result,
+            filename="control_plane_sync.json",
+        )
+        trace.capture_event(
+            issue_id=issue_identifier,
+            run_id=run_manifest["run_id"],
+            actor="Symphony",
+            stage="handoff_bootstrap_sync",
+            summary="Synchronized canonical control-plane files before PR handoff",
+            decision=sync_result["status"],
+            decision_rationale="Handoff bootstraps the issue workspace before local review or PR automation.",
+            artifact_refs=[sync_artifact["artifact_id"]],
+        )
 
     if issue_state == IN_REVIEW_STATE:
         existing_pr = find_existing_pr(workspace, workspace_branch)
@@ -924,6 +1039,7 @@ def main() -> int:
         return 0
 
     is_rework_run = issue_state == REWORK_STATE
+    is_refresh_run = issue_state == REFRESH_REQUIRED_STATE
 
     if is_rework_run:
         if workspace_branch in {"", "main"}:
@@ -1032,6 +1148,83 @@ def main() -> int:
                 artifact_refs=[artifact["artifact_id"]],
                 metadata={"pr_url": pr_ref.url, "pr_number": pr_ref.number},
             )
+        print(json.dumps(result, indent=2))
+        return 0
+
+    if is_refresh_run:
+        if workspace_branch in {"", "main"}:
+            raise HandoffError("refusing PR handoff from the default branch")
+        conflict_summary = merge_conflict_summary(workspace)
+        if conflict_summary is not None:
+            if str(conflict_summary.get("reason") or "") == "conflict":
+                return handle_refresh_conflict_rework(
+                    issue_identifier=issue_identifier,
+                    issue_title=issue_title,
+                    branch=workspace_branch,
+                    conflict_summary=conflict_summary,
+                )
+            return handle_branch_refresh_required(
+                issue_identifier=issue_identifier,
+                issue_title=issue_title,
+                issue_state=issue_state,
+                branch=workspace_branch,
+                conflict_summary=conflict_summary,
+            )
+        ensure_branch_pushed(workspace, workspace_branch)
+        pr_ref = ensure_pr(workspace, issue_identifier, issue_title, workspace_branch)
+        enable_auto_merge(workspace, pr_ref.number)
+        linear_update = linear_api.update_issue_state(issue_identifier, IN_REVIEW_STATE)
+        reset_local_review_rounds(workspace, workspace_branch)
+        result = {
+            "issue_identifier": issue_identifier,
+            "issue_title": issue_title,
+            "branch": workspace_branch,
+            "handoff_status": "refresh_complete",
+            "review_cycle_phase": "refresh_complete",
+            "stop_worker": True,
+            "continue_same_worker": False,
+            "residual_followups": [],
+            "review": {
+                "status": "skipped",
+                "message": (
+                    "Refresh Required bypassed local Codex review. After the branch contains "
+                    "fresh `origin/main`, it returns directly to GitHub auto-merge."
+                ),
+                "manifest": None,
+            },
+            "pull_request": {
+                "number": pr_ref.number,
+                "url": pr_ref.url,
+                "auto_merge_enabled": True,
+            },
+            "linear_update": {
+                "previous_state": linear_update["previous_state"],
+                "current_state": linear_update["current_state"],
+                "changed": linear_update["changed"],
+            },
+        }
+        workpad_warning = sync_workpad_best_effort(
+            issue_identifier=issue_identifier,
+            issue_title=issue_title,
+            current_status="in_review",
+            validation=[
+                "The branch was refreshed against the latest `origin/main` and bypassed local Codex review.",
+                "GitHub auto-merge enabled for the current pull request.",
+            ],
+            review_handoff_notes=[
+                "Refresh Required bypassed local Codex review after the branch refresh completed cleanly.",
+                f"PR opened or updated: {pr_ref.url}",
+                (
+                    f"Linear moved to {linear_update['current_state']} from "
+                    f"{linear_update['previous_state']}."
+                ),
+                "Review cycle phase: refresh_complete",
+                "Stop worker: true",
+            ],
+        )
+        if workpad_warning:
+            result["workpad_sync_warning"] = workpad_warning
+            print(workpad_warning, file=sys.stderr)
         print(json.dumps(result, indent=2))
         return 0
 

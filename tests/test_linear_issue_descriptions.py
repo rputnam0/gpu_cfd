@@ -24,20 +24,26 @@ class LinearIssueDescriptionsTests(unittest.TestCase):
         self.assertIn("Start with `AGENTS.md`.", description)
         self.assertIn("use `docs/tasks/pr_inventory.md` as the fallback map", description)
         self.assertNotIn("Resolve the PR card through", description)
-        self.assertIn("Write or update the canonical Linear workpad before edits", description)
+        self.assertIn(
+            "Write or update the canonical Linear workpad before broader exploration or edits",
+            description,
+        )
         self.assertIn("native Codex sub-agents", description)
         self.assertIn("`gpt-5.4-mini`", description)
         self.assertIn("explicitly set that model", description)
-        self.assertIn("Do not fetch full Linear details for already-done dependency issues", description)
-        self.assertIn("keep code edits, tests, Linear updates, PR handoff, and final technical judgment on the main `gpt-5.4` worker", description)
+        self.assertIn("summarize helper findings in the workpad", description)
+        self.assertIn(
+            "keep code edits, tests, Linear updates, PR handoff, and final technical judgment on the main `gpt-5.4` worker",
+            description,
+        )
         self.assertIn("## Review flow", description)
         self.assertIn("Local review is finite", description)
         self.assertIn("child `Backlog` issues", description)
-        self.assertIn("progresses to `In Review`", description)
-        self.assertIn("branch_refresh_required", description)
+        self.assertIn("cleanup sweep", description)
+        self.assertIn("Refresh Required", description)
         self.assertIn("latest `origin/main`", description)
-        self.assertIn("becomes `BEHIND` / `DIRTY`", description)
-        self.assertIn("`Rework` does not reopen local Codex review", description)
+        self.assertIn("clean `BEHIND` or `DIRTY` PRs", description)
+        self.assertIn("both bypass another local Codex review", description)
         self.assertIn("docs/authority/README.md", description)
         self.assertIn("## Task routing", description)
         self.assertNotIn("## Task card", description)

@@ -237,6 +237,89 @@ class LinearApiTests(unittest.TestCase):
         self.assertEqual(result["current_description"], "expected body")
         mock_graphql.assert_not_called()
 
+    @mock.patch("scripts.symphony.linear_api.graphql")
+    @mock.patch("scripts.symphony.linear_api.resolve_state_id")
+    @mock.patch("scripts.symphony.linear_api.fetch_issue")
+    def test_update_issue_only_sends_changed_fields(
+        self,
+        mock_fetch_issue: mock.Mock,
+        mock_resolve_state_id: mock.Mock,
+        mock_graphql: mock.Mock,
+    ) -> None:
+        mock_fetch_issue.return_value = {
+            "id": "issue-17",
+            "identifier": "PRO-17",
+            "description": "existing body",
+            "parent": {"id": "issue-10", "identifier": "PRO-10"},
+            "labels": {"nodes": [{"name": "phase-cleanup"}]},
+            "state": {"name": "In Review"},
+            "team": {"states": {"nodes": [{"id": "state-done", "name": "Done"}]}},
+        }
+        mock_resolve_state_id.return_value = "state-done"
+        mock_graphql.return_value = {
+            "issueUpdate": {
+                "issue": {
+                    "id": "issue-17",
+                    "identifier": "PRO-17",
+                    "description": "existing body",
+                    "parent": {"id": "issue-10", "identifier": "PRO-10"},
+                    "labels": {"nodes": [{"name": "phase-cleanup"}]},
+                    "state": {"id": "state-done", "name": "Done"},
+                }
+            }
+        }
+
+        result = linear_api.update_issue("PRO-17", target_state_name="Done")
+
+        self.assertTrue(result["changed"])
+        mutation, variables = mock_graphql.call_args.args
+        self.assertIn("$stateId: String", mutation)
+        self.assertNotIn("$description: String", mutation)
+        self.assertNotIn("$parentId: String", mutation)
+        self.assertNotIn("$labelIds: [String!]", mutation)
+        self.assertEqual(variables, {"id": "issue-17", "stateId": "state-done"})
+
+    @mock.patch("scripts.symphony.linear_api.graphql")
+    @mock.patch("scripts.symphony.linear_api.resolve_label_ids")
+    @mock.patch("scripts.symphony.linear_api.fetch_issue")
+    def test_update_issue_can_clear_labels_without_touching_other_fields(
+        self,
+        mock_fetch_issue: mock.Mock,
+        mock_resolve_label_ids: mock.Mock,
+        mock_graphql: mock.Mock,
+    ) -> None:
+        mock_fetch_issue.return_value = {
+            "id": "issue-17",
+            "identifier": "PRO-17",
+            "description": "existing body",
+            "parent": {"id": "issue-10", "identifier": "PRO-10"},
+            "labels": {"nodes": [{"name": "phase-cleanup"}]},
+            "state": {"name": "In Review"},
+            "team": {"states": {"nodes": []}},
+        }
+        mock_resolve_label_ids.return_value = []
+        mock_graphql.return_value = {
+            "issueUpdate": {
+                "issue": {
+                    "id": "issue-17",
+                    "identifier": "PRO-17",
+                    "description": "existing body",
+                    "parent": {"id": "issue-10", "identifier": "PRO-10"},
+                    "labels": {"nodes": []},
+                    "state": {"id": "state-review", "name": "In Review"},
+                }
+            }
+        }
+
+        result = linear_api.update_issue("PRO-17", label_names=[])
+
+        self.assertTrue(result["changed"])
+        mutation, variables = mock_graphql.call_args.args
+        self.assertIn("$labelIds: [String!]", mutation)
+        self.assertNotIn("$description: String", mutation)
+        self.assertEqual(variables, {"id": "issue-17", "labelIds": []})
+        self.assertEqual(result["current_labels"], [])
+
     def test_dependent_is_unblocked_only_when_all_blockers_are_done(self) -> None:
         dependent = {
             "inverseRelations": {

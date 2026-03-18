@@ -54,6 +54,11 @@ RESIDUAL_FOLLOWUP_MARKER_PATTERN = re.compile(
     r"<!--\s*gpu-cfd-residual-followup:v1\s+parent=(?P<parent>[A-Z]+-\d+)\s+fingerprint=(?P<fingerprint>[a-f0-9]{12})\s*-->",
     re.IGNORECASE,
 )
+PHASE_CLEANUP_MARKER_PATTERN = re.compile(
+    r"<!--\s*gpu-cfd-phase-cleanup:v1\s+section=(?P<section>[a-z0-9-]+)\s*-->",
+    re.IGNORECASE,
+)
+_UNSET = object()
 
 ISSUE_BY_IDENTIFIER_QUERY = """
 query($teamKey: String!, $number: Float!) {
@@ -69,6 +74,10 @@ query($teamKey: String!, $number: Float!) {
         nodes {
           name
         }
+      }
+      parent {
+        id
+        identifier
       }
       state {
         id
@@ -128,6 +137,28 @@ mutation($id: String!, $stateId: String!) {
     }
   }
 }
+"""
+
+ISSUE_UPDATE_MUTATION_SELECTION = """
+    success
+    issue {
+      id
+      identifier
+      description
+      parent {
+        id
+        identifier
+      }
+      labels {
+        nodes {
+          name
+        }
+      }
+      state {
+        id
+        name
+      }
+    }
 """
 
 ISSUE_UPDATE_DESCRIPTION_MUTATION = """
@@ -264,6 +295,11 @@ query($teamKey: String!, $after: String) {
       parent {
         id
         identifier
+      }
+      labels {
+        nodes {
+          name
+        }
       }
       state {
         name
@@ -472,6 +508,117 @@ def update_issue_state(issue_identifier: str, target_state_name: str) -> dict[st
         "previous_state": current_state,
         "current_state": updated_issue.get("state", {}).get("name"),
     }
+
+
+def update_issue(
+    issue_identifier: str,
+    *,
+    target_state_name: str | object = _UNSET,
+    description: str | object = _UNSET,
+    parent_identifier: str | None | object = _UNSET,
+    label_names: list[str] | object = _UNSET,
+) -> dict[str, Any]:
+    issue = fetch_issue(issue_identifier)
+    variables: dict[str, Any] = {"id": issue["id"]}
+    changed = False
+
+    previous_state = str((issue.get("state") or {}).get("name") or "")
+    previous_description = str(issue.get("description") or "")
+    previous_parent_identifier = str(((issue.get("parent") or {}).get("identifier")) or "")
+    previous_labels = [
+        str(node.get("name") or "").strip()
+        for node in (issue.get("labels") or {}).get("nodes", [])
+        if str(node.get("name") or "").strip()
+    ]
+    mutation_input: dict[str, Any] = {}
+
+    if target_state_name is not _UNSET:
+        if previous_state != target_state_name:
+            mutation_input["stateId"] = resolve_state_id(issue, str(target_state_name))
+            changed = True
+    if description is not _UNSET:
+        if previous_description != str(description):
+            mutation_input["description"] = description
+            changed = True
+    if parent_identifier is not _UNSET:
+        normalized_parent = (
+            normalize_issue_identifier(str(parent_identifier))
+            if isinstance(parent_identifier, str) and parent_identifier.strip()
+            else None
+        )
+        if previous_parent_identifier != (normalized_parent or ""):
+            mutation_input["parentId"] = (
+                fetch_issue(normalized_parent)["id"] if normalized_parent else None
+            )
+            changed = True
+    if label_names is not _UNSET:
+        normalized_labels = sorted({name.strip() for name in list(label_names) if name.strip()})
+        if sorted(previous_labels) != normalized_labels:
+            mutation_input["labelIds"] = resolve_label_ids(normalized_labels)
+            changed = True
+
+    if not changed:
+        return {
+            "changed": False,
+            "issue": issue,
+            "previous_state": previous_state,
+            "current_state": previous_state,
+            "previous_description": previous_description,
+            "current_description": previous_description,
+            "previous_parent_identifier": previous_parent_identifier or None,
+            "current_parent_identifier": previous_parent_identifier or None,
+            "previous_labels": previous_labels,
+            "current_labels": previous_labels,
+        }
+
+    variables.update(mutation_input)
+    mutation_data = graphql(build_issue_update_mutation(mutation_input.keys()), variables)
+    updated_issue = mutation_data["issueUpdate"]["issue"]
+    updated_parent_identifier = str(
+        ((updated_issue.get("parent") or {}).get("identifier")) or ""
+    )
+    updated_labels = [
+        str(node.get("name") or "").strip()
+        for node in (updated_issue.get("labels") or {}).get("nodes", [])
+        if str(node.get("name") or "").strip()
+    ]
+    return {
+        "changed": True,
+        "issue": updated_issue,
+        "previous_state": previous_state,
+        "current_state": updated_issue.get("state", {}).get("name"),
+        "previous_description": previous_description,
+        "current_description": str(updated_issue.get("description") or ""),
+        "previous_parent_identifier": previous_parent_identifier or None,
+        "current_parent_identifier": updated_parent_identifier or None,
+        "previous_labels": previous_labels,
+        "current_labels": updated_labels,
+    }
+
+
+def build_issue_update_mutation(input_keys: Any) -> str:
+    field_types = {
+        "stateId": "String",
+        "description": "String",
+        "parentId": "String",
+        "labelIds": "[String!]",
+    }
+    ordered_keys = [key for key in field_types if key in set(input_keys)]
+    variable_definitions = ["$id: String!"] + [
+        f"${key}: {field_types[key]}" for key in ordered_keys
+    ]
+    input_fields = ", ".join(f"{key}: ${key}" for key in ordered_keys)
+    return (
+        "mutation("
+        + ", ".join(variable_definitions)
+        + ") {\n"
+        + "  issueUpdate(id: $id, input: { "
+        + input_fields
+        + " }) {\n"
+        + ISSUE_UPDATE_MUTATION_SELECTION
+        + "  }\n"
+        + "}\n"
+    )
 
 
 def update_issue_description(issue_identifier: str, description: str) -> dict[str, Any]:
@@ -904,6 +1051,17 @@ def extract_residual_followup_marker(description: str) -> dict[str, str] | None:
         "parent": normalize_issue_identifier(match.group("parent")),
         "fingerprint": str(match.group("fingerprint")).lower(),
     }
+
+
+def render_phase_cleanup_marker(section_slug: str) -> str:
+    return f"<!-- gpu-cfd-phase-cleanup:v1 section={section_slug.strip().lower()} -->"
+
+
+def extract_phase_cleanup_marker(description: str) -> dict[str, str] | None:
+    match = PHASE_CLEANUP_MARKER_PATTERN.search(description or "")
+    if match is None:
+        return None
+    return {"section": str(match.group("section")).strip().lower()}
 
 
 def residual_followup_fingerprint(

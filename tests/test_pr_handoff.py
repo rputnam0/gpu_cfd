@@ -11,6 +11,14 @@ from scripts.symphony import pr_handoff
 
 
 class PrHandoffTests(unittest.TestCase):
+    def setUp(self) -> None:
+        patcher = mock.patch(
+            "scripts.symphony.pr_handoff.sync_control_plane",
+            return_value={"status": "ok"},
+        )
+        self.mock_sync_control_plane = patcher.start()
+        self.addCleanup(patcher.stop)
+
     @staticmethod
     @contextlib.contextmanager
     def _prepared_workspace(
@@ -579,6 +587,116 @@ class PrHandoffTests(unittest.TestCase):
             self.assertIn(
                 "directly to GitHub auto-merge".lower(),
                 " ".join(mock_sync_workpad.call_args.kwargs["review_handoff_notes"]).lower(),
+            )
+
+    @mock.patch("builtins.print")
+    @mock.patch("scripts.symphony.pr_handoff.trace.is_enabled", return_value=False)
+    @mock.patch("scripts.symphony.pr_handoff.merge_conflict_summary")
+    @mock.patch("scripts.symphony.pr_handoff.sync_workpad")
+    @mock.patch("scripts.symphony.pr_handoff.linear_api.update_issue_state")
+    @mock.patch("scripts.symphony.pr_handoff.enable_auto_merge")
+    @mock.patch("scripts.symphony.pr_handoff.ensure_pr")
+    @mock.patch("scripts.symphony.pr_handoff.ensure_branch_pushed")
+    @mock.patch("scripts.symphony.pr_handoff.linear_api.fetch_issue")
+    @mock.patch("scripts.symphony.pr_handoff.parse_args")
+    def test_main_refresh_required_bypasses_local_review_and_returns_to_in_review(
+        self,
+        mock_parse_args: mock.Mock,
+        mock_fetch_issue: mock.Mock,
+        mock_ensure_branch_pushed: mock.Mock,
+        mock_ensure_pr: mock.Mock,
+        mock_enable_auto_merge: mock.Mock,
+        mock_update_issue_state: mock.Mock,
+        mock_sync_workpad: mock.Mock,
+        mock_merge_conflict_summary: mock.Mock,
+        _mock_trace_is_enabled: mock.Mock,
+        _mock_print: mock.Mock,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            workspace = pathlib.Path(temp_dir) / "PRO-10"
+            workspace.mkdir()
+
+            mock_parse_args.return_value = mock.Mock(workspace=str(workspace))
+            mock_fetch_issue.return_value = {
+                "title": "Example refresh",
+                "state": {"name": "Refresh Required"},
+            }
+            mock_merge_conflict_summary.return_value = None
+            mock_ensure_pr.return_value = pr_handoff.PullRequestRef(
+                number=10,
+                url="https://github.com/example/pull/10",
+                is_draft=False,
+            )
+            mock_update_issue_state.return_value = {
+                "previous_state": "Refresh Required",
+                "current_state": "In Review",
+                "changed": True,
+            }
+
+            with mock.patch(
+                "scripts.symphony.pr_handoff.current_branch",
+                return_value="codex/pro-10-example",
+            ):
+                result = pr_handoff.main()
+
+            self.assertEqual(result, 0)
+            mock_ensure_branch_pushed.assert_called_once()
+            mock_enable_auto_merge.assert_called_once_with(mock.ANY, 10)
+            mock_update_issue_state.assert_called_once_with("PRO-10", "In Review")
+            self.assertIn(
+                "bypassed local codex review",
+                " ".join(mock_sync_workpad.call_args.kwargs["validation"]).lower(),
+            )
+
+    @mock.patch("builtins.print")
+    @mock.patch("scripts.symphony.pr_handoff.trace.is_enabled", return_value=False)
+    @mock.patch("scripts.symphony.pr_handoff.merge_conflict_summary")
+    @mock.patch("scripts.symphony.pr_handoff.sync_workpad")
+    @mock.patch("scripts.symphony.pr_handoff.linear_api.update_issue_state")
+    @mock.patch("scripts.symphony.pr_handoff.linear_api.fetch_issue")
+    @mock.patch("scripts.symphony.pr_handoff.parse_args")
+    def test_main_refresh_required_conflict_escalates_to_rework(
+        self,
+        mock_parse_args: mock.Mock,
+        mock_fetch_issue: mock.Mock,
+        mock_update_issue_state: mock.Mock,
+        mock_sync_workpad: mock.Mock,
+        mock_merge_conflict_summary: mock.Mock,
+        _mock_trace_is_enabled: mock.Mock,
+        _mock_print: mock.Mock,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            workspace = pathlib.Path(temp_dir) / "PRO-10"
+            workspace.mkdir()
+
+            mock_parse_args.return_value = mock.Mock(workspace=str(workspace))
+            mock_fetch_issue.return_value = {
+                "title": "Example refresh",
+                "state": {"name": "Refresh Required"},
+            }
+            mock_merge_conflict_summary.return_value = {
+                "base_ref": "origin/main",
+                "base_commit": "abc123",
+                "details": "CONFLICT (content): example conflict",
+                "reason": "conflict",
+            }
+            mock_update_issue_state.return_value = {
+                "previous_state": "Refresh Required",
+                "current_state": "Rework",
+                "changed": True,
+            }
+
+            with mock.patch(
+                "scripts.symphony.pr_handoff.current_branch",
+                return_value="codex/pro-10-example",
+            ):
+                result = pr_handoff.main()
+
+            self.assertEqual(result, 0)
+            mock_update_issue_state.assert_called_once_with("PRO-10", "Rework")
+            self.assertIn(
+                "manual conflict resolution is required",
+                " ".join(mock_sync_workpad.call_args.kwargs["risks_blockers"]).lower(),
             )
 
     @mock.patch("builtins.print")

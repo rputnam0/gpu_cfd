@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import collections
 import json
 import os
 import pathlib
@@ -14,11 +15,11 @@ import threading
 from typing import Any
 
 try:
-    from scripts.symphony import linear_api, runtime_config, trace
+    from scripts.symphony import linear_api, runtime_config, trace, workspace_sync
     from scripts.authority import load_authority_bundle, validate_source_audit_note
 except ModuleNotFoundError:  # pragma: no cover - script execution fallback
     sys.path.append(str(pathlib.Path(__file__).resolve().parents[2]))
-    from scripts.symphony import linear_api, runtime_config, trace
+    from scripts.symphony import linear_api, runtime_config, trace, workspace_sync
     from scripts.authority import load_authority_bundle, validate_source_audit_note
 
 
@@ -71,6 +72,11 @@ SOURCE_AUDIT_PHASE_REQUIREMENTS = {
         ],
     },
 }
+HELPER_AGENT_NAMES = (
+    "docs_scout",
+    "codepath_scout",
+    "review_payload_scout",
+)
 
 
 class DispatchError(RuntimeError):
@@ -88,7 +94,9 @@ def parse_args() -> argparse.Namespace:
 
 
 def repo_root() -> pathlib.Path:
-    return pathlib.Path(__file__).resolve().parents[2]
+    return workspace_sync.resolve_control_repo_root(
+        pathlib.Path(__file__).resolve().parents[2]
+    )
 
 
 def workspace_root() -> pathlib.Path:
@@ -124,20 +132,13 @@ def current_commit(root: pathlib.Path) -> str | None:
 
 
 def refresh_origin_refs(root: pathlib.Path) -> None:
-    completed = subprocess.run(
-        ["git", "fetch", "origin", "--prune"],
-        cwd=root,
-        text=True,
-        capture_output=True,
-        check=False,
-    )
-    if completed.returncode == 0:
-        return
-    raise DispatchError(
-        "Failed to refresh origin refs before worker dispatch.\n"
-        f"stdout:\n{completed.stdout}\n"
-        f"stderr:\n{completed.stderr}"
-    )
+    try:
+        workspace_sync.refresh_origin_refs(root)
+    except workspace_sync.WorkspaceSyncError as exc:
+        raise DispatchError(
+            "Failed to refresh origin refs before worker dispatch.\n"
+            f"{exc}"
+        ) from exc
 
 
 def read_text(path: pathlib.Path) -> str:
@@ -164,6 +165,22 @@ def issue_state_name(issue_payload: dict[str, Any]) -> str:
     if isinstance(state, dict):
         return str(state.get("name") or "")
     return str(state or "")
+
+
+def require_launch_labels(
+    issue_payload: dict[str, Any],
+    *,
+    required_labels: tuple[str, ...] = workspace_sync.DEFAULT_REQUIRED_LAUNCH_LABELS,
+) -> None:
+    labels = set(normalize_labels(issue_payload.get("labels")))
+    missing = [label for label in required_labels if label not in labels]
+    if not missing:
+        return
+    issue_identifier = str(issue_payload.get("identifier") or "").strip() or "<unknown issue>"
+    raise DispatchError(
+        f"{issue_identifier} is not eligible for Symphony dispatch without required label(s): "
+        + ", ".join(missing)
+    )
 
 
 def strip_front_matter(document_text: str) -> str:
@@ -493,6 +510,9 @@ def build_dispatch_context(
         "issue_state": issue_state_name(issue_payload),
         "issue_url": issue_payload.get("url"),
         "labels": normalize_labels(issue_payload.get("labels")),
+        "issue_description_summary": summarize_issue_description(
+            str(issue_payload.get("description") or "")
+        ),
         "workpad_comment_id": workpad_comment.get("id") if workpad_comment else None,
         "pr_context": {
             "pr_id": pr_context["pr_id"],
@@ -515,43 +535,9 @@ def build_dispatch_context(
         },
         {
             "type": "context_pack",
-            "label": "Dispatch Context Pack",
+            "label": "Lean Dispatch Context Pack",
             "filename": "dispatch_context_pack.json",
             "payload": context_manifest,
-        },
-        {
-            "type": "issue_payload",
-            "label": "Linear Issue Payload",
-            "filename": "linear_issue_payload.json",
-            "payload": issue_payload,
-        },
-        {
-            "type": "agents_md",
-            "label": "AGENTS.md Snapshot",
-            "content_type": "text/markdown",
-            "filename": "AGENTS.md",
-            "content": read_text(repo / "AGENTS.md"),
-        },
-        {
-            "type": "skill_snapshot",
-            "label": "GPU CFD Symphony Skill",
-            "content_type": "text/markdown",
-            "filename": "gpu-cfd-symphony-SKILL.md",
-            "content": read_text(repo / ".codex" / "skills" / "gpu-cfd-symphony" / "SKILL.md"),
-        },
-        {
-            "type": "workflow_template",
-            "label": "Workflow Template",
-            "content_type": "text/markdown",
-            "filename": "WORKFLOW.md",
-            "content": workflow_text,
-        },
-        {
-            "type": "pr_inventory",
-            "label": "PR Inventory Snapshot",
-            "content_type": "text/markdown",
-            "filename": "pr_inventory.md",
-            "content": read_text(repo / "docs" / "tasks" / "pr_inventory.md"),
         },
     ]
     if workpad_comment:
@@ -576,43 +562,140 @@ def build_dispatch_context(
         )
     if pr_context:
         task_file_path = pathlib.Path(pr_context["task_file"])
+        artifacts.append(
+            {
+                "type": "pr_card",
+                "label": f"PR Card {pr_context['pr_id']}",
+                "content_type": "text/markdown",
+                "filename": f"{pr_context['pr_id']}_card.md",
+                "content": pr_context["card_markdown"],
+                "metadata": {"task_file": task_file_path.as_posix()},
+            }
+        )
+    if workspace_sync.trace_full_context_enabled():
         artifacts.extend(
             [
+                {
+                    "type": "issue_payload",
+                    "label": "Linear Issue Payload",
+                    "filename": "linear_issue_payload.json",
+                    "payload": issue_payload,
+                },
+                {
+                    "type": "agents_md",
+                    "label": "AGENTS.md Snapshot",
+                    "content_type": "text/markdown",
+                    "filename": "AGENTS.md",
+                    "content": read_text(repo / "AGENTS.md"),
+                },
+                {
+                    "type": "skill_snapshot",
+                    "label": "GPU CFD Symphony Skill",
+                    "content_type": "text/markdown",
+                    "filename": "gpu-cfd-symphony-SKILL.md",
+                    "content": read_text(
+                        repo / ".codex" / "skills" / "gpu-cfd-symphony" / "SKILL.md"
+                    ),
+                },
+                {
+                    "type": "workflow_template",
+                    "label": "Workflow Template",
+                    "content_type": "text/markdown",
+                    "filename": "WORKFLOW.md",
+                    "content": workflow_text,
+                },
+                {
+                    "type": "pr_inventory",
+                    "label": "PR Inventory Snapshot",
+                    "content_type": "text/markdown",
+                    "filename": "pr_inventory.md",
+                    "content": read_text(repo / "docs" / "tasks" / "pr_inventory.md"),
+                },
+            ]
+        )
+        if pr_context:
+            task_file_path = pathlib.Path(pr_context["task_file"])
+            artifacts.append(
                 {
                     "type": "task_file",
                     "label": "Owning Task File",
                     "content_type": "text/markdown",
                     "filename": task_file_path.name,
                     "content": read_text(task_file_path),
-                },
-                {
-                    "type": "pr_card",
-                    "label": f"PR Card {pr_context['pr_id']}",
-                    "content_type": "text/markdown",
-                    "filename": f"{pr_context['pr_id']}_card.md",
-                    "content": pr_context["card_markdown"],
-                },
-            ]
-        )
-        for cited_path in pr_context["cited_paths"]:
-            cited_file = pathlib.Path(cited_path)
-            if not cited_file.exists():
-                continue
-            artifacts.append(
-                {
-                    "type": "cited_doc",
-                    "label": f"Cited Doc: {cited_file.name}",
-                    "content_type": "text/markdown",
-                    "filename": cited_file.name,
-                    "content": read_text(cited_file),
-                    "metadata": {"source_path": cited_file.as_posix()},
                 }
             )
+            for cited_path in pr_context["cited_paths"]:
+                cited_file = pathlib.Path(cited_path)
+                if not cited_file.exists():
+                    continue
+                artifacts.append(
+                    {
+                        "type": "cited_doc",
+                        "label": f"Cited Doc: {cited_file.name}",
+                        "content_type": "text/markdown",
+                        "filename": cited_file.name,
+                        "content": read_text(cited_file),
+                        "metadata": {"source_path": cited_file.as_posix()},
+                    }
+                )
     return {
         "rendered_prompt": rendered_prompt,
         "context_manifest": context_manifest,
         "artifacts": artifacts,
         "pr_context": pr_context,
+    }
+
+
+def _iter_payload_strings(payload: Any) -> Any:
+    if isinstance(payload, str):
+        yield payload
+        return
+    if isinstance(payload, dict):
+        for value in payload.values():
+            yield from _iter_payload_strings(value)
+        return
+    if isinstance(payload, list):
+        for item in payload:
+            yield from _iter_payload_strings(item)
+
+
+def collect_helper_usage_telemetry(
+    transcript_paths: dict[str, pathlib.Path],
+    *,
+    workpad_snapshot: dict[str, Any] | None,
+) -> dict[str, Any]:
+    counts: collections.Counter[str] = collections.Counter()
+    for stream_name in ("stdout", "stderr"):
+        transcript_path = transcript_paths.get(stream_name)
+        if transcript_path is None or not transcript_path.exists():
+            continue
+        for raw_line in transcript_path.read_text(encoding="utf-8").splitlines():
+            stripped = raw_line.strip()
+            if not stripped:
+                continue
+            try:
+                payload = json.loads(stripped)
+            except json.JSONDecodeError:
+                continue
+            text_pool = "\n".join(_iter_payload_strings(payload)).lower()
+            for helper_name in HELPER_AGENT_NAMES:
+                occurrences = text_pool.count(helper_name.lower())
+                if occurrences:
+                    counts[helper_name] += occurrences
+    helper_types = sorted(name for name, count in counts.items() if count > 0)
+    workpad_body = str((workpad_snapshot or {}).get("body") or "").lower()
+    summarized_in_workpad = bool(
+        helper_types
+        and any(helper_name.lower() in workpad_body for helper_name in helper_types)
+        and ("helper" in workpad_body or "scout" in workpad_body)
+    )
+    return {
+        "helper_count": int(sum(counts.values())),
+        "helper_types": helper_types,
+        "helper_invocations": dict(sorted(counts.items())),
+        "no_helper_run": not helper_types,
+        "workpad_summary_present": summarized_in_workpad,
+        "workpad_comment_id": (workpad_snapshot or {}).get("id"),
     }
 
 
@@ -866,12 +949,15 @@ def main() -> int:
     args = parse_args()
     repo = repo_root()
     workspace = workspace_root()
-    refresh_origin_refs(workspace)
+    refresh_origin_refs(repo)
+    if workspace.resolve() != repo.resolve():
+        refresh_origin_refs(workspace)
     issue_identifier = issue_identifier_from_workspace(workspace)
     branch = current_branch(workspace)
     tracing_enabled = trace.is_enabled()
     issue_payload = fetch_issue_snapshot(issue_identifier)
     issue_payload.setdefault("identifier", issue_identifier)
+    require_launch_labels(issue_payload)
     pr_context = resolve_pr_context(repo, issue_payload)
     if pr_context is None:
         gated_candidates = [
@@ -890,12 +976,20 @@ def main() -> int:
     state_start: str | None = None
     run_kind = "implementation"
     state_start = issue_state_name(issue_payload) or None
-    run_kind = "rework" if state_start == "Rework" else "implementation"
+    run_kind = (
+        "rework"
+        if state_start in {"Rework", "Refresh Required"}
+        else "implementation"
+    )
     enforce_source_audit_gate(
         repo,
         pr_context,
     )
     ensure_workspace_codex_trust(workspace)
+    try:
+        sync_result = workspace_sync.sync_control_plane(repo, workspace)
+    except workspace_sync.WorkspaceSyncError as exc:
+        raise DispatchError(str(exc)) from exc
 
     codex_args = args.codex_args or ["app-server"]
     command = runtime_config.build_codex_command("implementation", codex_args)
@@ -924,6 +1018,27 @@ def main() -> int:
             state_start=state_start,
             env_metadata=env_metadata,
         )
+        sync_artifact = trace.capture_json_artifact(
+            issue_id=run_manifest["issue_id"],
+            run_id=run_manifest["run_id"],
+            artifact_type="control_plane_sync",
+            label="Workspace Control-plane Sync",
+            payload=sync_result,
+            filename="control_plane_sync.json",
+        )
+        trace.capture_event(
+            issue_id=run_manifest["issue_id"],
+            run_id=run_manifest["run_id"],
+            actor="Symphony",
+            stage="bootstrap_sync",
+            summary="Synchronized canonical control-plane files into the workspace",
+            decision=sync_result["status"],
+            decision_rationale=(
+                "Dispatch bootstraps the workspace from canonical control-plane "
+                "files before worker startup."
+            ),
+            artifact_refs=[sync_artifact["artifact_id"]],
+        )
         capture_dispatch_bundle(
             repo=repo,
             workspace=workspace,
@@ -947,12 +1062,15 @@ def main() -> int:
                 trace.TRACE_RUN_ENV: run_manifest["run_id"],
                 trace.TRACE_ISSUE_ENV: issue_identifier,
                 trace.TRACE_KIND_ENV: run_kind,
+                workspace_sync.CONTROL_REPO_ROOT_ENV: repo.as_posix(),
             }
         )
         if branch:
             child_env[trace.TRACE_BRANCH_ENV] = branch
         if run_manifest.get("pr_number") is not None:
             child_env[trace.TRACE_PR_ENV] = str(run_manifest["pr_number"])
+    else:
+        child_env[workspace_sync.CONTROL_REPO_ROOT_ENV] = repo.as_posix()
 
     return_code, transcript_paths = launch_codex_proxy(
         command=command,
@@ -985,7 +1103,19 @@ def main() -> int:
             )
             final_state = state_start
         commit_after = current_commit(workspace)
+        helper_telemetry = collect_helper_usage_telemetry(
+            transcript_paths,
+            workpad_snapshot=find_workpad_snapshot(issue_identifier),
+        )
         try:
+            helper_artifact = trace.capture_json_artifact(
+                issue_id=issue_identifier,
+                run_id=run_manifest["run_id"],
+                artifact_type="helper_usage",
+                label="Helper Agent Usage",
+                payload=helper_telemetry,
+                filename="helper_usage.json",
+            )
             trace.capture_event(
                 issue_id=issue_identifier,
                 run_id=run_manifest["run_id"],
@@ -994,12 +1124,13 @@ def main() -> int:
                 summary="Codex app-server process exited",
                 decision=f"returncode={return_code}",
                 decision_rationale="Worker process finished and final state was captured",
-                artifact_refs=transcript_artifacts,
+                artifact_refs=[*transcript_artifacts, helper_artifact["artifact_id"]],
                 metadata={
                     "returncode": return_code,
                     "commit_before": commit_before,
                     "commit_after": commit_after,
                     "final_state": final_state,
+                    "helper_usage": helper_telemetry,
                 },
             )
             trace.finalize_run(

@@ -18,6 +18,14 @@ from scripts.symphony.runtime_config import CodexProfile
 
 
 class CodexDispatchTests(unittest.TestCase):
+    def setUp(self) -> None:
+        patcher = mock.patch(
+            "scripts.symphony.codex_dispatch.workspace_sync.sync_control_plane",
+            return_value={"status": "ok", "synced_paths": []},
+        )
+        self.mock_sync_control_plane = patcher.start()
+        self.addCleanup(patcher.stop)
+
     def repo_root(self) -> pathlib.Path:
         return pathlib.Path(__file__).resolve().parents[1]
 
@@ -199,6 +207,45 @@ class CodexDispatchTests(unittest.TestCase):
 
         self.assertIsNone(context)
 
+    def test_require_launch_labels_rejects_unlabeled_issue(self) -> None:
+        with self.assertRaisesRegex(
+            codex_dispatch.DispatchError,
+            "symphony-canary",
+        ):
+            codex_dispatch.require_launch_labels(
+                {
+                    "identifier": "PRO-17",
+                    "labels": {"nodes": [{"name": "backend"}]},
+                }
+            )
+
+    def test_collect_helper_usage_telemetry_reports_helpers_and_workpad_summary(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_path = pathlib.Path(temp_dir)
+            stdout_path = temp_path / "stdout.log"
+            stdout_path.write_text(
+                "\n".join(
+                    [
+                        json.dumps({"tool_name": "docs_scout", "status": "completed"}),
+                        json.dumps({"item": {"agent": "review_payload_scout"}}),
+                    ]
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+
+            telemetry = codex_dispatch.collect_helper_usage_telemetry(
+                {"stdout": stdout_path},
+                workpad_snapshot={
+                    "id": "comment-1",
+                    "body": "- Helper summary: docs_scout and review_payload_scout findings merged.",
+                },
+            )
+
+        self.assertEqual(telemetry["helper_types"], ["docs_scout", "review_payload_scout"])
+        self.assertFalse(telemetry["no_helper_run"])
+        self.assertTrue(telemetry["workpad_summary_present"])
+
     @mock.patch("scripts.symphony.codex_dispatch.linear_api.fetch_issue")
     def test_fetch_issue_snapshot_raises_when_linear_issue_lookup_fails(
         self,
@@ -366,6 +413,7 @@ class CodexDispatchTests(unittest.TestCase):
                         "title": "Implement P5-02 runtime gate",
                         "description": "This issue is scoped to P5-02.",
                         "state": {"name": "Todo"},
+                        "labels": {"nodes": [{"name": "symphony-canary"}]},
                     },
                 ),
                 mock.patch.object(codex_dispatch, "resolve_pr_context", return_value=None),
@@ -384,7 +432,12 @@ class CodexDispatchTests(unittest.TestCase):
             "title": "P4-08 Observability trace viewer",
             "url": "https://linear.app/example/PRO-17",
             "state": {"name": "Todo"},
-            "labels": {"nodes": [{"name": "observability"}]},
+            "labels": {
+                "nodes": [
+                    {"name": "observability"},
+                    {"name": "symphony-canary"},
+                ]
+            },
         }
         runtime_profile = CodexProfile(model="gpt-5.4", reasoning_effort="medium")
 
@@ -469,6 +522,13 @@ class CodexDispatchTests(unittest.TestCase):
                 )
                 stack.enter_context(
                     mock.patch.object(
+                        codex_dispatch.trace,
+                        "capture_json_artifact",
+                        return_value={"artifact_id": "artifact-1"},
+                    )
+                )
+                stack.enter_context(
+                    mock.patch.object(
                         codex_dispatch,
                         "launch_codex_proxy",
                         return_value=(0, {}),
@@ -513,7 +573,12 @@ class CodexDispatchTests(unittest.TestCase):
                 mock.patch.object(
                     codex_dispatch,
                     "fetch_issue_snapshot",
-                    return_value={"identifier": "PRO-17", "title": "P4-08", "state": {"name": "Todo"}},
+                    return_value={
+                        "identifier": "PRO-17",
+                        "title": "P4-08",
+                        "state": {"name": "Todo"},
+                        "labels": {"nodes": [{"name": "symphony-canary"}]},
+                    },
                 ) as mock_fetch_issue,
                 mock.patch.object(codex_dispatch, "resolve_pr_context", return_value=None),
                 mock.patch.object(codex_dispatch, "enforce_source_audit_gate") as mock_gate,
