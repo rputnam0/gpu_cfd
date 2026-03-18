@@ -76,6 +76,14 @@ from .reference_io import (
     reference_io_overlay_command,
     reference_io_overlay_stage,
 )
+from .reference_freeze import (
+    PHASE0_BUNDLE_MANIFEST_NAME,
+    PHASE0_CONTROL_INDEX_NAME,
+    PHASE0_VERDICT_NAME,
+    baseline_artifact_slug,
+    freeze_case_artifact,
+    publish_baseline_control_index,
+)
 from .source_audit import (
     ResolvedSourceAuditSurface,
     SOURCE_AUDIT_OWNERSHIP_SCOPE_PLACEHOLDER,
@@ -133,6 +141,9 @@ __all__ = [
     "REFERENCE_IO_POLICY",
     "REFERENCE_IO_STAGE_KIND",
     "REFERENCE_IO_STAGE_NAME",
+    "PHASE0_BUNDLE_MANIFEST_NAME",
+    "PHASE0_CONTROL_INDEX_NAME",
+    "PHASE0_VERDICT_NAME",
     "StageRegistryReport",
     "SupportBoundaryCondition",
     "SupportFunctionObject",
@@ -148,6 +159,7 @@ __all__ = [
     "TupleStageValidationReport",
     "build_graph_stage_registry",
     "allowed_phase_gate_case_roles",
+    "baseline_artifact_slug",
     "build_case_meta_payload",
     "build_stage_plan_payload",
     "case_meta_schema",
@@ -164,6 +176,8 @@ __all__ = [
     "compute_field_signatures",
     "compute_mesh_patch_fingerprint",
     "apply_reference_io_overlay",
+    "freeze_case_artifact",
+    "publish_baseline_control_index",
     "render_source_audit_note",
     "reference_io_overlay_command",
     "reference_io_overlay_stage",
