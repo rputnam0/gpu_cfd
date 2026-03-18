@@ -243,6 +243,63 @@ class BaselineBringupPacketTests(unittest.TestCase):
             )
             self.assertEqual(rerun_packet["legacy_path_audit"]["hit_count"], 0)
 
+    def test_publish_baseline_bringup_packet_collects_smoke_case_outside_build_subset(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_root = pathlib.Path(temp_dir)
+            bundle, context = build_context(temp_root)
+            for case_role in ("R2", "R1"):
+                case_dir = emit_case_bundle_for_role(
+                    bundle,
+                    context,
+                    temp_root,
+                    case_role=case_role,
+                )
+                if case_role == "R1":
+                    write_r2_metrics(case_dir)
+
+            packet = publish_baseline_bringup_packet(
+                bundle,
+                artifact_root=temp_root,
+                baseline_name="Baseline B",
+                build_case_roles=["R2"],
+                smoke_case_role="R1",
+            )
+
+        self.assertEqual(packet["build_only_case_roles"], ["R2"])
+        self.assertEqual([record["case_role"] for record in packet["cases"]], ["R2"])
+        self.assertEqual(packet["r2_smoke"]["case_role"], "R1")
+        self.assertEqual(packet["r2_smoke"]["status"], "pass")
+        self.assertEqual(packet["decision"]["disposition"], "go")
+
+    def test_publish_baseline_bringup_packet_uses_selected_missing_smoke_role(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_root = pathlib.Path(temp_dir)
+            bundle, context = build_context(temp_root)
+            emit_case_bundle_for_role(bundle, context, temp_root, case_role="R2")
+
+            packet = publish_baseline_bringup_packet(
+                bundle,
+                artifact_root=temp_root,
+                baseline_name="Baseline B",
+                build_case_roles=["R2"],
+                smoke_case_role="R1",
+            )
+
+        self.assertEqual(packet["r2_smoke"]["case_role"], "R1")
+        self.assertEqual(
+            packet["r2_smoke"]["case_id"],
+            resolve_reference_case(bundle, case_role="R1").frozen_id,
+        )
+        self.assertEqual(packet["r2_smoke"]["status"], "blocked")
+        self.assertIn(
+            "case artifact directory is missing",
+            packet["r2_smoke"]["notes"],
+        )
+        self.assertIn(
+            "smoke case is not build-ready",
+            packet["r2_smoke"]["notes"],
+        )
+
     def test_publish_baseline_bringup_packet_detects_legacy_of12_reference_and_blocks(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             temp_root = pathlib.Path(temp_dir)

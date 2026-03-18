@@ -65,9 +65,20 @@ def publish_baseline_bringup_packet(
         case_records.append(record)
 
     case_records_by_role = {record["case_role"]: record for record in case_records}
-    referenced_paths = _collect_referenced_paths(case_records)
-    tuple_ids = _collect_reviewed_tuple_ids(case_records)
-    runtime_summary = _build_runtime_summary(case_records)
+    smoke_case_record = case_records_by_role.get(smoke_case_role)
+    audit_case_records = list(case_records)
+    if smoke_case_record is None:
+        smoke_case_record = _collect_case_record(
+            bundle,
+            baseline_root=baseline_root,
+            baseline_name=baseline_name,
+            case_role=smoke_case_role,
+        )
+        audit_case_records.append(smoke_case_record)
+
+    referenced_paths = _collect_referenced_paths(audit_case_records)
+    tuple_ids = _collect_reviewed_tuple_ids(audit_case_records)
+    runtime_summary = _build_runtime_summary(audit_case_records)
     legacy_path_hits = _scan_legacy_of12_paths(
         targets=[baseline_root, *sorted(referenced_paths)],
         skip_paths=_default_bringup_output_paths(
@@ -76,9 +87,13 @@ def publish_baseline_bringup_packet(
             markdown_path=markdown_path,
         ),
     )
-    tuple_traceability = _build_tuple_traceability(case_records, tuple_ids=tuple_ids)
+    tuple_traceability = _build_tuple_traceability(
+        audit_case_records,
+        tuple_ids=tuple_ids,
+    )
     smoke_record = _build_smoke_record(
-        case_records_by_role.get(smoke_case_role),
+        smoke_case_record,
+        smoke_case_role=smoke_case_role,
         expected_case_id=smoke_case.frozen_id,
     )
     build_summary = _build_build_summary(case_records)
@@ -330,11 +345,12 @@ def _collect_case_record(
 def _build_smoke_record(
     case_record: Mapping[str, Any] | None,
     *,
+    smoke_case_role: str,
     expected_case_id: str,
 ) -> dict[str, Any]:
     if case_record is None:
         return {
-            "case_role": "R2",
+            "case_role": smoke_case_role,
             "case_id": expected_case_id,
             "status": "blocked",
             "notes": ["smoke case bundle is missing from the build summary"],
