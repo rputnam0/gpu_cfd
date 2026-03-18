@@ -228,8 +228,20 @@ class BaselineBringupPacketTests(unittest.TestCase):
                 packet["tuple_traceability"]["reviewed_source_tuple_ids"],
                 ["SRC_SPUMA_V2412_AD2A_FES_MAIN_AMGX_2_5_0"],
             )
+            self.assertTrue(
+                packet["backend_policy"][
+                    "native_pressure_required_baseline_on_every_accepted_case"
+                ]
+            )
             self.assertTrue((baseline_root / BRINGUP_PACKET_NAME).exists())
             self.assertTrue((baseline_root / BRINGUP_SUMMARY_NAME).exists())
+
+            rerun_packet = publish_baseline_bringup_packet(
+                bundle,
+                artifact_root=temp_root,
+                baseline_name="Baseline B",
+            )
+            self.assertEqual(rerun_packet["legacy_path_audit"]["hit_count"], 0)
 
     def test_publish_baseline_bringup_packet_detects_legacy_of12_reference_and_blocks(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -287,6 +299,58 @@ class BaselineBringupPacketTests(unittest.TestCase):
         self.assertFalse(packet["decision"]["proceed_to_nozzle_freeze"])
         self.assertIn(
             "pressure backend fallback was applied",
+            packet["decision"]["reasons"],
+        )
+
+    def test_publish_baseline_bringup_packet_blocks_failed_smoke_verdict(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_root = pathlib.Path(temp_dir)
+            bundle, context = build_context(temp_root)
+            for case_role in ("R2", "R1-core", "R1", "R0"):
+                case_dir = emit_case_bundle_for_role(bundle, context, temp_root, case_role=case_role)
+                if case_role == "R2":
+                    write_r2_metrics(case_dir)
+                    write_json(case_dir / "baseline_verdict.json", {"status": "fail"})
+
+            packet = publish_baseline_bringup_packet(
+                bundle,
+                artifact_root=temp_root,
+                baseline_name="Baseline B",
+            )
+
+        self.assertEqual(packet["r2_smoke"]["status"], "blocked")
+        self.assertEqual(packet["decision"]["disposition"], "blocked")
+        self.assertFalse(packet["decision"]["proceed_to_nozzle_freeze"])
+        self.assertIn(
+            "baseline_verdict.json reported status 'fail'",
+            packet["decision"]["reasons"],
+        )
+
+    def test_publish_baseline_bringup_packet_marks_mixed_runtime_as_review(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_root = pathlib.Path(temp_dir)
+            bundle, context = build_context(temp_root)
+            for case_role in ("R2", "R1-core", "R1", "R0"):
+                case_dir = emit_case_bundle_for_role(bundle, context, temp_root, case_role=case_role)
+                if case_role == "R2":
+                    write_r2_metrics(case_dir)
+                if case_role == "R1":
+                    for filename in ("case_meta.json", "stage_plan.json"):
+                        path = case_dir / filename
+                        payload = json.loads(path.read_text(encoding="utf-8"))
+                        payload["runtime_base"] = "OpenFOAM v2412"
+                        write_json(path, payload)
+
+            packet = publish_baseline_bringup_packet(
+                bundle,
+                artifact_root=temp_root,
+                baseline_name="Baseline B",
+            )
+
+        self.assertTrue(packet["runtime_summary"]["contingency_runtime_used"])
+        self.assertEqual(packet["decision"]["disposition"], "review")
+        self.assertIn(
+            "Baseline B used a contingency runtime instead of the canonical SPUMA line",
             packet["decision"]["reasons"],
         )
 

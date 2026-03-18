@@ -43,6 +43,16 @@ def publish_baseline_bringup_packet(
 
     selected_build_roles = tuple(build_case_roles or bundle.ladder.ordered_case_ids)
     smoke_case = resolve_reference_case(bundle, case_role=smoke_case_role)
+    json_path = (
+        pathlib.Path(json_out)
+        if json_out is not None
+        else baseline_root / BRINGUP_PACKET_NAME
+    )
+    markdown_path = (
+        pathlib.Path(markdown_out)
+        if markdown_out is not None
+        else baseline_root / BRINGUP_SUMMARY_NAME
+    )
     referenced_paths: set[pathlib.Path] = set()
     case_records = []
     tuple_ids: set[str] = set()
@@ -67,6 +77,7 @@ def publish_baseline_bringup_packet(
     case_records_by_role = {record["case_role"]: record for record in case_records}
     legacy_path_hits = _scan_legacy_of12_paths(
         targets=[baseline_root, *sorted(referenced_paths)],
+        skip_paths={json_path.resolve(), markdown_path.resolve()},
     )
     tuple_traceability = _build_tuple_traceability(case_records, tuple_ids=tuple_ids)
     smoke_record = _build_smoke_record(
@@ -110,12 +121,6 @@ def publish_baseline_bringup_packet(
         "decision": decision,
     }
 
-    json_path = pathlib.Path(json_out) if json_out is not None else baseline_root / BRINGUP_PACKET_NAME
-    markdown_path = (
-        pathlib.Path(markdown_out)
-        if markdown_out is not None
-        else baseline_root / BRINGUP_SUMMARY_NAME
-    )
     _write_json(json_path, packet)
     markdown_path.write_text(render_baseline_bringup_summary(packet), encoding="utf-8")
     return packet
@@ -347,7 +352,15 @@ def _build_smoke_record(
     if isinstance(baseline_verdict, Mapping):
         status = str(baseline_verdict.get("status") or "").strip()
         if status:
-            verdict["status"] = "review" if status == "review" else status
+            if status == "pass":
+                verdict["status"] = "pass"
+            elif status == "review":
+                verdict["status"] = "review"
+            else:
+                verdict["status"] = "blocked"
+                verdict["notes"].append(
+                    f"baseline_verdict.json reported status {status!r}"
+                )
             if verdict["fallback_applied"] and verdict["status"] == "pass":
                 verdict["status"] = "review"
                 verdict["notes"].append("pressure backend fallback was applied")
@@ -404,7 +417,12 @@ def _build_backend_policy(
 ) -> dict[str, Any]:
     policy = dict(bundle.support.raw.get("backend_operational_policy", {}))
     return {
-        "native_pressure_required_baseline": policy.get("native_pressure_required_baseline"),
+        "native_pressure_required_baseline_on_every_accepted_case": policy.get(
+            "native_pressure_required_baseline_on_every_accepted_case"
+        ),
+        "native_pressure_required_baseline": policy.get(
+            "native_pressure_required_baseline_on_every_accepted_case"
+        ),
         "amgx_supported_secondary_backend_via_phase4_bridge_only": policy.get(
             "amgx_supported_secondary_backend_via_phase4_bridge_only"
         ),
@@ -480,7 +498,9 @@ def _build_decision(
 
     if contingency_runtime and disposition == "go":
         disposition = "review"
-        reasons.append("Baseline B used a contingency runtime instead of the canonical SPUMA line")
+        reasons.append(
+            "Baseline B used a contingency runtime instead of the canonical SPUMA line"
+        )
 
     return {
         "disposition": disposition,
@@ -536,18 +556,22 @@ def _resolve_reference_path(
 def _scan_legacy_of12_paths(
     *,
     targets: Sequence[pathlib.Path],
+    skip_paths: set[pathlib.Path] | None = None,
 ) -> list[dict[str, Any]]:
     hits: list[dict[str, Any]] = []
     seen_paths: set[pathlib.Path] = set()
+    ignored_paths = {path.resolve() for path in (skip_paths or set())}
     for target in targets:
         if not target.exists():
             continue
         resolved_target = target.resolve()
-        if resolved_target in seen_paths:
+        if resolved_target in seen_paths or resolved_target in ignored_paths:
             continue
         seen_paths.add(resolved_target)
         if resolved_target.is_dir():
             for path in sorted(path for path in resolved_target.rglob("*") if path.is_file()):
+                if path.resolve() in ignored_paths:
+                    continue
                 hits.extend(_scan_file_for_legacy_path(path))
         else:
             hits.extend(_scan_file_for_legacy_path(resolved_target))
@@ -580,7 +604,7 @@ def _scan_file_for_legacy_path(path: pathlib.Path) -> list[dict[str, Any]]:
 
 def _uses_contingency_runtime(runtime_bases: set[str]) -> bool:
     normalized = [runtime.lower() for runtime in runtime_bases]
-    return bool(normalized) and not any("spuma" in runtime for runtime in normalized)
+    return bool(normalized) and any("spuma" not in runtime for runtime in normalized)
 
 
 def _strip_referenced_paths(record: Mapping[str, Any]) -> dict[str, Any]:
