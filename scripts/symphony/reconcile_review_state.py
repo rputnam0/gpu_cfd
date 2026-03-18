@@ -27,6 +27,7 @@ PR_FIELDS = ",".join(
         "url",
         "state",
         "isDraft",
+        "mergeStateStatus",
     ]
 )
 
@@ -77,6 +78,11 @@ def list_open_prs(repo: str | None) -> list[devin_review_gate.PullRequestSnapsho
                 url=str(item.get("url") or ""),
                 state=str(item.get("state") or "UNKNOWN"),
                 is_draft=bool(item.get("isDraft")),
+                merge_state_status=(
+                    str(item.get("mergeStateStatus"))
+                    if item.get("mergeStateStatus") is not None
+                    else None
+                ),
             )
         )
     return snapshots
