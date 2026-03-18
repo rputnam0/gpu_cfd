@@ -121,14 +121,10 @@ class Phase1FatbinaryTests(unittest.TestCase):
                 repo_commit="abc123def456",
             )
             source_root = temp_root / "spuma"
-            allwmake = source_root / "Allwmake"
             source_root.mkdir()
+            allwmake = source_root / "Allwmake"
             allwmake.write_text("#!/usr/bin/env bash\nexit 0\n", encoding="utf-8")
             allwmake.chmod(0o755)
-            target = source_root / "platforms" / "linux64GccDPInt32Opt" / "bin" / "pimpleFoam"
-            target.parent.mkdir(parents=True, exist_ok=True)
-            target.write_text("binary", encoding="utf-8")
-            target.chmod(0o755)
             run_subprocess.side_effect = cuobjdump_side_effect(
                 sass_stdout="Fatbin elf code:\n================\narch = sm_120\ncode for sm_120\n",
                 ptx_stdout=".version 8.0\n.target sm_120\n.address_size 64\n",
@@ -142,6 +138,10 @@ class Phase1FatbinaryTests(unittest.TestCase):
                 discovery_manifest_refs_path=emitted.manifest_refs_path,
                 cuda_probe_path=emitted.cuda_probe_path,
             )
+            target = source_root / "platforms" / "linux64GccDPInt32Opt" / "bin" / "pimpleFoam"
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.write_text("binary", encoding="utf-8")
+            target.chmod(0o755)
             result = inspect_phase1_build_fatbinaries(plan)
 
             report = json.loads(plan.fatbinary_report_path.read_text(encoding="utf-8"))
@@ -154,6 +154,7 @@ class Phase1FatbinaryTests(unittest.TestCase):
         self.assertTrue(report["ptx_present"])
         self.assertTrue(report["required_native_sm_found"])
         self.assertEqual(report["inspected_binary_count"], 1)
+        self.assertEqual(report["smoke_gate_targets"], ["platforms/linux64GccDPInt32Opt/bin/pimpleFoam"])
         self.assertEqual(
             report["inspection_targets"][0]["path"],
             "platforms/linux64GccDPInt32Opt/bin/pimpleFoam",
@@ -185,9 +186,6 @@ class Phase1FatbinaryTests(unittest.TestCase):
             allwmake.write_text("#!/usr/bin/env bash\nexit 0\n", encoding="utf-8")
             allwmake.chmod(0o755)
             target = source_root / "platforms" / "linux64GccDPInt32Opt" / "bin" / "simpleFoam"
-            target.parent.mkdir(parents=True, exist_ok=True)
-            target.write_text("binary", encoding="utf-8")
-            target.chmod(0o755)
             plan = plan_phase1_build(
                 bundle,
                 source_root=source_root,
@@ -205,6 +203,9 @@ class Phase1FatbinaryTests(unittest.TestCase):
                 if "-ptx" in command:
                     return subprocess_completed(stdout="")
                 if kwargs.get("stdout") is not None:
+                    target.parent.mkdir(parents=True, exist_ok=True)
+                    target.write_text("binary-built", encoding="utf-8")
+                    target.chmod(0o755)
                     handle = kwargs["stdout"]
                     handle.write("build ok\n")
                     handle.flush()
@@ -228,6 +229,67 @@ class Phase1FatbinaryTests(unittest.TestCase):
         self.assertIn("PTX", report["failure_reason"])
         self.assertFalse(metadata["succeeded"])
         self.assertEqual(metadata["failure_stage"], "inspection")
+
+    @mock.patch("scripts.authority.phase1_build.subprocess.run")
+    def test_inspection_requires_native_cubin_and_ptx_on_the_same_binary(
+        self,
+        run_subprocess: mock.Mock,
+    ) -> None:
+        bundle = load_authority_bundle(repo_root())
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_root = pathlib.Path(temp_dir)
+            emitted = emit_phase1_discovery_artifacts(
+                bundle,
+                output_dir=temp_root / "discovery",
+                lane="primary",
+                host_observations=sample_host_observations(tool_root=temp_root / "toolchain"),
+                cuda_probe=sample_cuda_probe_payload(),
+                local_mirror_refs=sample_local_mirror_refs(),
+                repo_commit="abc123def456",
+            )
+            source_root = temp_root / "spuma"
+            source_root.mkdir()
+            allwmake = source_root / "Allwmake"
+            allwmake.write_text("#!/usr/bin/env bash\nexit 0\n", encoding="utf-8")
+            allwmake.chmod(0o755)
+            binary_a = source_root / "platforms" / "linux64GccDPInt32Opt" / "bin" / "solverA"
+            binary_b = source_root / "platforms" / "linux64GccDPInt32Opt" / "bin" / "solverB"
+
+            plan = plan_phase1_build(
+                bundle,
+                source_root=source_root,
+                output_dir=temp_root / "inspection",
+                discovery_host_env_path=emitted.host_env_path,
+                discovery_manifest_refs_path=emitted.manifest_refs_path,
+                cuda_probe_path=emitted.cuda_probe_path,
+            )
+            for path in (binary_a, binary_b):
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.write_text("binary", encoding="utf-8")
+                path.chmod(0o755)
+
+            def side_effect(command, *args, **kwargs):
+                target_path = command[-1]
+                if target_path.endswith("solverA") and "-sass" in command:
+                    return subprocess_completed(stdout="Fatbin elf code:\narch = sm_120\n")
+                if target_path.endswith("solverA") and "-ptx" in command:
+                    return subprocess_completed(stdout="")
+                if target_path.endswith("solverB") and "-sass" in command:
+                    return subprocess_completed(stdout="")
+                if target_path.endswith("solverB") and "-ptx" in command:
+                    return subprocess_completed(stdout=".version 8.0\n.target sm_120\n")
+                raise AssertionError(f"unexpected subprocess command: {command!r}")
+
+            run_subprocess.side_effect = side_effect
+
+            with self.assertRaisesRegex(Phase1BuildError, "same build artifact|both native sm_120 cubin and PTX"):
+                inspect_phase1_build_fatbinaries(plan)
+
+            report = json.loads(plan.fatbinary_report_path.read_text(encoding="utf-8"))
+
+        self.assertFalse(report["smoke_gate_ready"])
+        self.assertEqual(report["smoke_gate_targets"], [])
 
     def test_inspect_fatbinary_wrapper_exists_and_invokes_phase1_build_module(self) -> None:
         wrapper_path = repo_root() / "tools" / "bringup" / "build" / "inspect_fatbinary.sh"
