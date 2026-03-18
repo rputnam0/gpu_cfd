@@ -53,10 +53,7 @@ def publish_baseline_bringup_packet(
         if markdown_out is not None
         else baseline_root / BRINGUP_SUMMARY_NAME
     )
-    referenced_paths: set[pathlib.Path] = set()
     case_records = []
-    tuple_ids: set[str] = set()
-    runtime_bases: set[str] = set()
 
     for case_role in selected_build_roles:
         record = _collect_case_record(
@@ -66,18 +63,18 @@ def publish_baseline_bringup_packet(
             case_role=case_role,
         )
         case_records.append(record)
-        referenced_paths.update(record["referenced_paths"])
-        tuple_id = str(record.get("reviewed_source_tuple_id") or "").strip()
-        if tuple_id:
-            tuple_ids.add(tuple_id)
-        runtime_base = str(record.get("runtime_base") or "").strip()
-        if runtime_base:
-            runtime_bases.add(runtime_base)
 
     case_records_by_role = {record["case_role"]: record for record in case_records}
+    referenced_paths = _collect_referenced_paths(case_records)
+    tuple_ids = _collect_reviewed_tuple_ids(case_records)
+    runtime_summary = _build_runtime_summary(case_records)
     legacy_path_hits = _scan_legacy_of12_paths(
         targets=[baseline_root, *sorted(referenced_paths)],
-        skip_paths={json_path.resolve(), markdown_path.resolve()},
+        skip_paths=_default_bringup_output_paths(
+            baseline_root=baseline_root,
+            json_path=json_path,
+            markdown_path=markdown_path,
+        ),
     )
     tuple_traceability = _build_tuple_traceability(case_records, tuple_ids=tuple_ids)
     smoke_record = _build_smoke_record(
@@ -86,11 +83,12 @@ def publish_baseline_bringup_packet(
     )
     build_summary = _build_build_summary(case_records)
     backend_policy = _build_backend_policy(bundle, smoke_record=smoke_record)
-    contingency_runtime = _uses_contingency_runtime(runtime_bases)
+    contingency_runtime = _uses_contingency_runtime(runtime_summary["runtime_bases"])
     decision = _build_decision(
         build_summary=build_summary,
         legacy_path_hits=legacy_path_hits,
         tuple_traceability=tuple_traceability,
+        runtime_summary=runtime_summary,
         smoke_record=smoke_record,
         contingency_runtime=contingency_runtime,
     )
@@ -107,7 +105,7 @@ def publish_baseline_bringup_packet(
         "build_summary": build_summary,
         "tuple_traceability": tuple_traceability,
         "runtime_summary": {
-            "runtime_bases": sorted(runtime_bases),
+            **runtime_summary,
             "contingency_runtime_used": contingency_runtime,
         },
         "legacy_path_audit": {
@@ -277,6 +275,10 @@ def _collect_case_record(
     record["provenance"] = dict(case_meta.get("provenance", {}))
     record["available_commands"] = dict(case_meta.get("available_commands", {}))
 
+    alignment_notes = _bundle_alignment_notes(case_meta, stage_plan)
+    if alignment_notes:
+        record["notes"].extend(alignment_notes)
+        return record
     if case_meta["baseline"] != baseline_name or stage_plan["baseline"] != baseline_name:
         record["notes"].append(
             f"baseline mismatch: expected {baseline_name!r}"
@@ -285,6 +287,8 @@ def _collect_case_record(
     if stage_plan["case_id"] != resolved_case.frozen_id:
         record["notes"].append("stage plan case_id does not match the frozen case")
         return record
+    if not str(record.get("runtime_base") or "").strip():
+        record["notes"].append("missing resolved runtime_base traceability")
 
     for field_name in ("probe_payload", "host_env", "manifest_refs"):
         raw_ref = case_meta["provenance"].get(field_name)
@@ -361,9 +365,11 @@ def _build_smoke_record(
                 verdict["notes"].append(
                     f"baseline_verdict.json reported status {status!r}"
                 )
+            verdict["notes"].extend(_baseline_verdict_notes(baseline_verdict))
             if verdict["fallback_applied"] and verdict["status"] == "pass":
                 verdict["status"] = "review"
                 verdict["notes"].append("pressure backend fallback was applied")
+            verdict["notes"] = _unique_in_order(verdict["notes"])
             return verdict
 
     metrics_payload = case_record.get("metrics")
@@ -464,11 +470,27 @@ def _build_tuple_traceability(
     }
 
 
+def _build_runtime_summary(case_records: Sequence[Mapping[str, Any]]) -> dict[str, Any]:
+    runtime_bases: set[str] = set()
+    missing_roles = []
+    for record in case_records:
+        runtime_base = str(record.get("runtime_base") or "").strip()
+        if runtime_base:
+            runtime_bases.add(runtime_base)
+            continue
+        missing_roles.append(record["case_role"])
+    return {
+        "runtime_bases": sorted(runtime_bases),
+        "missing_runtime_case_roles": sorted(missing_roles),
+    }
+
+
 def _build_decision(
     *,
     build_summary: Mapping[str, Any],
     legacy_path_hits: Sequence[Mapping[str, Any]],
     tuple_traceability: Mapping[str, Any],
+    runtime_summary: Mapping[str, Any],
     smoke_record: Mapping[str, Any],
     contingency_runtime: bool,
 ) -> dict[str, Any]:
@@ -483,6 +505,12 @@ def _build_decision(
     if not tuple_traceability["consistent"]:
         disposition = "blocked"
         reasons.append("reviewed source tuple traceability is missing or inconsistent")
+    if runtime_summary["missing_runtime_case_roles"]:
+        disposition = "blocked"
+        reasons.append(
+            "runtime base traceability is missing for: "
+            + ", ".join(runtime_summary["missing_runtime_case_roles"])
+        )
     if not build_summary["build_ready"]:
         disposition = "blocked"
         reasons.append(
@@ -580,6 +608,40 @@ def _scan_legacy_of12_paths(
     return hits
 
 
+def _collect_referenced_paths(
+    case_records: Sequence[Mapping[str, Any]],
+) -> set[pathlib.Path]:
+    referenced_paths: set[pathlib.Path] = set()
+    for record in case_records:
+        referenced_paths.update(record.get("referenced_paths", set()))
+    return referenced_paths
+
+
+def _collect_reviewed_tuple_ids(
+    case_records: Sequence[Mapping[str, Any]],
+) -> set[str]:
+    tuple_ids: set[str] = set()
+    for record in case_records:
+        tuple_id = str(record.get("reviewed_source_tuple_id") or "").strip()
+        if tuple_id:
+            tuple_ids.add(tuple_id)
+    return tuple_ids
+
+
+def _default_bringup_output_paths(
+    *,
+    baseline_root: pathlib.Path,
+    json_path: pathlib.Path,
+    markdown_path: pathlib.Path,
+) -> set[pathlib.Path]:
+    return {
+        json_path.resolve(),
+        markdown_path.resolve(),
+        (baseline_root / BRINGUP_PACKET_NAME).resolve(),
+        (baseline_root / BRINGUP_SUMMARY_NAME).resolve(),
+    }
+
+
 def _scan_file_for_legacy_path(path: pathlib.Path) -> list[dict[str, Any]]:
     try:
         text = path.read_text(encoding="utf-8")
@@ -604,9 +666,59 @@ def _scan_file_for_legacy_path(path: pathlib.Path) -> list[dict[str, Any]]:
     return hits
 
 
-def _uses_contingency_runtime(runtime_bases: set[str]) -> bool:
+def _uses_contingency_runtime(runtime_bases: Sequence[str]) -> bool:
     normalized = [runtime.lower() for runtime in runtime_bases]
     return bool(normalized) and any("spuma" not in runtime for runtime in normalized)
+
+
+def _bundle_alignment_notes(
+    case_meta: Mapping[str, Any],
+    stage_plan: Mapping[str, Any],
+) -> list[str]:
+    notes = []
+    for field_name in (
+        "case_id",
+        "case_role",
+        "baseline",
+        "runtime_base",
+        "reviewed_source_tuple_id",
+    ):
+        if case_meta.get(field_name) != stage_plan.get(field_name):
+            notes.append(
+                f"case bundle {field_name} mismatch between case_meta.json and stage_plan.json"
+            )
+    for field_name in ("probe_payload", "host_env", "manifest_refs"):
+        case_meta_provenance = dict(case_meta.get("provenance", {}))
+        stage_plan_provenance = dict(stage_plan.get("provenance", {}))
+        if case_meta_provenance.get(field_name) != stage_plan_provenance.get(field_name):
+            notes.append(
+                f"case bundle provenance {field_name} mismatch between case_meta.json and stage_plan.json"
+            )
+    if case_meta.get("io_normalization") != stage_plan.get("io_normalization"):
+        notes.append(
+            "case bundle io_normalization mismatch between case_meta.json and stage_plan.json"
+        )
+    return _unique_in_order(notes)
+
+
+def _baseline_verdict_notes(baseline_verdict: Mapping[str, Any]) -> list[str]:
+    notes = []
+    for field_name in ("notes", "reasons"):
+        raw_value = baseline_verdict.get(field_name)
+        if isinstance(raw_value, Sequence) and not isinstance(raw_value, (str, bytes)):
+            notes.extend(str(item) for item in raw_value if str(item).strip())
+    checks = baseline_verdict.get("checks")
+    if isinstance(checks, Sequence) and not isinstance(checks, (str, bytes)):
+        for check in checks:
+            if not isinstance(check, Mapping):
+                continue
+            status = str(check.get("status") or "").strip()
+            if status not in {"fail", "pending"}:
+                continue
+            check_id = str(check.get("check_id") or "baseline_check").strip()
+            details = str(check.get("details") or "").strip()
+            notes.append(f"{check_id}: {details}" if details else check_id)
+    return _unique_in_order(notes)
 
 
 def _strip_referenced_paths(record: Mapping[str, Any]) -> dict[str, Any]:

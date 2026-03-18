@@ -354,6 +354,135 @@ class BaselineBringupPacketTests(unittest.TestCase):
             packet["decision"]["reasons"],
         )
 
+    def test_publish_baseline_bringup_packet_blocks_mismatched_case_bundle_identity(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_root = pathlib.Path(temp_dir)
+            bundle, context = build_context(temp_root)
+            for case_role in ("R2", "R1-core", "R1", "R0"):
+                case_dir = emit_case_bundle_for_role(bundle, context, temp_root, case_role=case_role)
+                if case_role == "R2":
+                    write_r2_metrics(case_dir)
+                    stage_plan_path = case_dir / "stage_plan.json"
+                    stage_plan = json.loads(stage_plan_path.read_text(encoding="utf-8"))
+                    stage_plan["runtime_base"] = "OpenFOAM v2412"
+                    write_json(stage_plan_path, stage_plan)
+
+            packet = publish_baseline_bringup_packet(
+                bundle,
+                artifact_root=temp_root,
+                baseline_name="Baseline B",
+            )
+
+        self.assertEqual(packet["decision"]["disposition"], "blocked")
+        self.assertIn("R2", packet["build_summary"]["blocked_case_roles"])
+        self.assertIn(
+            "case bundle runtime_base mismatch between case_meta.json and stage_plan.json",
+            packet["cases"][0]["notes"],
+        )
+
+    def test_publish_baseline_bringup_packet_blocks_missing_runtime_traceability(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_root = pathlib.Path(temp_dir)
+            bundle, context = build_context(temp_root)
+            for case_role in ("R2", "R1-core", "R1", "R0"):
+                case_dir = emit_case_bundle_for_role(bundle, context, temp_root, case_role=case_role)
+                if case_role == "R2":
+                    write_r2_metrics(case_dir)
+                for filename in ("case_meta.json", "stage_plan.json"):
+                    path = case_dir / filename
+                    payload = json.loads(path.read_text(encoding="utf-8"))
+                    payload["runtime_base"] = None
+                    write_json(path, payload)
+
+            packet = publish_baseline_bringup_packet(
+                bundle,
+                artifact_root=temp_root,
+                baseline_name="Baseline B",
+            )
+
+        self.assertEqual(packet["decision"]["disposition"], "blocked")
+        self.assertEqual(packet["runtime_summary"]["runtime_bases"], [])
+        self.assertEqual(
+            packet["runtime_summary"]["missing_runtime_case_roles"],
+            ["R0", "R1", "R1-core", "R2"],
+        )
+        self.assertIn(
+            "runtime base traceability is missing for: R0, R1, R1-core, R2",
+            packet["decision"]["reasons"],
+        )
+
+    def test_publish_baseline_bringup_packet_ignores_stale_default_outputs_in_legacy_audit(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_root = pathlib.Path(temp_dir)
+            bundle, context = build_context(temp_root)
+            for case_role in ("R2", "R1-core", "R1", "R0"):
+                case_dir = emit_case_bundle_for_role(bundle, context, temp_root, case_role=case_role)
+                if case_role == "R2":
+                    write_r2_metrics(case_dir)
+
+            packet = publish_baseline_bringup_packet(
+                bundle,
+                artifact_root=temp_root,
+                baseline_name="Baseline B",
+            )
+            self.assertEqual(packet["legacy_path_audit"]["hit_count"], 0)
+
+            baseline_root = temp_root / baseline_artifact_slug("Baseline B")
+            stale_packet_path = baseline_root / BRINGUP_PACKET_NAME
+            stale_packet_path.write_text(
+                "{\"legacy_literal\": \"/opt/openfoam12/etc/bashrc\"}\n",
+                encoding="utf-8",
+            )
+
+            rerun_packet = publish_baseline_bringup_packet(
+                bundle,
+                artifact_root=temp_root,
+                baseline_name="Baseline B",
+                json_out=temp_root / "custom" / BRINGUP_PACKET_NAME,
+                markdown_out=temp_root / "custom" / BRINGUP_SUMMARY_NAME,
+            )
+
+        self.assertEqual(rerun_packet["decision"]["disposition"], "go")
+        self.assertEqual(rerun_packet["legacy_path_audit"]["hit_count"], 0)
+
+    def test_publish_baseline_bringup_packet_preserves_review_notes_from_baseline_verdict(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_root = pathlib.Path(temp_dir)
+            bundle, context = build_context(temp_root)
+            for case_role in ("R2", "R1-core", "R1", "R0"):
+                case_dir = emit_case_bundle_for_role(bundle, context, temp_root, case_role=case_role)
+                if case_role == "R2":
+                    write_json(
+                        case_dir / "baseline_verdict.json",
+                        {
+                            "status": "review",
+                            "checks": [
+                                {
+                                    "check_id": "alpha_bounds",
+                                    "gate_class": "review",
+                                    "status": "fail",
+                                    "details": "alpha range requires manual review",
+                                }
+                            ],
+                        },
+                    )
+
+            packet = publish_baseline_bringup_packet(
+                bundle,
+                artifact_root=temp_root,
+                baseline_name="Baseline B",
+            )
+
+        self.assertEqual(packet["r2_smoke"]["status"], "review")
+        self.assertIn(
+            "alpha_bounds: alpha range requires manual review",
+            packet["r2_smoke"]["notes"],
+        )
+        self.assertIn(
+            "alpha_bounds: alpha range requires manual review",
+            packet["decision"]["reasons"],
+        )
+
 
 if __name__ == "__main__":
     unittest.main()
