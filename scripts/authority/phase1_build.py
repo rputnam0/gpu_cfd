@@ -190,6 +190,10 @@ def render_phase1_env_exports(plan: Phase1BuildPlan) -> str:
             lines.append('export LD_LIBRARY_PATH="$CUDA_HOME/lib64${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"')
             continue
         lines.append(f"export {key}={shlex.quote(value)}")
+    if "SPUMA_EXTRA_CXX_FLAGS" in plan.env_exports:
+        lines.append(
+            'export FOAM_EXTRA_CXXFLAGS="${FOAM_EXTRA_CXXFLAGS:+${FOAM_EXTRA_CXXFLAGS} }${SPUMA_EXTRA_CXX_FLAGS}"'
+        )
     return "\n".join(lines)
 
 

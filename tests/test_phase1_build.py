@@ -194,6 +194,10 @@ class Phase1BuildTests(unittest.TestCase):
         self.assertIn("export NVARCH=120", exports)
         self.assertIn("export CUDA_HOME=/usr/local/cuda-12.9", exports)
         self.assertIn("export SPUMA_ENABLE_NVTX=1", exports)
+        self.assertIn(
+            'export FOAM_EXTRA_CXXFLAGS="${FOAM_EXTRA_CXXFLAGS:+${FOAM_EXTRA_CXXFLAGS} }${SPUMA_EXTRA_CXX_FLAGS}"',
+            exports,
+        )
 
     def test_plan_phase1_build_requires_repo_native_build_entrypoint(self) -> None:
         bundle = load_authority_bundle(repo_root())
