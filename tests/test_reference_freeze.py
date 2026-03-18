@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import json
 import pathlib
+import subprocess
+import sys
 import tempfile
 import unittest
 from typing import Any
@@ -286,6 +288,41 @@ class ReferenceFreezeTests(unittest.TestCase):
             [item["status"] for item in control_index["cases"]],
             ["pass", "pass", "pass", "pass"],
         )
+        self.assertIn("reference_case_contract.md", control_index["authority_revisions"])
+        self.assertIn("reference_case_contract.json", control_index["authority_revisions"])
+        self.assertIn("validation_ladder.md", control_index["authority_revisions"])
+
+    def test_freeze_case_artifact_rejects_non_phase0_stage_plan(self) -> None:
+        bundle = load_authority_bundle(repo_root())
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            artifact_dir = write_case_artifact_dir(pathlib.Path(temp_dir), case_role="R1")
+            stage_plan = json.loads((artifact_dir / "stage_plan.json").read_text(encoding="utf-8"))
+            stage_plan["phase_gate"] = "Phase 6"
+            stage_plan["phase_gate_selection"]["available_case_roles"] = ["R1"]
+            write_json(artifact_dir / "stage_plan.json", stage_plan)
+
+            with self.assertRaisesRegex(ValueError, "phase_gate must remain 'Phase 0'"):
+                freeze_case_artifact(bundle, artifact_dir=artifact_dir, baseline_name="Baseline A")
+
+    def test_r0_requires_explicit_direct_slot_exactness_metric(self) -> None:
+        bundle = load_authority_bundle(repo_root())
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            artifact_dir = write_case_artifact_dir(pathlib.Path(temp_dir), case_role="R0")
+            metrics = json.loads((artifact_dir / "metrics.json").read_text(encoding="utf-8"))
+            metrics.pop("resolved_direct_slot_numerics_exact")
+            write_json(artifact_dir / "metrics.json", metrics)
+
+            manifest = freeze_case_artifact(bundle, artifact_dir=artifact_dir, baseline_name="Baseline A")
+            verdict = json.loads((artifact_dir / "baseline_verdict.json").read_text(encoding="utf-8"))
+
+        self.assertEqual(manifest["status"], "fail")
+        self.assertEqual(verdict["status"], "fail")
+        self.assertIn(
+            "resolved_direct_slot_numerics_exact",
+            verdict["summary"]["hard_failures"],
+        )
 
     def test_freeze_case_artifact_requires_complete_bundle_inputs(self) -> None:
         bundle = load_authority_bundle(repo_root())
@@ -296,6 +333,34 @@ class ReferenceFreezeTests(unittest.TestCase):
 
             with self.assertRaisesRegex(FileNotFoundError, "field_signatures.json"):
                 freeze_case_artifact(bundle, artifact_dir=artifact_dir, baseline_name="Baseline A")
+
+    def test_reference_freeze_module_cli_runs_when_invoked_with_python_m(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            artifact_root = pathlib.Path(temp_dir)
+            for case_role in ("R2", "R1-core", "R1", "R0"):
+                write_case_artifact_dir(artifact_root, case_role=case_role)
+
+            completed = subprocess.run(
+                [
+                    sys.executable,
+                    "-m",
+                    "scripts.authority.reference_freeze",
+                    "--root",
+                    repo_root().as_posix(),
+                    "--artifact-root",
+                    artifact_root.as_posix(),
+                    "--baseline-name",
+                    "Baseline A",
+                    "--json",
+                ],
+                capture_output=True,
+                check=True,
+                text=True,
+            )
+
+        payload = json.loads(completed.stdout)
+        self.assertEqual(payload["baseline"], "Baseline A")
+        self.assertEqual(payload["status"], "pass")
 
 
 if __name__ == "__main__":

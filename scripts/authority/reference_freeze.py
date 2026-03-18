@@ -240,12 +240,9 @@ _CASE_SPECS = {
         _CheckSpec(
             check_id="resolved_direct_slot_numerics_exact",
             gate_class="hard",
-            comparator="truthy",
+            comparator="exact",
             expected=True,
-            source_paths=(
-                "metrics.resolved_direct_slot_numerics_exact",
-                "case_meta.resolved_direct_slot_numerics",
-            ),
+            source_paths=("metrics.resolved_direct_slot_numerics_exact",),
             validation_level="V4",
         ),
         _CheckSpec(
@@ -457,6 +454,10 @@ def _load_case_payloads(
         )
     if stage_plan["case_id"] != case_meta["case_id"] or stage_plan["case_role"] != case_meta["case_role"]:
         raise ValueError("case_meta.json and stage_plan.json must describe the same frozen case")
+    if stage_plan["phase_gate"] != "Phase 0":
+        raise ValueError(
+            f"stage_plan.json phase_gate must remain 'Phase 0' for freeze publication, got {stage_plan['phase_gate']!r}"
+        )
 
     probe_payload = dict(payloads["probe"])
     if probe_payload.get("baseline") not in (None, baseline_name):
@@ -624,11 +625,18 @@ def _build_artifact_records(artifact_dir: pathlib.Path) -> dict[str, dict[str, A
 
 
 def _authority_revisions(bundle: AuthorityBundle) -> dict[str, str]:
-    return {
+    revisions = {
         key: value["sha256"]
         for key, value in bundle.authority_revisions.items()
-        if key in {"reference_case_contract", "validation_ladder"}
     }
+    authority_root = pathlib.Path(bundle.report.root) / "docs" / "authority"
+    for filename in (
+        "reference_case_contract.md",
+        "reference_case_contract.json",
+        "validation_ladder.md",
+    ):
+        revisions[filename] = _sha256_file(authority_root / filename)
+    return revisions
 
 
 def _summarize_status(statuses: Sequence[str] | Any) -> str:
@@ -656,3 +664,7 @@ def _sha256_file(path: pathlib.Path) -> str:
 
 def _timestamp_now() -> str:
     return dt.datetime.now(dt.timezone.utc).replace(microsecond=0).isoformat()
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
