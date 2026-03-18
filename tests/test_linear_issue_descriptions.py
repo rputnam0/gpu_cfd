@@ -20,21 +20,27 @@ class LinearIssueDescriptionsTests(unittest.TestCase):
             "FND-04: Support-matrix scanner and fail-fast policy",
         )
 
-        self.assertIn("## Worker startup contract", description)
+        self.assertIn("## Worker startup stub", description)
         self.assertIn("Start with `AGENTS.md`.", description)
         self.assertIn("use `docs/tasks/pr_inventory.md` as the fallback map", description)
         self.assertNotIn("Resolve the PR card through", description)
-        self.assertIn("Write or update the canonical Linear workpad before edits.", description)
+        self.assertIn("Write or update the canonical Linear workpad before edits", description)
         self.assertIn("native Codex sub-agents", description)
         self.assertIn("`gpt-5.4-mini`", description)
+        self.assertIn("explicitly set that model", description)
+        self.assertIn("Do not fetch full Linear details for already-done dependency issues", description)
         self.assertIn("keep code edits, tests, Linear updates, PR handoff, and final technical judgment on the main `gpt-5.4` worker", description)
-        self.assertIn("same implementation worker", description)
-        self.assertIn("The local-review cycle is finite", description)
-        self.assertIn("child `Backlog` issue per residual finding", description)
-        self.assertIn("moves the parent issue to `In Review` for Devin", description)
+        self.assertIn("## Review flow", description)
+        self.assertIn("Local review is finite", description)
+        self.assertIn("child `Backlog` issues", description)
+        self.assertIn("progresses to `In Review`", description)
+        self.assertIn("branch_refresh_required", description)
+        self.assertIn("latest `origin/main`", description)
         self.assertIn("`Rework` does not reopen local Codex review", description)
         self.assertIn("docs/authority/README.md", description)
-        self.assertIn("## Task card", description)
+        self.assertIn("## Task routing", description)
+        self.assertNotIn("## Task card", description)
+        self.assertNotIn("* Objective:", description)
         self.assertNotIn("README_FIRST", description)
 
     def test_issue_metadata_comes_from_current_backlog(self) -> None:
@@ -46,8 +52,8 @@ class LinearIssueDescriptionsTests(unittest.TestCase):
         self.assertEqual(metadata.depends_on, ["FND-01"])
 
     def test_normalize_description_text_treats_bullet_style_as_equivalent(self) -> None:
-        starred = "## Task card\n\n* Objective:\n  * Do the work.\n"
-        dashed = "## Task card\n\n- Objective:\n  - Do the work.\n"
+        starred = "## Review flow\n\n* Local review is finite.\n"
+        dashed = "## Review flow\n\n- Local review is finite.\n"
 
         self.assertEqual(
             linear_issue_descriptions.normalize_description_text(starred),

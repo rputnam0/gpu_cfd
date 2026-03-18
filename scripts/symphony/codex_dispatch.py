@@ -41,6 +41,11 @@ INLINE_REPO_PATH_PATTERN = re.compile(
 ISSUE_SNAPSHOT_PATH_ENV = "GPU_CFD_TRACE_ISSUE_SNAPSHOT_PATH"
 WORKPAD_SNAPSHOT_PATH_ENV = "GPU_CFD_TRACE_WORKPAD_SNAPSHOT_PATH"
 SOURCE_AUDIT_EXEMPT_TASK_IDS = {"FND-07", "P5-01", "P7-01"}
+FULL_DESCRIPTION_OMISSION_NOTE = (
+    "Full Linear description omitted from the injected prompt to avoid duplicating the "
+    "task card and source-doc routing. Use Linear tools for the live issue body or "
+    "comments only when that adds board context not already covered by the repo docs."
+)
 SOURCE_AUDIT_PHASE_REQUIREMENTS = {
     "P5": {
         "note_filename": "phase5_symbol_reconciliation.md",
@@ -118,6 +123,23 @@ def current_commit(root: pathlib.Path) -> str | None:
     return commit or None
 
 
+def refresh_origin_refs(root: pathlib.Path) -> None:
+    completed = subprocess.run(
+        ["git", "fetch", "origin", "--prune"],
+        cwd=root,
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+    if completed.returncode == 0:
+        return
+    raise DispatchError(
+        "Failed to refresh origin refs before worker dispatch.\n"
+        f"stdout:\n{completed.stdout}\n"
+        f"stderr:\n{completed.stderr}"
+    )
+
+
 def read_text(path: pathlib.Path) -> str:
     return path.read_text(encoding="utf-8")
 
@@ -174,7 +196,7 @@ def render_workflow_prompt(
         "- Attempt: `{% if attempt %}{{ attempt }}{% else %}first run{% endif %}`",
         f"- Attempt: `{attempt or 'first run'}`",
     )
-    description = str(issue_payload.get("description") or "").strip()
+    description = summarize_issue_description(str(issue_payload.get("description") or ""))
     description_block = (
         "Description:\n"
         "{% if issue.description %}\n"
@@ -190,6 +212,72 @@ def render_workflow_prompt(
     for raw, value in replacements.items():
         rendered = rendered.replace(raw, value)
     return rendered
+
+
+def summarize_issue_description(description: str) -> str:
+    normalized = description.strip()
+    if not normalized:
+        return "No description provided."
+
+    lines = normalized.splitlines()
+    summary_lines: list[str] = []
+    for line in lines:
+        if line.startswith("## "):
+            break
+        summary_lines.append(line)
+
+    summary = "\n".join(summary_lines).strip()
+    if not summary:
+        summary = "\n".join(lines[:8]).strip()
+
+    if summary != normalized:
+        return f"{summary}\n\n{FULL_DESCRIPTION_OMISSION_NOTE}"
+    return summary
+
+
+def codex_config_path() -> pathlib.Path:
+    return pathlib.Path.home() / ".codex" / "config.toml"
+
+
+def ensure_workspace_codex_trust(
+    workspace: pathlib.Path,
+    *,
+    config_path: pathlib.Path | None = None,
+) -> bool:
+    resolved_workspace = workspace.expanduser()
+    if not resolved_workspace.is_absolute():
+        resolved_workspace = resolved_workspace.resolve()
+    target = config_path or codex_config_path()
+    target.parent.mkdir(parents=True, exist_ok=True)
+    original = target.read_text(encoding="utf-8") if target.exists() else ""
+    section_header = f'[projects."{resolved_workspace.as_posix()}"]'
+    trust_line = 'trust_level = "trusted"'
+    section_pattern = re.compile(
+        rf"(?ms)^{re.escape(section_header)}\n(?P<body>.*?)(?=^\[|\Z)"
+    )
+
+    match = section_pattern.search(original)
+    if match:
+        body = match.group("body")
+        if re.search(r'(?m)^trust_level\s*=\s*"trusted"\s*$', body):
+            return False
+        if re.search(r"(?m)^trust_level\s*=.*$", body):
+            updated_body = re.sub(
+                r"(?m)^trust_level\s*=.*$",
+                trust_line,
+                body,
+                count=1,
+            )
+        else:
+            separator = "" if not body or body.endswith("\n") else "\n"
+            updated_body = f"{body}{separator}{trust_line}\n"
+        updated = f"{original[: match.start()]}{section_header}\n{updated_body}{original[match.end() :]}"
+    else:
+        separator = "\n\n" if original and not original.endswith("\n") else ("\n" if original else "")
+        updated = f"{original}{separator}{section_header}\n{trust_line}\n"
+
+    target.write_text(updated, encoding="utf-8")
+    return True
 
 
 def extract_task_card_candidates(*texts: str) -> list[str]:
@@ -778,6 +866,7 @@ def main() -> int:
     args = parse_args()
     repo = repo_root()
     workspace = workspace_root()
+    refresh_origin_refs(workspace)
     issue_identifier = issue_identifier_from_workspace(workspace)
     branch = current_branch(workspace)
     tracing_enabled = trace.is_enabled()
@@ -806,6 +895,7 @@ def main() -> int:
         repo,
         pr_context,
     )
+    ensure_workspace_codex_trust(workspace)
 
     codex_args = args.codex_args or ["app-server"]
     command = runtime_config.build_codex_command("implementation", codex_args)
