@@ -84,6 +84,14 @@ from .reference_freeze import (
     freeze_case_artifact,
     publish_baseline_control_index,
 )
+from .reference_signoff import (
+    PHASE0_ARCHIVE_INDEX_NAME,
+    PHASE0_COMPARE_JSON_NAME,
+    PHASE0_COMPARE_MARKDOWN_NAME,
+    PHASE0_PROVENANCE_MANIFEST_NAME,
+    publish_phase0_signoff_packet,
+    render_phase0_signoff_summary,
+)
 from .source_audit import (
     ResolvedSourceAuditSurface,
     SOURCE_AUDIT_OWNERSHIP_SCOPE_PLACEHOLDER,
@@ -144,6 +152,10 @@ __all__ = [
     "PHASE0_BUNDLE_MANIFEST_NAME",
     "PHASE0_CONTROL_INDEX_NAME",
     "PHASE0_VERDICT_NAME",
+    "PHASE0_ARCHIVE_INDEX_NAME",
+    "PHASE0_COMPARE_JSON_NAME",
+    "PHASE0_COMPARE_MARKDOWN_NAME",
+    "PHASE0_PROVENANCE_MANIFEST_NAME",
     "StageRegistryReport",
     "SupportBoundaryCondition",
     "SupportFunctionObject",
@@ -178,7 +190,9 @@ __all__ = [
     "apply_reference_io_overlay",
     "freeze_case_artifact",
     "publish_baseline_control_index",
+    "publish_phase0_signoff_packet",
     "render_source_audit_note",
+    "render_phase0_signoff_summary",
     "reference_io_overlay_command",
     "reference_io_overlay_stage",
     "repo_root",
