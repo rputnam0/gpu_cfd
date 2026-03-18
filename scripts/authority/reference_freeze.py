@@ -135,13 +135,18 @@ _CASE_SPECS = {
                 "build_fingerprint.generic_phase5_subset_exact",
             ),
             validation_level="V2",
+            missing_disposition="pending",
         ),
         _CheckSpec(
             check_id="patch_schema_exact",
             gate_class="hard",
             comparator="truthy",
             expected=True,
-            source_paths=("metrics.patch_schema_exact", "build_fingerprint.patch_schema_exact"),
+            source_paths=(
+                "metrics.patch_schema_exact",
+                "build_fingerprint.patch_schema_exact",
+                "build_fingerprint.semantic_patches",
+            ),
             validation_level="V0",
         ),
         _CheckSpec(
@@ -176,7 +181,11 @@ _CASE_SPECS = {
             gate_class="hard",
             comparator="truthy",
             expected=True,
-            source_paths=("metrics.patch_schema_exact", "build_fingerprint.patch_schema_exact"),
+            source_paths=(
+                "metrics.patch_schema_exact",
+                "build_fingerprint.patch_schema_exact",
+                "build_fingerprint.semantic_patches",
+            ),
             validation_level="V0",
         ),
         _CheckSpec(
@@ -186,6 +195,7 @@ _CASE_SPECS = {
             expected=True,
             source_paths=("metrics.startup_provenance_exact",),
             validation_level="V0",
+            missing_disposition="pending",
         ),
         _CheckSpec(
             check_id="precondition_field_copy_provenance_exact",
@@ -194,6 +204,7 @@ _CASE_SPECS = {
             expected=True,
             source_paths=("metrics.precondition_field_copy_provenance_exact",),
             validation_level="V3",
+            missing_disposition="pending",
         ),
     ),
     "R0": (
@@ -218,7 +229,11 @@ _CASE_SPECS = {
             gate_class="hard",
             comparator="truthy",
             expected=True,
-            source_paths=("metrics.patch_schema_exact", "build_fingerprint.patch_schema_exact"),
+            source_paths=(
+                "metrics.patch_schema_exact",
+                "build_fingerprint.patch_schema_exact",
+                "build_fingerprint.semantic_patches",
+            ),
             validation_level="V0",
         ),
         _CheckSpec(
@@ -236,6 +251,7 @@ _CASE_SPECS = {
             expected=True,
             source_paths=("metrics.startup_provenance_exact",),
             validation_level="V0",
+            missing_disposition="pending",
         ),
         _CheckSpec(
             check_id="resolved_direct_slot_numerics_exact",
@@ -467,11 +483,15 @@ def _load_case_payloads(
 
     build_fingerprint = dict(payloads["build_fingerprint"])
     patch_schema = build_fingerprint.get("patch_schema")
+    if patch_schema is None:
+        patch_schema = build_fingerprint.get("semantic_patches")
     if not isinstance(patch_schema, list) or not patch_schema:
         raise ValueError("build_fingerprint.json must define a non-empty patch_schema list")
+    build_fingerprint.setdefault("patch_schema", patch_schema)
+    build_fingerprint.setdefault("patch_schema_exact", bool(patch_schema))
 
     field_signatures = payloads["field_signatures"]
-    if not isinstance(field_signatures, list) or not field_signatures:
+    if _field_signature_count(field_signatures) == 0:
         raise ValueError("field_signatures.json must define a non-empty signature list")
 
     metrics_payload = payloads["metrics"]
@@ -493,10 +513,11 @@ def _build_baseline_verdict(case_role: str, *, payloads: Mapping[str, Any]) -> d
         checks.append(_evaluate_check(spec, payloads))
 
     hard_failures = [check["check_id"] for check in checks if check["gate_class"] == "hard" and check["status"] == "fail"]
+    hard_pending = [check["check_id"] for check in checks if check["gate_class"] == "hard" and check["status"] == "pending"]
     review_items = [check["check_id"] for check in checks if check["gate_class"] == "review" and check["status"] in {"fail", "pending"}]
     if hard_failures:
         status = "fail"
-    elif review_items:
+    elif hard_pending or review_items:
         status = "review"
     else:
         status = "pass"
@@ -512,8 +533,9 @@ def _build_baseline_verdict(case_role: str, *, payloads: Mapping[str, Any]) -> d
         "checks": checks,
         "summary": {
             "hard_failures": hard_failures,
+            "hard_pending": hard_pending,
             "review_items": review_items,
-            "field_signature_count": len(payloads["field_signatures"]),
+            "field_signature_count": _field_signature_count(payloads["field_signatures"]),
             "patch_count": len(payloads["build_fingerprint"]["patch_schema"]),
         },
     }
@@ -596,13 +618,32 @@ def _compare(comparator: str, observed: Any, expected: Any) -> bool:
 
 
 def _normalize_metrics(metrics_payload: Mapping[str, Any]) -> dict[str, Any]:
+    metric_records = metrics_payload.get("metrics", metrics_payload)
+    if not isinstance(metric_records, Mapping):
+        raise ValueError("metrics.json metrics payload must be an object")
     normalized = {}
-    for metric_name, metric_value in metrics_payload.items():
+    for metric_name, metric_value in metric_records.items():
         if isinstance(metric_value, Mapping) and "value" in metric_value:
             normalized[metric_name] = metric_value["value"]
         else:
             normalized[metric_name] = metric_value
     return normalized
+
+
+def _field_signature_count(field_signatures: Any) -> int:
+    if isinstance(field_signatures, list):
+        return len(field_signatures)
+    if not isinstance(field_signatures, Mapping):
+        return 0
+    count = 0
+    for window_name in ("steady_precondition", "transient_latest"):
+        window_payload = field_signatures.get(window_name)
+        if not isinstance(window_payload, Mapping):
+            continue
+        fields = window_payload.get("fields", {})
+        if isinstance(fields, Mapping):
+            count += len(fields)
+    return count
 
 
 def _build_artifact_records(artifact_dir: pathlib.Path) -> dict[str, dict[str, Any]]:

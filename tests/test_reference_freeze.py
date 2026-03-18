@@ -216,7 +216,12 @@ def write_json(path: pathlib.Path, payload: Any) -> None:
     path.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
 
 
-def write_case_artifact_dir(root: pathlib.Path, *, case_role: str) -> pathlib.Path:
+def write_case_artifact_dir(
+    root: pathlib.Path,
+    *,
+    case_role: str,
+    producer_style: bool = False,
+) -> pathlib.Path:
     bundle = load_authority_bundle(repo_root())
     case_meta = sample_case_meta_payload(bundle, case_role=case_role)
     stage_plan = sample_stage_plan_payload(bundle, case_role=case_role)
@@ -229,9 +234,84 @@ def write_case_artifact_dir(root: pathlib.Path, *, case_role: str) -> pathlib.Pa
         artifact_dir / "reference_freeze_overlay.json",
         build_reference_io_normalization_payload(),
     )
-    write_json(artifact_dir / "build_fingerprint.json", sample_build_fingerprint(case_role))
-    write_json(artifact_dir / "field_signatures.json", sample_field_signatures())
-    write_json(artifact_dir / "metrics.json", sample_metrics(case_role))
+    if producer_style:
+        write_json(
+            artifact_dir / "build_fingerprint.json",
+            {
+                "schema_version": "1.0.0",
+                "canonical_name": "build_fingerprint.json",
+                "case_id": case_meta["case_id"],
+                "case_role": case_role,
+                "baseline": "Baseline A",
+                "semantic_patches": sample_build_fingerprint(case_role)["patch_schema"],
+                "mesh_counts": sample_build_fingerprint(case_role)["mesh_counts"],
+                "bounding_box": {"min": [0.0, 0.0, 0.0], "max": [1.0, 1.0, 1.0]},
+                "fingerprint_sha256": "d" * 64,
+            },
+        )
+        write_json(
+            artifact_dir / "field_signatures.json",
+            {
+                "schema_version": "1.0.0",
+                "canonical_name": "field_signatures.json",
+                "case_id": case_meta["case_id"],
+                "case_role": case_role,
+                "baseline": "Baseline A",
+                "steady_precondition": {
+                    "available": True,
+                    "latest_time": "20",
+                    "fields": {
+                        "U": {
+                            "field_kind": "vector",
+                            "normalized_file_sha256": "e" * 64,
+                            "sample_count": 2,
+                            "stats": {"min_magnitude": 1.0, "max_magnitude": 2.0, "l2_magnitude": 3.0},
+                        }
+                    },
+                    "missing_optional_fields": [],
+                },
+                "transient_latest": {
+                    "available": True,
+                    "latest_time": "0.5",
+                    "fields": {
+                        "alpha.water": {
+                            "field_kind": "scalar",
+                            "normalized_file_sha256": "f" * 64,
+                            "sample_count": 2,
+                            "stats": {"min": 0.0, "max": 1.0, "sum": 1.0, "mean": 0.5},
+                        }
+                    },
+                    "missing_optional_fields": [],
+                },
+            },
+        )
+        write_json(
+            artifact_dir / "metrics.json",
+            {
+                "schema_version": "1.0.0",
+                "canonical_name": "metrics.json",
+                "case_id": case_meta["case_id"],
+                "case_role": case_role,
+                "baseline": "Baseline A",
+                "metrics": {
+                    metric_name: {
+                        "value": metric_payload["value"],
+                        "metric_source": metric_payload["source"],
+                    }
+                    for metric_name, metric_payload in sample_metrics(case_role).items()
+                    if metric_name
+                    not in {
+                        "patch_schema_exact",
+                        "startup_provenance_exact",
+                        "precondition_field_copy_provenance_exact",
+                    }
+                },
+            },
+        )
+    else:
+        write_json(artifact_dir / "build_fingerprint.json", sample_build_fingerprint(case_role))
+        write_json(artifact_dir / "field_signatures.json", sample_field_signatures())
+        write_json(artifact_dir / "metrics.json", sample_metrics(case_role))
     logs_dir = artifact_dir / "logs"
     logs_dir.mkdir()
     (logs_dir / "transient_run.log").write_text("solver ok\n", encoding="utf-8")
@@ -333,6 +413,23 @@ class ReferenceFreezeTests(unittest.TestCase):
 
             with self.assertRaisesRegex(FileNotFoundError, "field_signatures.json"):
                 freeze_case_artifact(bundle, artifact_dir=artifact_dir, baseline_name="Baseline A")
+
+    def test_freeze_case_artifact_accepts_current_reference_problem_artifact_shapes(self) -> None:
+        bundle = load_authority_bundle(repo_root())
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            artifact_dir = write_case_artifact_dir(
+                pathlib.Path(temp_dir),
+                case_role="R1",
+                producer_style=True,
+            )
+
+            manifest = freeze_case_artifact(bundle, artifact_dir=artifact_dir, baseline_name="Baseline A")
+            verdict = json.loads((artifact_dir / "baseline_verdict.json").read_text(encoding="utf-8"))
+
+        self.assertEqual(manifest["status"], "review")
+        self.assertEqual(verdict["status"], "review")
+        self.assertEqual(verdict["summary"]["field_signature_count"], 2)
 
     def test_reference_freeze_module_cli_runs_when_invoked_with_python_m(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
