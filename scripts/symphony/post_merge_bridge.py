@@ -10,13 +10,14 @@ import sys
 from dataclasses import asdict, dataclass
 
 try:
-    from scripts.symphony import linear_api, review_loop, trace
+    from scripts.symphony import devin_review_gate, linear_api, review_loop, trace
 except ModuleNotFoundError:  # pragma: no cover - script execution fallback
     sys.path.append(str(pathlib.Path(__file__).resolve().parents[2]))
-    from scripts.symphony import linear_api, review_loop, trace
+    from scripts.symphony import devin_review_gate, linear_api, review_loop, trace
 
 
 DONE_STATE = "Done"
+IN_REVIEW_STATE = "In Review"
 PR_FIELDS = ",".join(
     [
         "number",
@@ -28,6 +29,7 @@ PR_FIELDS = ",".join(
         "mergedAt",
     ]
 )
+OPEN_PR_FIELDS = ",".join(["number"])
 
 
 @dataclass(frozen=True)
@@ -100,18 +102,82 @@ def select_issue_identifier(
     return identifiers[0] if identifiers else None
 
 
+def list_open_pull_request_numbers(repo: str) -> list[int]:
+    response = review_loop.require_command(
+        [
+            "gh",
+            "pr",
+            "list",
+            "--repo",
+            repo,
+            "--state",
+            "open",
+            "--limit",
+            "100",
+            "--json",
+            OPEN_PR_FIELDS,
+        ],
+        cwd=review_loop.repo_root(),
+    )
+    payload = json.loads(response.stdout)
+    return [int(item["number"]) for item in payload]
+
+
+def reconcile_open_review_pull_requests(
+    repo: str,
+    *,
+    exclude_pr_number: int | None = None,
+) -> list[dict[str, object]]:
+    reconciled: list[dict[str, object]] = []
+    for pr_number in list_open_pull_request_numbers(repo):
+        if exclude_pr_number is not None and pr_number == exclude_pr_number:
+            continue
+        snapshot = devin_review_gate.fetch_pr_snapshot(repo, pr_number)
+        issue_identifier = devin_review_gate.select_issue_identifier(snapshot)
+        if not issue_identifier:
+            continue
+        issue = linear_api.fetch_issue(issue_identifier)
+        current_state = str((issue.get("state") or {}).get("name") or "")
+        if current_state != IN_REVIEW_STATE:
+            continue
+        if (snapshot.merge_state_status or "").strip() not in review_loop.REFRESH_REQUIRED_MERGE_STATES:
+            continue
+        result = devin_review_gate.process_pull_request(
+            repo,
+            pr_number,
+            issue_override=issue_identifier,
+            reviewers=list(devin_review_gate.DEFAULT_REVIEWERS),
+        )
+        reconciled.append(
+            {
+                "pr_number": pr_number,
+                "issue_identifier": issue_identifier,
+                "merge_state_status": snapshot.merge_state_status,
+                "decision": result["decision"],
+                "linear_update": result["linear_update"],
+            }
+        )
+    return reconciled
+
+
 def main() -> int:
     args = parse_args()
+    repo = args.repo or "/".join(review_loop.infer_repo())
     snapshot = fetch_pr_snapshot(args.repo, args.pr)
     issue_identifier = select_issue_identifier(snapshot, args.issue)
     if snapshot.state != "MERGED" or not snapshot.merged_at:
         raise ValueError(f"pull request #{snapshot.number} is not merged")
+    reconciled_open_reviews = reconcile_open_review_pull_requests(
+        repo,
+        exclude_pr_number=snapshot.number,
+    )
     if not issue_identifier:
         result = {
             "pull_request": asdict(snapshot),
             "issue_identifier": None,
             "skipped": True,
             "reason": "no linked Linear issue could be inferred from the pull request",
+            "reconciled_open_reviews": reconciled_open_reviews,
         }
         print(json.dumps(result, indent=2))
         return 0
@@ -128,6 +194,7 @@ def main() -> int:
             "current_state": done_update["current_state"],
         },
         "released_dependents": released_dependents,
+        "reconciled_open_reviews": reconciled_open_reviews,
     }
     if trace.is_enabled():
         trace_issue = issue_identifier or f"UNLINKED-PR-{snapshot.number}"

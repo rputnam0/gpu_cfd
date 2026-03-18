@@ -682,6 +682,57 @@ class PrHandoffTests(unittest.TestCase):
                 " ".join(mock_sync_workpad.call_args.kwargs["validation"]),
             )
 
+    @mock.patch("builtins.print")
+    @mock.patch("scripts.symphony.pr_handoff.trace.is_enabled", return_value=False)
+    @mock.patch("scripts.symphony.pr_handoff.merge_conflict_summary")
+    @mock.patch("scripts.symphony.pr_handoff.refresh_origin_refs")
+    @mock.patch("scripts.symphony.pr_handoff.sync_workpad")
+    @mock.patch("scripts.symphony.pr_handoff.ensure_pr")
+    @mock.patch("scripts.symphony.pr_handoff.ensure_branch_pushed")
+    @mock.patch("scripts.symphony.pr_handoff.linear_api.fetch_issue")
+    @mock.patch("scripts.symphony.pr_handoff.parse_args")
+    def test_main_rework_requests_same_worker_branch_refresh_when_branch_is_behind(
+        self,
+        mock_parse_args: mock.Mock,
+        mock_fetch_issue: mock.Mock,
+        mock_ensure_branch_pushed: mock.Mock,
+        mock_ensure_pr: mock.Mock,
+        mock_sync_workpad: mock.Mock,
+        _mock_refresh_origin_refs: mock.Mock,
+        mock_merge_conflict_summary: mock.Mock,
+        _mock_trace_is_enabled: mock.Mock,
+        _mock_print: mock.Mock,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            workspace = pathlib.Path(temp_dir) / "PRO-16"
+            workspace.mkdir()
+
+            mock_parse_args.return_value = mock.Mock(workspace=str(workspace))
+            mock_fetch_issue.return_value = {
+                "title": "Example rework",
+                "state": {"name": "Rework"},
+            }
+            mock_merge_conflict_summary.return_value = {
+                "base_ref": "origin/main",
+                "base_commit": "8992845",
+                "details": "The branch is behind fresh `origin/main` and must be refreshed.",
+                "reason": "behind",
+            }
+
+            with mock.patch(
+                "scripts.symphony.pr_handoff.current_branch",
+                return_value="codex/pro-16-example",
+            ):
+                result = pr_handoff.main()
+
+            self.assertEqual(result, 0)
+            mock_ensure_branch_pushed.assert_not_called()
+            mock_ensure_pr.assert_not_called()
+            self.assertIn(
+                "does not yet contain fresh `origin/main`",
+                " ".join(mock_sync_workpad.call_args.kwargs["validation"]),
+            )
+
     def test_parse_review_findings_extracts_structured_findings(self) -> None:
         findings = pr_handoff.parse_review_findings(
             "\n".join(

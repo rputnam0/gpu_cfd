@@ -171,6 +171,25 @@ def base_ref_commit(workspace: pathlib.Path, base_ref: str = DEFAULT_BASE_BRANCH
     return run_checked(["git", "rev-parse", base_ref], cwd=workspace).stdout.strip()
 
 
+def branch_contains_base_ref(
+    workspace: pathlib.Path,
+    base_ref: str = DEFAULT_BASE_BRANCH,
+) -> bool:
+    completed = subprocess.run(
+        ["git", "merge-base", "--is-ancestor", base_ref, "HEAD"],
+        cwd=workspace,
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+    if completed.returncode not in {0, 1}:
+        raise HandoffError(
+            "unable to determine whether the branch contains the latest "
+            f"{base_ref}:\nstdout:\n{completed.stdout}\nstderr:\n{completed.stderr}"
+        )
+    return completed.returncode == 0
+
+
 def merge_conflict_summary(
     workspace: pathlib.Path,
     *,
@@ -204,7 +223,18 @@ def merge_conflict_summary(
                 check=False,
             )
             if completed.returncode == 0:
-                return None
+                if branch_contains_base_ref(workspace, base_ref):
+                    return None
+                return {
+                    "base_ref": base_ref,
+                    "base_commit": base_ref_commit(workspace, base_ref),
+                    "details": (
+                        f"The branch is behind fresh `{base_ref}` and must be refreshed "
+                        "against the latest base commit before GitHub review or "
+                        "auto-merge can continue."
+                    ),
+                    "reason": "behind",
+                }
             if "CONFLICT (" not in combined and "Automatic merge failed" not in combined:
                 raise HandoffError(
                     "unable to determine whether the branch cleanly merges with "
@@ -214,6 +244,7 @@ def merge_conflict_summary(
                 "base_ref": base_ref,
                 "base_commit": base_ref_commit(workspace, base_ref),
                 "details": combined,
+                "reason": "conflict",
             }
         finally:
             subprocess.run(
@@ -752,24 +783,57 @@ def handle_branch_refresh_required(
     artifact_copy_note: str | None = None,
 ) -> int:
     current_status = "rework_refresh_required" if issue_state == REWORK_STATE else "branch_refresh_required"
-    validation = [
-        (
-            f"The branch conflicts with fresh `{conflict_summary['base_ref']}` "
-            "and cannot safely enter GitHub review yet."
-        ),
-    ]
-    review_handoff_notes = [
-        (
-            "Refresh the branch against the latest `origin/main`, rerun the smallest "
-            "relevant validation, and rerun the handoff helper in the same worker run."
-        ),
-        (
-            "Do not open or update the PR from a conflicted branch. GitHub review "
-            "automation will be skipped on conflicted pull requests."
-        ),
-        "Review cycle phase: branch_refresh_required",
-        "Stop worker: false",
-    ]
+    refresh_reason = str(conflict_summary.get("reason") or "conflict")
+    if refresh_reason == "behind":
+        validation = [
+            (
+                f"The branch does not yet contain fresh `{conflict_summary['base_ref']}` "
+                "and must be refreshed before GitHub review or auto-merge can continue."
+            ),
+        ]
+        risks_blockers = [
+            (
+                f"Branch refresh against `{conflict_summary['base_ref']}` is required "
+                "before PR handoff can continue."
+            ),
+        ]
+        review_handoff_notes = [
+            (
+                "Refresh the branch against the latest `origin/main`, rerun the smallest "
+                "relevant validation, push, and rerun the handoff helper in the same worker run."
+            ),
+            (
+                "Do not return the PR to `In Review` until the branch contains the latest "
+                "`origin/main` commit."
+            ),
+            "Review cycle phase: branch_refresh_required",
+            "Stop worker: false",
+        ]
+    else:
+        validation = [
+            (
+                f"The branch conflicts with fresh `{conflict_summary['base_ref']}` "
+                "and cannot safely enter GitHub review yet."
+            ),
+        ]
+        risks_blockers = [
+            (
+                f"Branch refresh against `{conflict_summary['base_ref']}` is required "
+                "before PR handoff can continue."
+            ),
+        ]
+        review_handoff_notes = [
+            (
+                "Refresh the branch against the latest `origin/main`, rerun the smallest "
+                "relevant validation, and rerun the handoff helper in the same worker run."
+            ),
+            (
+                "Do not open or update the PR from a conflicted branch. GitHub review "
+                "automation will be skipped on conflicted pull requests."
+            ),
+            "Review cycle phase: branch_refresh_required",
+            "Stop worker: false",
+        ]
     if review_workspace_note:
         review_handoff_notes.append(review_workspace_note)
     if artifact_copy_note:
@@ -779,12 +843,7 @@ def handle_branch_refresh_required(
         issue_title=issue_title,
         current_status=current_status,
         validation=validation,
-        risks_blockers=[
-            (
-                f"Branch refresh against `{conflict_summary['base_ref']}` is required "
-                "before PR handoff can continue."
-            ),
-        ],
+        risks_blockers=risks_blockers,
         review_handoff_notes=review_handoff_notes,
     )
     result: dict[str, Any] = {

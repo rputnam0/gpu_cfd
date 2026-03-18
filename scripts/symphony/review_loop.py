@@ -24,6 +24,7 @@ except ModuleNotFoundError:  # pragma: no cover - script execution fallback
 DEFAULT_BASE_BRANCH = "origin/main"
 DEFAULT_REVIEWERS = ("devin-ai-integration[bot]",)
 DEFAULT_CODEX_REVIEW_TIMEOUT_SECONDS = 300
+REFRESH_REQUIRED_MERGE_STATES = {"BEHIND", "DIRTY"}
 DEFAULT_REVIEW_PROMPT = (
     "Review this branch for correctness, regressions, missing tests, scope drift, "
     "and missing validation evidence. Focus on concrete bugs, behavioral risks, "
@@ -47,6 +48,7 @@ query($owner:String!, $name:String!, $number:Int!) {
       state
       isDraft
       reviewDecision
+      mergeStateStatus
       headRefOid
       commits(last: 1) {
         nodes {
@@ -100,6 +102,7 @@ class ReviewSummary:
     pr_state: str
     review_state: str
     review_decision: str | None
+    merge_state_status: str | None
     head_oid: str | None
     latest_commit_at: str | None
     reviewers: list[str]
@@ -378,6 +381,8 @@ def evaluate_review_state(
         review_state = pull_request.get("state", "UNKNOWN").lower()
     elif actionable_reviews or actionable_threads:
         review_state = "action_required"
+    elif (pull_request.get("mergeStateStatus") or "").strip() in REFRESH_REQUIRED_MERGE_STATES:
+        review_state = "branch_refresh_required"
     else:
         if observed_reviews or observed_threads:
             review_state = "review_complete"
@@ -390,6 +395,7 @@ def evaluate_review_state(
         pr_state=pull_request["state"],
         review_state=review_state,
         review_decision=pull_request.get("reviewDecision"),
+        merge_state_status=pull_request.get("mergeStateStatus"),
         head_oid=pull_request.get("headRefOid"),
         latest_commit_at=latest_commit_at_raw,
         reviewers=sorted(reviewer_logins),

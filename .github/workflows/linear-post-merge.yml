@@ -13,7 +13,8 @@ on:
 
 permissions:
   contents: read
-  pull-requests: read
+  pull-requests: write
+  statuses: write
 
 jobs:
   linear-post-merge:
@@ -34,7 +35,7 @@ jobs:
 
       - name: Sync merged PR into Linear
         env:
-          GH_TOKEN: ${{ github.token }}
+          GH_TOKEN: ${{ secrets.REVIEW_BRIDGE_GH_TOKEN != '' && secrets.REVIEW_BRIDGE_GH_TOKEN || github.token }}
           LINEAR_API_KEY: ${{ secrets.LINEAR_API_KEY }}
           PR_NUMBER: ${{ github.event.pull_request.number || inputs.pr }}
           GITHUB_REPOSITORY: ${{ github.repository }}
