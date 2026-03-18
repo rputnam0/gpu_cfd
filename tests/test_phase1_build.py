@@ -206,6 +206,43 @@ class Phase1BuildTests(unittest.TestCase):
                     cuda_probe_path=emitted.cuda_probe_path,
                 )
 
+    def test_plan_phase1_build_rejects_nvtx2_includes_when_parent_path_contains_build(
+        self,
+    ) -> None:
+        bundle = load_authority_bundle(repo_root())
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_root = pathlib.Path(temp_dir)
+            emitted = emit_phase1_discovery_artifacts(
+                bundle,
+                output_dir=temp_root / "discovery",
+                lane="primary",
+                host_observations=sample_host_observations(),
+                cuda_probe=sample_cuda_probe_payload(),
+                local_mirror_refs=sample_local_mirror_refs(),
+                repo_commit="abc123def456",
+            )
+            source_root = temp_root / "build" / "spuma"
+            source_root.mkdir(parents=True)
+            bad_header = source_root / "GpuTrace.C"
+            bad_header.write_text(
+                "#include <nvToolsExt.h>\nint main() { return 0; }\n",
+                encoding="utf-8",
+            )
+            allwmake = source_root / "Allwmake"
+            allwmake.write_text("#!/usr/bin/env bash\nexit 0\n", encoding="utf-8")
+            allwmake.chmod(0o755)
+
+            with self.assertRaisesRegex(Phase1BuildError, "NVTX2|nvToolsExt"):
+                plan_phase1_build(
+                    bundle,
+                    source_root=source_root,
+                    output_dir=temp_root / "artifacts",
+                    discovery_host_env_path=emitted.host_env_path,
+                    discovery_manifest_refs_path=emitted.manifest_refs_path,
+                    cuda_probe_path=emitted.cuda_probe_path,
+                )
+
     def test_render_phase1_env_exports_emits_sourceable_exports(self) -> None:
         bundle = load_authority_bundle(repo_root())
 

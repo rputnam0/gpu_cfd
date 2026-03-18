@@ -302,7 +302,8 @@ def audit_nvtx_includes(source_root: pathlib.Path | str) -> tuple[str, ...]:
     for path in root.rglob("*"):
         if not path.is_file():
             continue
-        if any(part in SKIP_AUDIT_DIR_NAMES for part in path.parts):
+        relative_parts = path.relative_to(root).parts
+        if any(part in SKIP_AUDIT_DIR_NAMES for part in relative_parts):
             continue
         if path.suffix.lower() not in AUDIT_SOURCE_SUFFIXES:
             continue
