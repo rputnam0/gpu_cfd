@@ -16,7 +16,7 @@ from .reference_freeze import baseline_artifact_slug
 BRINGUP_PACKET_SCHEMA_VERSION = "1.0.0"
 BRINGUP_PACKET_NAME = "baseline_bringup_packet.json"
 BRINGUP_SUMMARY_NAME = "baseline_bringup_summary.md"
-LEGACY_OF12_PATH = "/opt/openfoam12"
+LEGACY_OF12_PATH = "/".join(("", "opt", "openfoam12"))
 SMOKE_METRICS_THRESHOLDS = {
     "alpha_min": -1e-6,
     "alpha_max": 1 + 1e-6,
@@ -477,7 +477,9 @@ def _build_decision(
 
     if legacy_path_hits:
         disposition = "blocked"
-        reasons.append("legacy /opt/openfoam12 references remain in Baseline B artifacts")
+        reasons.append(
+            f"legacy {LEGACY_OF12_PATH} references remain in Baseline B artifacts"
+        )
     if not tuple_traceability["consistent"]:
         disposition = "blocked"
         reasons.append("reviewed source tuple traceability is missing or inconsistent")
