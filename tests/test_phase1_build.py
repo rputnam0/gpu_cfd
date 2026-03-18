@@ -274,6 +274,108 @@ class Phase1BuildTests(unittest.TestCase):
         self.assertIn("CUDA_HOME=/usr/local/cuda-12.9", build_log)
         self.assertIn("SPUMA_ENABLE_NVTX=1", build_log)
 
+    def test_run_phase1_build_sources_repo_native_bashrc_when_present(self) -> None:
+        bundle = load_authority_bundle(repo_root())
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_root = pathlib.Path(temp_dir)
+            emitted = emit_phase1_discovery_artifacts(
+                bundle,
+                output_dir=temp_root / "discovery",
+                lane="primary",
+                host_observations=sample_host_observations(),
+                cuda_probe=sample_cuda_probe_payload(),
+                local_mirror_refs=sample_local_mirror_refs(),
+                repo_commit="abc123def456",
+            )
+            source_root = temp_root / "spuma"
+            source_root.mkdir()
+            etc_dir = source_root / "etc"
+            etc_dir.mkdir()
+            bashrc = etc_dir / "bashrc"
+            bashrc.write_text(
+                "export SPUMA_BASHRC_MARKER=enabled\n",
+                encoding="utf-8",
+            )
+            allwmake = source_root / "Allwmake"
+            allwmake.write_text(
+                (
+                    "#!/usr/bin/env bash\n"
+                    "set -euo pipefail\n"
+                    "echo \"SPUMA_BASHRC_MARKER=${SPUMA_BASHRC_MARKER:-missing}\"\n"
+                ),
+                encoding="utf-8",
+            )
+            allwmake.chmod(0o755)
+
+            plan = plan_phase1_build(
+                bundle,
+                source_root=source_root,
+                output_dir=temp_root / "build",
+                discovery_host_env_path=emitted.host_env_path,
+                discovery_manifest_refs_path=emitted.manifest_refs_path,
+                cuda_probe_path=emitted.cuda_probe_path,
+            )
+            run_phase1_build(plan)
+            build_log = plan.log_path.read_text(encoding="utf-8")
+
+        self.assertIn("SPUMA_BASHRC_MARKER=enabled", build_log)
+
+    def test_run_phase1_build_preserves_bashrc_path_updates(self) -> None:
+        bundle = load_authority_bundle(repo_root())
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_root = pathlib.Path(temp_dir)
+            emitted = emit_phase1_discovery_artifacts(
+                bundle,
+                output_dir=temp_root / "discovery",
+                lane="primary",
+                host_observations=sample_host_observations(),
+                cuda_probe=sample_cuda_probe_payload(),
+                local_mirror_refs=sample_local_mirror_refs(),
+                repo_commit="abc123def456",
+            )
+            source_root = temp_root / "spuma"
+            source_root.mkdir()
+            mockbin = source_root / "mockbin"
+            mockbin.mkdir()
+            helper = mockbin / "bashrc-helper"
+            helper.write_text(
+                "#!/usr/bin/env bash\necho \"bashrc-helper-ok\"\n",
+                encoding="utf-8",
+            )
+            helper.chmod(0o755)
+            etc_dir = source_root / "etc"
+            etc_dir.mkdir()
+            bashrc = etc_dir / "bashrc"
+            bashrc.write_text(
+                f"export PATH={mockbin.as_posix()}:$PATH\n",
+                encoding="utf-8",
+            )
+            allwmake = source_root / "Allwmake"
+            allwmake.write_text(
+                (
+                    "#!/usr/bin/env bash\n"
+                    "set -euo pipefail\n"
+                    "bashrc-helper\n"
+                ),
+                encoding="utf-8",
+            )
+            allwmake.chmod(0o755)
+
+            plan = plan_phase1_build(
+                bundle,
+                source_root=source_root,
+                output_dir=temp_root / "build",
+                discovery_host_env_path=emitted.host_env_path,
+                discovery_manifest_refs_path=emitted.manifest_refs_path,
+                cuda_probe_path=emitted.cuda_probe_path,
+            )
+            run_phase1_build(plan)
+            build_log = plan.log_path.read_text(encoding="utf-8")
+
+        self.assertIn("bashrc-helper-ok", build_log)
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -40,6 +40,7 @@ class Phase1BuildPlan:
     lane: str
     mode: str
     build_command: tuple[str, ...]
+    bashrc_path: pathlib.Path | None
     host_env_path: pathlib.Path
     manifest_refs_path: pathlib.Path
     metadata_path: pathlib.Path
@@ -122,6 +123,7 @@ def plan_phase1_build(
         source_root_path,
         build_entrypoint=build_entrypoint,
     )
+    bashrc_path = _resolve_repo_bashrc(source_root_path)
     nvtx_audit_hits = audit_nvtx_includes(source_root_path)
     if nvtx_audit_hits:
         formatted_hits = ", ".join(nvtx_audit_hits)
@@ -150,6 +152,7 @@ def plan_phase1_build(
         nvarch=nvarch,
         selected_lane_value=selected_lane_value,
         build_command=build_command,
+        bashrc_path=bashrc_path,
         source_root=source_root_path,
         host_env_path=emitted.host_env_path,
         manifest_refs_path=emitted.manifest_refs_path,
@@ -166,6 +169,7 @@ def plan_phase1_build(
         lane=lane,
         mode=mode,
         build_command=build_command,
+        bashrc_path=bashrc_path,
         host_env_path=emitted.host_env_path,
         manifest_refs_path=emitted.manifest_refs_path,
         metadata_path=metadata_path,
@@ -176,19 +180,23 @@ def plan_phase1_build(
 
 
 def render_phase1_env_exports(plan: Phase1BuildPlan) -> str:
-    lines = [
-        f"export {key}={shlex.quote(value)}"
-        for key, value in sorted(plan.env_exports.items())
-    ]
+    lines: list[str] = []
+    for key, value in sorted(plan.env_exports.items()):
+        if key == "PATH":
+            lines.append('export PATH="$CUDA_HOME/bin:${PATH:-}"')
+            continue
+        if key == "LD_LIBRARY_PATH":
+            lines.append('export LD_LIBRARY_PATH="$CUDA_HOME/lib64${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"')
+            continue
+        lines.append(f"export {key}={shlex.quote(value)}")
     return "\n".join(lines)
 
 
 def run_phase1_build(plan: Phase1BuildPlan) -> Phase1BuildResult:
     env = os.environ.copy()
-    env.update(plan.env_exports)
     with plan.log_path.open("w", encoding="utf-8") as handle:
         completed = subprocess.run(
-            list(plan.build_command),
+            _build_shell_command(plan),
             cwd=plan.source_root,
             env=env,
             text=True,
@@ -371,6 +379,7 @@ def _build_metadata_payload(
     nvarch: int,
     selected_lane_value: str,
     build_command: tuple[str, ...],
+    bashrc_path: pathlib.Path | None,
     source_root: pathlib.Path,
     host_env_path: pathlib.Path,
     manifest_refs_path: pathlib.Path,
@@ -391,6 +400,7 @@ def _build_metadata_payload(
         "selected_lane_value": selected_lane_value,
         "build_entrypoint": build_command[0],
         "build_command": list(build_command),
+        "bashrc_path": bashrc_path.as_posix() if bashrc_path else None,
         "source_root": source_root.as_posix(),
         "host_env": host_env_path.as_posix(),
         "manifest_refs": manifest_refs_path.as_posix(),
@@ -515,6 +525,30 @@ def _resolve_build_command(
             f"repo-native build entrypoint is not executable: {entrypoint_path}"
         )
     return (f"./{build_entrypoint}",)
+
+
+def _resolve_repo_bashrc(source_root: pathlib.Path) -> pathlib.Path | None:
+    bashrc_path = source_root / "etc" / "bashrc"
+    if bashrc_path.is_file():
+        return bashrc_path
+    return None
+
+
+def _build_shell_command(plan: Phase1BuildPlan) -> list[str]:
+    segments: list[str] = []
+    if plan.bashrc_path is not None:
+        segments.append(f". {shlex.quote(plan.bashrc_path.as_posix())}")
+    for key, value in sorted(plan.env_exports.items()):
+        if key == "PATH":
+            segments.append('export PATH="$CUDA_HOME/bin:${PATH:-}"')
+            continue
+        if key == "LD_LIBRARY_PATH":
+            segments.append('export LD_LIBRARY_PATH="$CUDA_HOME/lib64${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"')
+            continue
+        segments.append(f"export {key}={shlex.quote(value)}")
+    command_text = " ".join(shlex.quote(part) for part in plan.build_command)
+    segments.append(f"exec {command_text}")
+    return ["bash", "--noprofile", "--norc", "-c", "\n".join(segments)]
 
 
 def _infer_cuda_home(selected_lane_value: str) -> str:
