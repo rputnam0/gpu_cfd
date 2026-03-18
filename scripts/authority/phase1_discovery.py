@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+from datetime import datetime, timezone
 import json
 import pathlib
 import re
@@ -17,6 +18,7 @@ try:
         emit_environment_manifests,
         load_pin_details,
         normalize_host_observations,
+        resolve_repo_git_commit,
         write_json,
     )
 except ImportError:  # pragma: no cover - script execution fallback
@@ -32,6 +34,7 @@ except ImportError:  # pragma: no cover - script execution fallback
         emit_environment_manifests,
         load_pin_details,
         normalize_host_observations,
+        resolve_repo_git_commit,
         write_json,
     )
 
@@ -50,6 +53,8 @@ REQUIRED_CUDA_PROBE_FIELDS = (
     "native_kernel_ok",
     "managed_memory_probe_ok",
 )
+SUPPORTED_COLLECTION_MODES = {"live_host", "imported_observations"}
+WSL_NVIDIA_SMI_PATH = pathlib.Path("/usr/lib/wsl/lib/nvidia-smi")
 
 
 @dataclass(frozen=True)
@@ -69,14 +74,26 @@ def emit_phase1_discovery_artifacts(
     cuda_probe: Mapping[str, Any] | None = None,
     local_mirror_refs: Mapping[str, str] | None = None,
     repo_commit: str | None = None,
+    provenance_collection_mode: str = "live_host",
+    provenance_emitter_time: str | None = None,
+    provenance_emitter_hostname: str | None = None,
 ) -> EmittedPhase1DiscoveryArtifacts:
     normalized_host_observations = _normalize_phase1_host_observations(
         host_observations or {}
+    )
+    resolved_repo_commit = resolve_repo_git_commit(bundle.root, repo_commit=repo_commit)
+    provenance = _build_phase1_provenance(
+        host_observations=normalized_host_observations,
+        repo_commit=resolved_repo_commit,
+        collection_mode=provenance_collection_mode,
+        emitter_hostname=provenance_emitter_hostname,
+        emitter_time=provenance_emitter_time,
     )
     probe_payload = build_cuda_probe_payload(
         bundle,
         lane=lane,
         cuda_probe=dict(cuda_probe or {}),
+        provenance=provenance,
     )
     emitted_manifests = emit_environment_manifests(
         bundle,
@@ -85,7 +102,8 @@ def emit_phase1_discovery_artifacts(
         lane=lane,
         host_observations=normalized_host_observations,
         local_mirror_refs=dict(local_mirror_refs or {}),
-        repo_commit=repo_commit,
+        repo_commit=resolved_repo_commit,
+        provenance=provenance,
     )
     target_dir = pathlib.Path(output_dir)
     cuda_probe_path = target_dir / CUDA_PROBE_ARTIFACT_NAME
@@ -105,6 +123,7 @@ def build_cuda_probe_payload(
     *,
     lane: str,
     cuda_probe: Mapping[str, Any],
+    provenance: Mapping[str, Any] | None = None,
 ) -> dict[str, Any]:
     pin_details = load_pin_details(bundle)
     _validate_cuda_probe_payload(pin_details, cuda_probe)
@@ -130,6 +149,8 @@ def build_cuda_probe_payload(
         "authority_revisions": bundle.authority_revisions,
     }
     payload.update({field_name: cuda_probe[field_name] for field_name in REQUIRED_CUDA_PROBE_FIELDS})
+    if provenance:
+        payload["provenance"] = dict(provenance)
     for optional_field in (
         "managed_memory_failure_reason",
         "managed_memory_workaround",
@@ -145,12 +166,13 @@ def collect_host_observations(
     os_release_path: pathlib.Path | str = "/etc/os-release",
 ) -> dict[str, str]:
     runner = command_runner or _run_command
+    nvidia_smi_path = _resolve_nvidia_smi_path()
     observations = {
         "hostname": runner(["hostname"]).strip(),
         "gpu_csv": _single_gpu_csv(
             runner(
                 [
-                    "nvidia-smi",
+                    nvidia_smi_path,
                     "--query-gpu=name,driver_version,memory.total",
                     "--format=csv,noheader",
                 ]
@@ -163,6 +185,8 @@ def collect_host_observations(
         "compute_sanitizer_version": runner(["compute-sanitizer", "--version"]).strip(),
         "os_release": _read_os_release(pathlib.Path(os_release_path)),
         "kernel": runner(["uname", "-r"]).strip(),
+        "nvidia_smi_path": nvidia_smi_path,
+        "nvc_path": shutil.which("nvc") or "",
     }
     for tool_name, key_name in (
         ("nvcc", "nvcc_path"),
@@ -242,6 +266,11 @@ def main(argv: list[str] | None = None) -> int:
         cuda_probe=cuda_probe,
         local_mirror_refs=_parse_local_mirror_refs(args.local_mirror_ref),
         repo_commit=args.repo_commit,
+        provenance_collection_mode=(
+            "imported_observations"
+            if args.host_observations_json is not None
+            else "live_host"
+        ),
     )
     print(
         json.dumps(
@@ -341,6 +370,45 @@ def _normalize_phase1_host_observations(
     return normalized
 
 
+def _build_phase1_provenance(
+    *,
+    host_observations: Mapping[str, Any],
+    repo_commit: str,
+    collection_mode: str,
+    emitter_hostname: str | None,
+    emitter_time: str | None,
+) -> dict[str, str]:
+    normalized_collection_mode = str(collection_mode).strip()
+    if normalized_collection_mode not in SUPPORTED_COLLECTION_MODES:
+        raise ValueError(
+            "unsupported Phase 1 discovery provenance collection_mode "
+            f"{collection_mode!r}; expected one of {sorted(SUPPORTED_COLLECTION_MODES)!r}"
+        )
+    resolved_hostname = (
+        str(emitter_hostname).strip()
+        if emitter_hostname is not None
+        else str(host_observations.get("hostname", "")).strip()
+    )
+    if not resolved_hostname:
+        raise ValueError("Phase 1 discovery provenance requires emitter_hostname")
+    resolved_time = (
+        str(emitter_time).strip()
+        if emitter_time is not None
+        else datetime.now(timezone.utc)
+        .replace(microsecond=0)
+        .isoformat()
+        .replace("+00:00", "Z")
+    )
+    if not resolved_time:
+        raise ValueError("Phase 1 discovery provenance requires emitter_time")
+    return {
+        "collection_mode": normalized_collection_mode,
+        "emitter_hostname": resolved_hostname,
+        "emitter_time": resolved_time,
+        "repo_commit": str(repo_commit).strip(),
+    }
+
+
 def _expected_gpu_name(workstation_target: str) -> str | None:
     first_clause = workstation_target.split(",", 1)[0].strip()
     normalized = re.sub(r"^(single|dual|multi)\s+", "", first_clause, flags=re.IGNORECASE)
@@ -399,6 +467,29 @@ def _run_command(args: list[str]) -> str:
     if not stdout:
         raise ValueError(f"failed to collect {' '.join(args)!r}: command returned no output")
     return stdout
+
+
+def _resolve_nvidia_smi_path() -> str:
+    discovered = shutil.which("nvidia-smi")
+    if discovered:
+        return discovered
+    if _is_wsl_environment() and WSL_NVIDIA_SMI_PATH.is_file():
+        return WSL_NVIDIA_SMI_PATH.as_posix()
+    raise ValueError("required tool 'nvidia-smi' was not found in PATH")
+
+
+def _is_wsl_environment() -> bool:
+    for probe_path in (
+        pathlib.Path("/proc/sys/kernel/osrelease"),
+        pathlib.Path("/proc/version"),
+    ):
+        try:
+            content = probe_path.read_text(encoding="utf-8").lower()
+        except OSError:
+            continue
+        if "microsoft" in content or "wsl" in content:
+            return True
+    return False
 
 
 def _read_os_release(path: pathlib.Path) -> str:

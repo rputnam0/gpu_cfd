@@ -31,6 +31,8 @@ CANONICAL_HOST_OBSERVATION_FIELDS = (
     "compute_sanitizer_version",
     "os_release",
     "kernel",
+    "nvidia_smi_path",
+    "nvc_path",
     "nvcc_path",
     "nsys_path",
     "ncu_path",
@@ -93,6 +95,7 @@ def resolve_consumer_pin_manifest(
     host_observations: dict[str, Any] | None = None,
     local_mirror_refs: dict[str, str] | None = None,
     repo_commit: str | None = None,
+    provenance: dict[str, Any] | None = None,
 ) -> ConsumerPinResolution:
     if consumer not in SUPPORTED_CONSUMERS:
         raise ValueError(f"unsupported consumer {consumer!r}")
@@ -146,6 +149,8 @@ def resolve_consumer_pin_manifest(
             "git_commit": repo_git_commit,
         },
     }
+    if provenance:
+        host_env["provenance"] = dict(provenance)
 
     manifest_refs = {
         "schema_version": MANIFEST_SCHEMA_VERSION,
@@ -167,6 +172,8 @@ def resolve_consumer_pin_manifest(
         "invoked_tool_paths": {
             field_name: host_observations[field_name]
             for field_name in (
+                "nvidia_smi_path",
+                "nvc_path",
                 "nvcc_path",
                 "nsys_path",
                 "ncu_path",
@@ -179,6 +186,8 @@ def resolve_consumer_pin_manifest(
             "git_commit": repo_git_commit,
         },
     }
+    if provenance:
+        manifest_refs["provenance"] = dict(provenance)
     shared_resolution_key = build_shared_resolution_key(pin_details, lane=lane)
     return ConsumerPinResolution(
         consumer=consumer,
@@ -198,6 +207,7 @@ def emit_environment_manifests(
     host_observations: dict[str, Any] | None = None,
     local_mirror_refs: dict[str, str] | None = None,
     repo_commit: str | None = None,
+    provenance: dict[str, Any] | None = None,
 ) -> EmittedEnvironmentManifests:
     pin_details = load_pin_details(bundle)
     resolved_host_observations = normalize_host_observations(host_observations or {})
@@ -217,6 +227,7 @@ def emit_environment_manifests(
         host_observations=resolved_host_observations,
         local_mirror_refs=resolved_local_mirror_refs,
         repo_commit=repo_commit,
+        provenance=provenance,
     )
     target_dir = pathlib.Path(output_dir)
     target_dir.mkdir(parents=True, exist_ok=True)
@@ -434,7 +445,11 @@ def _validate_host_observations(
     }
     for field_name, expected_value in version_expectations.items():
         observed_value = str(host_observations[field_name]).strip()
-        if not _matches_frozen_version(observed_value, expected_value):
+        if not _matches_frozen_version(
+            observed_value,
+            expected_value,
+            allow_release_line_match=field_name == "nvcc_version",
+        ):
             raise AuthorityConflictError(
                 f"{field_name} must realize frozen value {expected_value!r}; "
                 f"found {observed_value!r}"
@@ -495,12 +510,55 @@ def _gpu_name_matches_workstation(gpu_name: str, expected_gpu: str) -> bool:
     return not any(token in normalized_name for token in disallowed_tokens)
 
 
-def _matches_frozen_version(observed_value: str, expected_value: str) -> bool:
+def _matches_frozen_version(
+    observed_value: str,
+    expected_value: str,
+    *,
+    allow_release_line_match: bool = False,
+) -> bool:
+    observed = observed_value.strip()
     expected = expected_value.strip()
-    observed_versions = set(re.findall(r"\d+(?:\.\d+)+", observed_value))
+    observed_versions = _extract_version_tuples(observed)
+    expected_versions = _extract_version_tuples(expected)
+    if observed_versions and expected_versions:
+        return any(
+            _version_tuple_matches(
+                observed_tuple,
+                expected_tuple,
+                allow_release_line_match=allow_release_line_match,
+            )
+            for observed_tuple in observed_versions
+            for expected_tuple in expected_versions
+        )
     if observed_versions:
-        return expected in observed_versions
-    return observed_value.strip() == expected
+        return expected in {
+            ".".join(str(component) for component in version_tuple)
+            for version_tuple in observed_versions
+        }
+    return observed == expected
+
+
+def _extract_version_tuples(value: str) -> list[tuple[int, ...]]:
+    return [
+        tuple(int(component) for component in token.split("."))
+        for token in re.findall(r"\d+(?:\.\d+)+", value)
+    ]
+
+
+def _version_tuple_matches(
+    observed: tuple[int, ...],
+    expected: tuple[int, ...],
+    *,
+    allow_release_line_match: bool = False,
+) -> bool:
+    if len(observed) >= len(expected) and observed[: len(expected)] == expected:
+        return True
+    return (
+        allow_release_line_match
+        and len(expected) >= 3
+        and len(observed) == 2
+        and observed == expected[:2]
+    )
 
 
 def _parse_memory_mib(value: str) -> int | None:

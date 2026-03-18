@@ -210,6 +210,21 @@ The required external-review gate is `devin-review-gate`, not a human approval.
 Run Symphony on the `wsl` workstation instead of the local Mac so issue workspaces live next to the
 GPU environment.
 
+## Phase 1 workstation contract
+
+Live Phase 1 bring-up work must regenerate the canonical `P1-01` discovery pack on the target
+workstation immediately before `P1-02` build execution.
+
+- Treat `host_env.json`, `manifest_refs.json`, and `cuda_probe.json` as live workstation evidence,
+  not as editable planning placeholders.
+- Do not stage synthetic or hand-edited discovery payloads into canonical runtime artifact
+  directories such as `/tmp/PRO-21-artifacts/discovery`.
+- If `P1-02` needs a fresh rerun, regenerate `P1-01` artifacts on the same host first and then
+  point `GPU_CFD_HOST_ENV`, `GPU_CFD_MANIFEST_REFS`, and `GPU_CFD_CUDA_PROBE` at that newly
+  emitted pack.
+- If the worker host is WSL, ensure login shells expose `/usr/lib/wsl/lib` from `.profile` so
+  non-interactive `bash -lc` probes can resolve `nvidia-smi`.
+
 ## Official runtime entrypoint
 
 For autonomous operation, run the official Symphony service on WSL through a user-systemd unit,

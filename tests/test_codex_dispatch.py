@@ -501,6 +501,9 @@ class CodexDispatchTests(unittest.TestCase):
                     )
                 )
                 stack.enter_context(
+                    mock.patch.object(codex_dispatch, "ensure_workspace_codex_trust")
+                )
+                stack.enter_context(
                     mock.patch.object(codex_dispatch.trace, "is_enabled", return_value=True)
                 )
                 stack.enter_context(
@@ -587,6 +590,7 @@ class CodexDispatchTests(unittest.TestCase):
                     "build_codex_command",
                     return_value=["codex", "app-server"],
                 ),
+                mock.patch.object(codex_dispatch, "ensure_workspace_codex_trust"),
                 mock.patch.object(codex_dispatch.trace, "is_enabled", return_value=False),
                 mock.patch.object(
                     codex_dispatch,
