@@ -6,6 +6,7 @@ import tempfile
 import unittest
 from typing import Any
 
+from scripts.authority import reference_signoff
 from scripts.authority import (
     PHASE0_ARCHIVE_INDEX_NAME,
     PHASE0_COMPARE_JSON_NAME,
@@ -356,7 +357,7 @@ def write_case_artifact_dir(
         sample_metrics(case_role, baseline=baseline, angle_source=angle_source),
     )
     logs_dir = case_dir / "logs"
-    logs_dir.mkdir()
+    logs_dir.mkdir(exist_ok=True)
     (logs_dir / "transient_run.log").write_text("solver ok\n", encoding="utf-8")
     (logs_dir / "transient_run.time.txt").write_text("1.23\n", encoding="utf-8")
     return case_dir
@@ -647,6 +648,48 @@ class ReferenceSignoffTests(unittest.TestCase):
             self.assertEqual(packet["outputs"]["compare_markdown"], markdown_out.as_posix())
             self.assertEqual(archive_index["outputs"]["compare_json"], json_out.as_posix())
             self.assertEqual(archive_index["outputs"]["compare_markdown"], markdown_out.as_posix())
+
+    def test_review_threshold_check_reports_and_for_dual_threshold_failure(self) -> None:
+        check = reference_signoff._review_threshold_check(
+            "air_core_area_ratio_within_threshold",
+            threshold_abs=0.05,
+            threshold_pct=10.0,
+            baseline_a=1.0,
+            baseline_b=1.2,
+        )
+
+        self.assertEqual(check["status"], "review")
+        self.assertIn("and relative diff", check["details"])
+        self.assertNotIn("or relative diff", check["details"])
+
+    def test_review_threshold_check_requires_at_least_one_threshold(self) -> None:
+        with self.assertRaisesRegex(ValueError, "at least one review threshold"):
+            reference_signoff._review_threshold_check(
+                "air_core_area_ratio_within_threshold",
+                threshold_abs=None,
+                threshold_pct=None,
+                baseline_a=1.0,
+                baseline_b=1.1,
+            )
+
+    def test_write_case_artifact_dir_allows_reinvocation_for_same_case(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            artifact_root = pathlib.Path(temp_dir)
+            write_case_artifact_dir(
+                artifact_root,
+                case_role="R1",
+                baseline="Baseline A",
+                runtime_base="OpenFOAM 12",
+            )
+
+            case_dir = write_case_artifact_dir(
+                artifact_root,
+                case_role="R1",
+                baseline="Baseline A",
+                runtime_base="OpenFOAM 12",
+            )
+
+            self.assertTrue((case_dir / "logs" / "transient_run.log").is_file())
 
 
 if __name__ == "__main__":

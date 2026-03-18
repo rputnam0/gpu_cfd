@@ -43,6 +43,7 @@ def publish_phase0_signoff_packet(
     archive_index_out: pathlib.Path | str | None = None,
     provenance_manifest_out: pathlib.Path | str | None = None,
 ) -> dict[str, Any]:
+    """Compare Baseline A/B Phase 0 bundles and publish the sign-off packet."""
     artifact_root_path = pathlib.Path(artifact_root)
     selected_case_roles = tuple(case_roles or DEFAULT_SIGNOFF_CASE_ROLES)
     comparison_root = artifact_root_path / "comparisons"
@@ -223,6 +224,7 @@ def publish_phase0_signoff_packet(
 
 
 def render_phase0_signoff_summary(packet: Mapping[str, Any]) -> str:
+    """Render the human-readable Phase 0 comparison summary for the packet."""
     lines = [
         "# Phase 0 Compare Report",
         "",
@@ -597,6 +599,15 @@ def _load_case_inputs(
     stage_plan = validate_stage_plan(bundle, _read_json(artifact_dir / "stage_plan.json"))
     metrics_payload = _read_json(artifact_dir / "metrics.json")
     metric_values, metric_sources = _normalize_metrics(metrics_payload)
+    resolved_provenance = {}
+    for field_name in ("probe_payload", "host_env", "manifest_refs"):
+        resolved_path = _resolve_reference_path(
+            case_meta.get("provenance", {}).get(field_name),
+            case_dir=artifact_dir,
+            baseline_root=baseline_root,
+        )
+        resolved_provenance[field_name] = resolved_path.as_posix() if resolved_path else None
+
     return {
         "baseline": baseline_name,
         "baseline_slug": baseline_artifact_slug(baseline_name),
@@ -611,20 +622,7 @@ def _load_case_inputs(
         "metric_sources": metric_sources,
         "angle_source": metrics_payload.get("angle_source"),
         "time_windows": dict(metrics_payload.get("time_windows") or {}),
-        "resolved_provenance": {
-            field_name: _resolve_reference_path(
-                case_meta.get("provenance", {}).get(field_name),
-                case_dir=artifact_dir,
-                baseline_root=baseline_root,
-            ).as_posix()
-            if _resolve_reference_path(
-                case_meta.get("provenance", {}).get(field_name),
-                case_dir=artifact_dir,
-                baseline_root=baseline_root,
-            )
-            else None
-            for field_name in ("probe_payload", "host_env", "manifest_refs")
-        },
+        "resolved_provenance": resolved_provenance,
     }
 
 
@@ -831,6 +829,8 @@ def _review_threshold_check(
     baseline_a: Any,
     baseline_b: Any,
 ) -> dict[str, Any]:
+    if threshold_abs is None and threshold_pct is None:
+        raise ValueError("at least one review threshold must be configured")
     try:
         baseline_a_value = float(baseline_a)
         baseline_b_value = float(baseline_b)
@@ -857,7 +857,7 @@ def _review_threshold_check(
     if not passed:
         if threshold_abs is not None and threshold_pct is not None:
             details = (
-                f"absolute diff {absolute_diff:.5f} exceeds {threshold_abs:.5f} or "
+                f"absolute diff {absolute_diff:.5f} exceeds {threshold_abs:.5f} and "
                 f"relative diff {relative_diff_pct:.3f}% exceeds {threshold_pct:.3f}%"
             )
         elif threshold_abs is not None:
