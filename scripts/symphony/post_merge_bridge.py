@@ -97,12 +97,13 @@ def select_issue_identifier(
     )
     if explicit_identifier:
         return explicit_identifier
-    identifiers = linear_api.extract_issue_identifiers(
+    closing_identifier = linear_api.extract_closing_issue_identifier(
         snapshot.body,
         snapshot.title,
-        snapshot.head_ref_name,
     )
-    return identifiers[0] if identifiers else None
+    if closing_identifier:
+        return closing_identifier
+    return linear_api.extract_branch_issue_identifier(snapshot.head_ref_name)
 
 
 def list_open_pull_request_numbers(repo: str) -> list[int]:

@@ -116,6 +116,40 @@ class DevinReviewGateTests(unittest.TestCase):
             "PRO-41",
         )
 
+    def test_select_issue_identifier_does_not_use_arbitrary_issue_mentions(self) -> None:
+        snapshot = devin_review_gate.PullRequestSnapshot(
+            number=29,
+            title="[codex] Retry behind PR reconciliation",
+            body=(
+                "Live test note: workflow_dispatch of linear-post-merge on PR #28 moved PRO-16 "
+                "from In Review to Rework.\n"
+                "This maintenance PR is not itself linked to a Linear issue."
+            ),
+            head_ref_name="codex/behind-pr-reconcile-retry",
+            head_oid="abc123",
+            url="https://github.com/rputnam0/gpu_cfd/pull/29",
+            state="OPEN",
+            is_draft=False,
+            merge_state_status="CLEAN",
+        )
+
+        self.assertIsNone(devin_review_gate.select_issue_identifier(snapshot))
+
+    def test_select_issue_identifier_falls_back_to_branch_issue_identifier(self) -> None:
+        snapshot = devin_review_gate.PullRequestSnapshot(
+            number=17,
+            title="[codex] Scope cleanup",
+            body="No explicit marker or closing directive.",
+            head_ref_name="rputnam0/pro-17-example",
+            head_oid="abc123",
+            url="https://github.com/rputnam0/gpu_cfd/pull/17",
+            state="OPEN",
+            is_draft=False,
+            merge_state_status="CLEAN",
+        )
+
+        self.assertEqual(devin_review_gate.select_issue_identifier(snapshot), "PRO-17")
+
     def test_collect_resolvable_thread_ids_ignores_current_actionable_threads(self) -> None:
         actionable_thread = {
             "id": "thread-current",

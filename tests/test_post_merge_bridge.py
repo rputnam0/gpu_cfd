@@ -45,6 +45,39 @@ class PostMergeBridgeTests(unittest.TestCase):
             "PRO-42",
         )
 
+    def test_select_issue_identifier_uses_closing_keyword_not_arbitrary_issue_mentions(self) -> None:
+        snapshot = post_merge_bridge.PullRequestSnapshot(
+            number=29,
+            title="[codex] Retry behind PR reconciliation",
+            body=(
+                "Live test note: workflow_dispatch of linear-post-merge on PR #28 moved PRO-16 "
+                "from In Review to Rework.\n"
+                "This maintenance PR is not itself linked to a Linear issue."
+            ),
+            head_ref_name="codex/behind-pr-reconcile-retry",
+            url="https://github.com/rputnam0/gpu_cfd/pull/29",
+            state="MERGED",
+            merged_at="2026-03-18T04:43:05Z",
+        )
+
+        self.assertIsNone(post_merge_bridge.select_issue_identifier(snapshot, None))
+
+    def test_select_issue_identifier_falls_back_to_branch_issue_identifier(self) -> None:
+        snapshot = post_merge_bridge.PullRequestSnapshot(
+            number=17,
+            title="[codex] Scope cleanup",
+            body="No explicit marker or closing directive.",
+            head_ref_name="rputnam0/pro-17-example",
+            url="https://github.com/rputnam0/gpu_cfd/pull/17",
+            state="MERGED",
+            merged_at="2026-03-15T12:00:00Z",
+        )
+
+        self.assertEqual(
+            post_merge_bridge.select_issue_identifier(snapshot, None),
+            "PRO-17",
+        )
+
     @mock.patch("scripts.symphony.post_merge_bridge.reconcile_open_review_pull_requests")
     @mock.patch("scripts.symphony.post_merge_bridge.linear_api.release_direct_unblocked_dependents")
     @mock.patch("scripts.symphony.post_merge_bridge.linear_api.update_issue_state")

@@ -25,6 +25,14 @@ LINKED_ISSUE_MARKER_PATTERN = re.compile(
     r"<!--\s*gpu-cfd-linear-issue:\s*(?P<identifier>[A-Z]+-\d+)\s*-->",
     re.IGNORECASE,
 )
+CLOSING_ISSUE_PATTERN = re.compile(
+    r"\b(?:close[sd]?|fix(?:e[sd])?|resolve[sd]?)\s+(?P<identifier>[A-Z]+-\d+)\b",
+    re.IGNORECASE,
+)
+BRANCH_ISSUE_PATTERN = re.compile(
+    r"(?:^|/)(?P<identifier>PRO-\d+)(?:\b|-)",
+    re.IGNORECASE,
+)
 WORKPAD_MARKER = "<!-- gpu-cfd-workpad:v1 -->"
 WORKPAD_TITLE = "# GPU CFD Worker Workpad"
 LEGACY_WORKPAD_MARKERS = (
@@ -324,6 +332,22 @@ def extract_linked_issue_identifier(*texts: str) -> str | None:
             continue
         return normalize_issue_identifier(match.group("identifier"))
     return None
+
+
+def extract_closing_issue_identifier(*texts: str) -> str | None:
+    for text in texts:
+        match = CLOSING_ISSUE_PATTERN.search(text or "")
+        if match is None:
+            continue
+        return normalize_issue_identifier(match.group("identifier"))
+    return None
+
+
+def extract_branch_issue_identifier(branch_name: str | None) -> str | None:
+    match = BRANCH_ISSUE_PATTERN.search(branch_name or "")
+    if match is None:
+        return None
+    return normalize_issue_identifier(match.group("identifier"))
 
 
 def _render_bullet_lines(items: list[str]) -> list[str]:
