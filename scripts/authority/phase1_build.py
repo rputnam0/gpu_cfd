@@ -9,6 +9,7 @@ import os
 import pathlib
 import re
 import shlex
+import socket
 import subprocess
 from dataclasses import dataclass
 from typing import Any
@@ -63,6 +64,8 @@ class Phase1BuildPlan:
     log_path: pathlib.Path
     env_exports: dict[str, str]
     nvtx_audit_hits: tuple[str, ...]
+    discovery_provenance: dict[str, str]
+    recorded_tool_paths: dict[str, str]
 
 
 @dataclass(frozen=True)
@@ -75,6 +78,15 @@ class Phase1BuildResult:
 
 class Phase1BuildError(ValueError):
     """Raised when Phase 1 build-wrapper inputs or execution are invalid."""
+
+
+REQUIRED_RECORDED_TOOL_PATH_FIELDS = (
+    "nvc_path",
+    "nvcc_path",
+    "nsys_path",
+    "compute_sanitizer_path",
+    "nvidia_smi_path",
+)
 
 
 def plan_phase1_build(
@@ -118,7 +130,16 @@ def plan_phase1_build(
         discovery_host_env,
         pin_details=pin_details,
     )
+    discovery_provenance = _extract_discovery_provenance(
+        discovery_host_env,
+        discovery_manifest_refs,
+        cuda_probe,
+    )
     local_mirror_refs = _extract_local_mirror_refs(discovery_manifest_refs)
+    recorded_tool_paths = _extract_recorded_tool_paths(
+        discovery_host_env,
+        discovery_manifest_refs,
+    )
     _validate_cuda_probe(
         cuda_probe,
         expected_nvarch=nvarch,
@@ -133,6 +154,7 @@ def plan_phase1_build(
         host_observations=dict(discovery_host_env["host_observations"]),
         local_mirror_refs=local_mirror_refs,
         repo_commit=_extract_repo_commit(discovery_host_env, discovery_manifest_refs),
+        provenance=discovery_provenance,
     )
 
     build_command = _resolve_build_command(
@@ -150,6 +172,7 @@ def plan_phase1_build(
 
     env_exports = _build_env_exports(
         selected_lane_value=selected_lane_value,
+        recorded_tool_paths=recorded_tool_paths,
         nvarch=nvarch,
         mode=mode,
         cuda_visible_devices=cuda_visible_devices,
@@ -176,6 +199,8 @@ def plan_phase1_build(
         log_path=log_path,
         env_exports=env_exports,
         nvtx_audit_hits=nvtx_audit_hits,
+        discovery_provenance=discovery_provenance,
+        recorded_tool_paths=recorded_tool_paths,
     )
     write_json(metadata_path, metadata)
 
@@ -192,15 +217,17 @@ def plan_phase1_build(
         log_path=log_path,
         env_exports=env_exports,
         nvtx_audit_hits=nvtx_audit_hits,
+        discovery_provenance=discovery_provenance,
+        recorded_tool_paths=recorded_tool_paths,
     )
 
 
 def render_phase1_env_exports(plan: Phase1BuildPlan) -> str:
     lines: list[str] = []
+    path_export = _render_dynamic_path_export(plan)
+    if path_export:
+        lines.append(path_export)
     for key, value in sorted(plan.env_exports.items()):
-        if key == "PATH":
-            lines.append('export PATH="$CUDA_HOME/bin:${PATH:-}"')
-            continue
         if key == "LD_LIBRARY_PATH":
             lines.append('export LD_LIBRARY_PATH="$CUDA_HOME/lib64${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"')
             continue
@@ -392,6 +419,7 @@ def main(argv: list[str] | None = None) -> int:
 def _build_env_exports(
     *,
     selected_lane_value: str,
+    recorded_tool_paths: dict[str, str],
     nvarch: int,
     mode: str,
     cuda_visible_devices: str,
@@ -399,14 +427,16 @@ def _build_env_exports(
     manifest_refs_path: pathlib.Path,
     cuda_probe_path: pathlib.Path,
 ) -> dict[str, str]:
-    cuda_home = _infer_cuda_home(selected_lane_value)
+    cuda_home = _infer_cuda_home(
+        selected_lane_value,
+        nvcc_path=recorded_tool_paths.get("nvcc_path"),
+    )
     nvcc_flags, cxx_flags = _build_mode_flags(mode, nvarch=nvarch)
     env = {
         "have_cuda": "true",
         "NVARCH": str(nvarch),
         "CUDA_VISIBLE_DEVICES": cuda_visible_devices,
         "CUDA_HOME": cuda_home,
-        "PATH": _prepend_env_path("PATH", f"{cuda_home}/bin"),
         "LD_LIBRARY_PATH": _prepend_env_path("LD_LIBRARY_PATH", f"{cuda_home}/lib64"),
         "SPUMA_ENABLE_NVTX": "1",
         "SPUMA_EXTRA_NVCC_FLAGS": nvcc_flags,
@@ -435,6 +465,8 @@ def _build_metadata_payload(
     log_path: pathlib.Path,
     env_exports: dict[str, str],
     nvtx_audit_hits: tuple[str, ...],
+    discovery_provenance: dict[str, str],
+    recorded_tool_paths: dict[str, str],
 ) -> dict[str, Any]:
     return {
         "schema_version": BUILD_METADATA_SCHEMA_VERSION,
@@ -458,6 +490,8 @@ def _build_metadata_payload(
         "required_revalidation": list(pin_details.required_revalidation),
         "required_cuda_flags": env_exports["SPUMA_EXTRA_NVCC_FLAGS"].split(),
         "required_host_flags": env_exports["SPUMA_EXTRA_CXX_FLAGS"].split(),
+        "discovery_provenance": dict(discovery_provenance),
+        "recorded_tool_paths": dict(recorded_tool_paths),
         "nvtx_audit": {
             "passed": not nvtx_audit_hits,
             "banned_include_hits": list(nvtx_audit_hits),
@@ -620,10 +654,16 @@ def _build_shell_preamble(plan: Phase1BuildPlan) -> list[str]:
     segments: list[str] = []
     if plan.bashrc_path is not None:
         segments.append(f". {shlex.quote(plan.bashrc_path.as_posix())}")
+    path_export = _render_dynamic_path_export(plan)
+    if path_export:
+        segments.append(path_export)
+    segments.extend(
+        (
+            'if command -v gcc-12 >/dev/null 2>&1; then export CC="$(command -v gcc-12)"; fi',
+            'if command -v g++-12 >/dev/null 2>&1; then export CXX="$(command -v g++-12)"; export CUDAHOSTCXX="$(command -v g++-12)"; fi',
+        )
+    )
     for key, value in sorted(plan.env_exports.items()):
-        if key == "PATH":
-            segments.append('export PATH="$CUDA_HOME/bin:${PATH:-}"')
-            continue
         if key == "LD_LIBRARY_PATH":
             segments.append(
                 'export LD_LIBRARY_PATH="$CUDA_HOME/lib64${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"'
@@ -661,7 +701,9 @@ def _inject_spuma_extra_nvcc_flags(cuda_rules_text: str) -> str:
     if "$(SPUMA_EXTRA_NVCC_FLAGS)" in cuda_rules_text:
         return cuda_rules_text
     marker = "$(FOAM_EXTRA_CXXFLAGS) $(CU_LIB_HEADER_DIRS)"
-    replacement = "$(FOAM_EXTRA_CXXFLAGS) $(SPUMA_EXTRA_NVCC_FLAGS) $(CU_LIB_HEADER_DIRS)"
+    # Keep host-only flags on the normal C++ path while ensuring nvcc sees only
+    # the explicit CUDA/Blackwell flag set.
+    replacement = "$(SPUMA_EXTRA_NVCC_FLAGS) $(CU_LIB_HEADER_DIRS)"
     if marker not in cuda_rules_text:
         raise Phase1BuildError(
             "unable to patch SPUMA CUDA rules for deterministic extra nvcc flags"
@@ -677,6 +719,10 @@ def _validate_repo_native_toolchain(plan: Phase1BuildPlan) -> None:
         raise Phase1BuildError(
             "build host_env.json is missing host_observations or toolkit metadata"
         )
+    _validate_live_host_discovery_provenance(plan.discovery_provenance)
+    missing_or_inaccessible = _recorded_tool_path_issues(plan.recorded_tool_paths)
+    if missing_or_inaccessible:
+        raise Phase1BuildError("; ".join(missing_or_inaccessible))
     probe_segments = _build_shell_preamble(plan)
     probe_segments.append(
         'printf "WM_COMPILER=%s\\nNVC=%s\\nNVCC=%s\\nNVCC_VERSION=%s\\nNSYS=%s\\nNSYS_VERSION=%s\\nCOMPUTE_SANITIZER=%s\\nCOMPUTE_SANITIZER_VERSION=%s\\nNVIDIA_SMI=%s\\nNVIDIA_SMI_GPU=%s\\n" '
@@ -747,21 +793,45 @@ def _validate_repo_native_toolchain(plan: Phase1BuildPlan) -> None:
         host_observations.get("compute_sanitizer_version", "")
     ).strip()
     expected_gpu_csv = str(host_observations.get("gpu_csv", "")).strip()
+    expected_paths = plan.recorded_tool_paths
 
     if not nvcc_path:
         issues.append("nvcc is unavailable in the active build environment")
-    elif expected_toolkit and not _matches_expected_version(nvcc_version, expected_toolkit):
+    elif not _paths_match(nvcc_path, expected_paths["nvcc_path"]):
+        issues.append(
+            "repo-native environment resolved nvcc from "
+            f"{nvcc_path!r} instead of recorded nvcc_path {expected_paths['nvcc_path']!r}"
+        )
+    elif expected_toolkit and not _matches_expected_version(
+        nvcc_version,
+        expected_toolkit,
+        allow_release_line_match=True,
+    ):
         issues.append(
             f"nvcc version must realize frozen toolkit lane {expected_toolkit!r}; found {nvcc_version!r}"
         )
     if not nsys_path:
         issues.append("nsys is unavailable in the active build environment")
+    elif not _paths_match(nsys_path, expected_paths["nsys_path"]):
+        issues.append(
+            "repo-native environment resolved nsys from "
+            f"{nsys_path!r} instead of recorded nsys_path {expected_paths['nsys_path']!r}"
+        )
     elif expected_nsys and not _matches_expected_version(nsys_version, expected_nsys):
         issues.append(
             f"nsys version must realize frozen value {expected_nsys!r}; found {nsys_version!r}"
         )
     if not compute_sanitizer_path:
         issues.append("compute-sanitizer is unavailable in the active build environment")
+    elif not _paths_match(
+        compute_sanitizer_path,
+        expected_paths["compute_sanitizer_path"],
+    ):
+        issues.append(
+            "repo-native environment resolved compute-sanitizer from "
+            f"{compute_sanitizer_path!r} instead of recorded compute_sanitizer_path "
+            f"{expected_paths['compute_sanitizer_path']!r}"
+        )
     elif expected_compute_sanitizer and not _matches_expected_version(
         compute_sanitizer_version,
         expected_compute_sanitizer,
@@ -772,6 +842,11 @@ def _validate_repo_native_toolchain(plan: Phase1BuildPlan) -> None:
         )
     if not nvidia_smi_path:
         issues.append("nvidia-smi is unavailable; gpu_csv cannot be verified against the frozen workstation target")
+    elif not _paths_match(nvidia_smi_path, expected_paths["nvidia_smi_path"]):
+        issues.append(
+            "repo-native environment resolved nvidia-smi from "
+            f"{nvidia_smi_path!r} instead of recorded nvidia_smi_path {expected_paths['nvidia_smi_path']!r}"
+        )
     elif expected_gpu_csv and nvidia_smi_gpu != expected_gpu_csv:
         issues.append(
             f"gpu_csv must realize frozen workstation observations {expected_gpu_csv!r}; found {nvidia_smi_gpu!r}"
@@ -781,21 +856,202 @@ def _validate_repo_native_toolchain(plan: Phase1BuildPlan) -> None:
         raise Phase1BuildError("; ".join(issues))
 
 
-def _matches_expected_version(observed_value: str, expected_value: str) -> bool:
+def _matches_expected_version(
+    observed_value: str,
+    expected_value: str,
+    *,
+    allow_release_line_match: bool = False,
+) -> bool:
     observed = observed_value.strip()
     expected = expected_value.strip()
-    if expected and expected in observed:
-        return True
-    observed_versions = set(re.findall(r"\d+(?:\.\d+)+", observed))
-    expected_versions = set(re.findall(r"\d+(?:\.\d+)+", expected))
-    if expected_versions:
-        return bool(observed_versions & expected_versions)
+    observed_versions = _extract_version_tuples(observed)
+    expected_versions = _extract_version_tuples(expected)
+    if observed_versions and expected_versions:
+        return any(
+            _version_tuple_matches(
+                observed_tuple,
+                expected_tuple,
+                allow_release_line_match=allow_release_line_match,
+            )
+            for observed_tuple in observed_versions
+            for expected_tuple in expected_versions
+        )
     if observed_versions:
-        return expected in observed_versions
+        return expected in {
+            ".".join(str(component) for component in version_tuple)
+            for version_tuple in observed_versions
+        }
     return observed == expected
 
 
-def _infer_cuda_home(selected_lane_value: str) -> str:
+def _extract_version_tuples(value: str) -> list[tuple[int, ...]]:
+    return [
+        tuple(int(component) for component in token.split("."))
+        for token in re.findall(r"\d+(?:\.\d+)+", value)
+    ]
+
+
+def _version_tuple_matches(
+    observed: tuple[int, ...],
+    expected: tuple[int, ...],
+    *,
+    allow_release_line_match: bool = False,
+) -> bool:
+    if len(observed) >= len(expected) and observed[: len(expected)] == expected:
+        return True
+    return (
+        allow_release_line_match
+        and len(expected) >= 3
+        and len(observed) == 2
+        and observed == expected[:2]
+    )
+
+
+def _extract_discovery_provenance(
+    discovery_host_env: dict[str, Any],
+    discovery_manifest_refs: dict[str, Any],
+    cuda_probe: dict[str, Any],
+) -> dict[str, str]:
+    resolved: dict[str, str] | None = None
+    for payload_name, payload in (
+        ("host_env.json", discovery_host_env),
+        ("manifest_refs.json", discovery_manifest_refs),
+        ("cuda_probe.json", cuda_probe),
+    ):
+        provenance = payload.get("provenance")
+        if not isinstance(provenance, dict):
+            raise Phase1BuildError(f"{payload_name} is missing provenance")
+        normalized = {
+            key: str(provenance.get(key, "")).strip()
+            for key in (
+                "collection_mode",
+                "emitter_hostname",
+                "emitter_time",
+                "repo_commit",
+            )
+        }
+        missing = [key for key, value in normalized.items() if not value]
+        if missing:
+            raise Phase1BuildError(
+                f"{payload_name} provenance is missing required fields: {', '.join(missing)}"
+            )
+        if resolved is None:
+            resolved = normalized
+            continue
+        if normalized != resolved:
+            raise Phase1BuildError(
+                f"{payload_name} provenance does not match the paired discovery artifacts"
+            )
+    assert resolved is not None
+    return resolved
+
+
+def _extract_recorded_tool_paths(
+    discovery_host_env: dict[str, Any],
+    discovery_manifest_refs: dict[str, Any],
+) -> dict[str, str]:
+    host_observations = discovery_host_env.get("host_observations")
+    if not isinstance(host_observations, dict):
+        raise Phase1BuildError("discovery host_env.json is missing host_observations")
+    invoked_tool_paths = discovery_manifest_refs.get("invoked_tool_paths")
+    if not isinstance(invoked_tool_paths, dict):
+        raise Phase1BuildError("manifest_refs.json is missing invoked_tool_paths")
+    recorded_tool_paths: dict[str, str] = {}
+    for field_name in REQUIRED_RECORDED_TOOL_PATH_FIELDS:
+        host_value = str(host_observations.get(field_name, "")).strip()
+        manifest_value = str(invoked_tool_paths.get(field_name, "")).strip()
+        if host_value and manifest_value and host_value != manifest_value:
+            raise Phase1BuildError(
+                f"discovery artifact mismatch for recorded tool path {field_name!r}: "
+                f"host_env.json has {host_value!r} while manifest_refs.json has {manifest_value!r}"
+            )
+        recorded_tool_paths[field_name] = host_value or manifest_value
+    return recorded_tool_paths
+
+
+def _validate_live_host_discovery_provenance(provenance: dict[str, str]) -> None:
+    collection_mode = provenance["collection_mode"]
+    if collection_mode != "live_host":
+        raise Phase1BuildError(
+            "Phase 1 build execution requires live-collected discovery artifacts; "
+            f"found provenance.collection_mode={collection_mode!r}"
+        )
+    current_hostname = _current_hostname()
+    if provenance["emitter_hostname"] != current_hostname:
+        raise Phase1BuildError(
+            "Phase 1 build execution requires discovery artifacts emitted on the current host; "
+            f"found provenance.emitter_hostname={provenance['emitter_hostname']!r}, "
+            f"current host is {current_hostname!r}"
+        )
+
+
+def _recorded_tool_path_issues(recorded_tool_paths: dict[str, str]) -> list[str]:
+    issues: list[str] = []
+    for field_name in REQUIRED_RECORDED_TOOL_PATH_FIELDS:
+        recorded_path = str(recorded_tool_paths.get(field_name, "")).strip()
+        if not recorded_path:
+            issues.append(
+                f"discovery artifacts are missing required recorded tool path {field_name}"
+            )
+            continue
+        if not pathlib.Path(recorded_path).exists():
+            issues.append(
+                f"recorded {field_name} missing on current host: {recorded_path}"
+            )
+    return issues
+
+
+def _current_hostname() -> str:
+    return socket.gethostname().strip()
+
+
+def _paths_match(observed_path: str, expected_path: str) -> bool:
+    observed = observed_path.strip()
+    expected = expected_path.strip()
+    if not observed or not expected:
+        return False
+    try:
+        return pathlib.Path(observed).resolve() == pathlib.Path(expected).resolve()
+    except OSError:
+        return observed == expected
+
+
+def _render_dynamic_path_export(plan: Phase1BuildPlan) -> str | None:
+    path_prefixes = _tool_path_prefixes(plan)
+    if not path_prefixes:
+        return None
+    joined_prefixes = ":".join(path_prefixes)
+    return f"export PATH={shlex.quote(joined_prefixes)}${{PATH:+:$PATH}}"
+
+
+def _tool_path_prefixes(plan: Phase1BuildPlan) -> tuple[str, ...]:
+    prefixes: list[str] = []
+    preferred_field_order = (
+        "nvidia_smi_path",
+        "nvc_path",
+        "nsys_path",
+        "compute_sanitizer_path",
+        "nvcc_path",
+    )
+    for field_name in preferred_field_order:
+        recorded_path = str(plan.recorded_tool_paths.get(field_name, "")).strip()
+        if not recorded_path:
+            continue
+        parent = pathlib.Path(recorded_path).parent.as_posix()
+        if not any(_paths_match(parent, existing) for existing in prefixes):
+            prefixes.append(parent)
+    cuda_bin = f"{plan.env_exports['CUDA_HOME']}/bin"
+    if not any(_paths_match(cuda_bin, existing) for existing in prefixes):
+        prefixes.append(cuda_bin)
+    return tuple(prefixes)
+
+
+def _infer_cuda_home(selected_lane_value: str, *, nvcc_path: str | None = None) -> str:
+    resolved_nvcc = str(nvcc_path or "").strip()
+    if resolved_nvcc:
+        candidate = pathlib.Path(resolved_nvcc).resolve()
+        if candidate.name == "nvcc" and candidate.parent.name == "bin":
+            return candidate.parent.parent.as_posix()
     match = re.search(r"(\d+\.\d+)", selected_lane_value)
     if not match:
         raise Phase1BuildError(

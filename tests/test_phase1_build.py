@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import os
 import pathlib
+import socket
 import subprocess
 import tempfile
 import unittest
@@ -11,6 +12,7 @@ from unittest import mock
 from scripts.authority import emit_phase1_discovery_artifacts, load_authority_bundle
 from scripts.authority.phase1_build import (
     Phase1BuildError,
+    _tool_path_prefixes,
     plan_phase1_build,
     render_phase1_env_exports,
     run_phase1_build,
@@ -21,25 +23,66 @@ def repo_root() -> pathlib.Path:
     return pathlib.Path(__file__).resolve().parents[1]
 
 
-def sample_host_observations(*, lane: str = "primary") -> dict[str, str]:
-    nvcc_version = "Cuda compilation tools, release 12.9, V12.9.1"
+def sample_hostname() -> str:
+    return socket.gethostname().strip() or "phase1-test-host"
+
+
+def materialize_sample_toolchain(root: pathlib.Path) -> dict[str, str]:
+    bin_dir = root / "bin"
+    bin_dir.mkdir(parents=True, exist_ok=True)
+    paths: dict[str, str] = {}
+    for tool_name in (
+        "nvc",
+        "nvcc",
+        "nsys",
+        "ncu",
+        "compute-sanitizer",
+        "nvidia-smi",
+    ):
+        tool_path = bin_dir / tool_name
+        tool_path.write_text("#!/usr/bin/env bash\nexit 0\n", encoding="utf-8")
+        tool_path.chmod(0o755)
+        paths[tool_name.replace("-", "_")] = tool_path.as_posix()
+    return paths
+
+
+def sample_host_observations(
+    *,
+    lane: str = "primary",
+    hostname: str | None = None,
+    tool_root: pathlib.Path | None = None,
+) -> dict[str, str]:
+    nvcc_version = "Cuda compilation tools, release 12.9, V12.9.86"
     if lane == "experimental":
         nvcc_version = "Cuda compilation tools, release 13.2, V13.2.0"
+    tool_paths = (
+        materialize_sample_toolchain(tool_root)
+        if tool_root is not None
+        else {
+            "nvc": "/opt/nvidia/hpc_sdk/Linux_x86_64/25.1/compilers/bin/nvc",
+            "nvcc": "/opt/cuda/bin/nvcc",
+            "nsys": "/opt/nsight-systems/bin/nsys",
+            "ncu": "/opt/nsight-compute/bin/ncu",
+            "compute_sanitizer": "/opt/cuda/bin/compute-sanitizer",
+            "nvidia_smi": "/usr/bin/nvidia-smi",
+        }
+    )
     return {
-        "hostname": "ws-rtx5080-01",
-        "gpu_query": "NVIDIA GeForce RTX 5080, 595.50.00, 16384 MiB",
+        "hostname": hostname or sample_hostname(),
+        "gpu_csv": "NVIDIA GeForce RTX 5080, 595.50.00, 16384 MiB",
         "nvcc_version": nvcc_version,
         "gcc_version": "gcc (Ubuntu 14.2.0) 14.2.0",
-        "nsys_version": "NVIDIA Nsight Systems version 2025.2",
-        "ncu_version": "NVIDIA Nsight Compute version 2025.3",
-        "compute_sanitizer_version": "Compute Sanitizer version 2025.1",
-        "compiler_version": "gcc (Ubuntu 14.2.0) 14.2.0",
+        "nsys_version": "NVIDIA Nsight Systems version 2025.2.1.130-252135690618v0",
+        "ncu_version": "NVIDIA Nsight Compute version 2025.3.1.0",
+        "compute_sanitizer_version": "Compute Sanitizer version 2025.1.0.0",
         "os_release": "Ubuntu 24.04.2 LTS",
         "kernel": "6.8.0-60-generic",
-        "nvcc_path": "/opt/cuda/bin/nvcc",
-        "nsys_path": "/opt/nsight-systems/bin/nsys",
-        "ncu_path": "/opt/nsight-compute/bin/ncu",
-        "compute_sanitizer_path": "/opt/cuda/bin/compute-sanitizer",
+        "nvidia_smi_path": tool_paths["nvidia_smi"],
+        "nvc_path": tool_paths["nvc"],
+        "nvcc_path": tool_paths["nvcc"],
+        "nsys_path": tool_paths["nsys"],
+        "ncu_path": tool_paths["ncu"],
+        "compute_sanitizer_path": tool_paths["compute_sanitizer"],
     }
 
 
@@ -105,7 +148,7 @@ class Phase1BuildTests(unittest.TestCase):
 
         self.assertEqual(plan.env_exports["have_cuda"], "true")
         self.assertEqual(plan.env_exports["NVARCH"], "120")
-        self.assertEqual(plan.env_exports["CUDA_HOME"], "/usr/local/cuda-12.9")
+        self.assertEqual(plan.env_exports["CUDA_HOME"], "/opt/cuda")
         self.assertEqual(plan.env_exports["SPUMA_ENABLE_NVTX"], "1")
         self.assertIn(
             "-gencode=arch=compute_120,code=sm_120",
@@ -126,6 +169,7 @@ class Phase1BuildTests(unittest.TestCase):
         self.assertEqual(metadata["have_cuda"], True)
         self.assertEqual(metadata["nvarch"], 120)
         self.assertEqual(metadata["instrumentation"], "NVTX3")
+        self.assertEqual(build_host_env["provenance"]["collection_mode"], "live_host")
 
     def test_plan_phase1_build_rejects_nvtx2_includes(self) -> None:
         bundle = load_authority_bundle(repo_root())
@@ -194,11 +238,74 @@ class Phase1BuildTests(unittest.TestCase):
         exports = render_phase1_env_exports(plan)
         self.assertIn("export have_cuda=true", exports)
         self.assertIn("export NVARCH=120", exports)
-        self.assertIn("export CUDA_HOME=/usr/local/cuda-12.9", exports)
+        self.assertIn("export CUDA_HOME=/opt/cuda", exports)
         self.assertIn("export SPUMA_ENABLE_NVTX=1", exports)
         self.assertIn(
             'export FOAM_EXTRA_CXXFLAGS="${FOAM_EXTRA_CXXFLAGS:+${FOAM_EXTRA_CXXFLAGS} }${SPUMA_EXTRA_CXX_FLAGS}"',
             exports,
+        )
+
+    def test_tool_path_prefixes_prefer_recorded_phase1_tool_dirs_before_cuda_bin(self) -> None:
+        bundle = load_authority_bundle(repo_root())
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_root = pathlib.Path(temp_dir)
+            cuda_bin = temp_root / "cuda" / "bin"
+            phase1_bin = temp_root / "phase1" / "bin"
+            wsl_bin = temp_root / "wsl"
+            for tool_path in (
+                cuda_bin / "nvcc",
+                cuda_bin / "nsys",
+                cuda_bin / "compute-sanitizer",
+                phase1_bin / "nvc",
+                phase1_bin / "nsys",
+                phase1_bin / "compute-sanitizer",
+                wsl_bin / "nvidia-smi",
+            ):
+                tool_path.parent.mkdir(parents=True, exist_ok=True)
+                tool_path.write_text("#!/usr/bin/env bash\nexit 0\n", encoding="utf-8")
+                tool_path.chmod(0o755)
+
+            host_observations = sample_host_observations(hostname="ws-rtx5080-01")
+            host_observations["nvcc_path"] = (cuda_bin / "nvcc").as_posix()
+            host_observations["nvc_path"] = (phase1_bin / "nvc").as_posix()
+            host_observations["nsys_path"] = (phase1_bin / "nsys").as_posix()
+            host_observations["compute_sanitizer_path"] = (
+                phase1_bin / "compute-sanitizer"
+            ).as_posix()
+            host_observations["nvidia_smi_path"] = (wsl_bin / "nvidia-smi").as_posix()
+
+            emitted = emit_phase1_discovery_artifacts(
+                bundle,
+                output_dir=temp_root / "discovery",
+                lane="primary",
+                host_observations=host_observations,
+                cuda_probe=sample_cuda_probe_payload(),
+                local_mirror_refs=sample_local_mirror_refs(),
+                repo_commit="abc123def456",
+            )
+            source_root = temp_root / "spuma"
+            source_root.mkdir()
+            allwmake = source_root / "Allwmake"
+            allwmake.write_text("#!/usr/bin/env bash\nexit 0\n", encoding="utf-8")
+            allwmake.chmod(0o755)
+
+            plan = plan_phase1_build(
+                bundle,
+                source_root=source_root,
+                output_dir=temp_root / "build",
+                discovery_host_env_path=emitted.host_env_path,
+                discovery_manifest_refs_path=emitted.manifest_refs_path,
+                cuda_probe_path=emitted.cuda_probe_path,
+            )
+
+        self.assertEqual(
+            _tool_path_prefixes(plan),
+            (
+                wsl_bin.as_posix(),
+                phase1_bin.as_posix(),
+                cuda_bin.as_posix(),
+            ),
         )
 
     def test_gpu_blackwell_env_wrapper_fails_fast_when_env_render_fails(self) -> None:
@@ -334,22 +441,24 @@ class Phase1BuildTests(unittest.TestCase):
         run_subprocess: mock.Mock,
     ) -> None:
         bundle = load_authority_bundle(repo_root())
-        run_subprocess.side_effect = phase1_build_subprocess_side_effect(
-            build_stdout=(
-                "have_cuda=true\n"
-                "NVARCH=120\n"
-                "CUDA_HOME=/usr/local/cuda-12.9\n"
-                "SPUMA_ENABLE_NVTX=1\n"
-            )
-        )
 
         with tempfile.TemporaryDirectory() as temp_dir:
             temp_root = pathlib.Path(temp_dir)
+            tool_root = temp_root / "toolchain"
+            run_subprocess.side_effect = phase1_build_subprocess_side_effect(
+                build_stdout=(
+                    "have_cuda=true\n"
+                    "NVARCH=120\n"
+                    f"CUDA_HOME={tool_root.as_posix()}\n"
+                    "SPUMA_ENABLE_NVTX=1\n"
+                ),
+                tool_root=tool_root,
+            )
             emitted = emit_phase1_discovery_artifacts(
                 bundle,
                 output_dir=temp_root / "discovery",
                 lane="primary",
-                host_observations=sample_host_observations(),
+                host_observations=sample_host_observations(tool_root=tool_root),
                 cuda_probe=sample_cuda_probe_payload(),
                 local_mirror_refs=sample_local_mirror_refs(),
                 repo_commit="abc123def456",
@@ -388,7 +497,7 @@ class Phase1BuildTests(unittest.TestCase):
         self.assertTrue(metadata["succeeded"])
         self.assertIn("have_cuda=true", build_log)
         self.assertIn("NVARCH=120", build_log)
-        self.assertIn("CUDA_HOME=/usr/local/cuda-12.9", build_log)
+        self.assertIn(f"CUDA_HOME={tool_root.as_posix()}", build_log)
         self.assertIn("SPUMA_ENABLE_NVTX=1", build_log)
         self.assertEqual(run_subprocess.call_count, 2)
 
@@ -401,11 +510,12 @@ class Phase1BuildTests(unittest.TestCase):
 
         with tempfile.TemporaryDirectory() as temp_dir:
             temp_root = pathlib.Path(temp_dir)
+            tool_root = temp_root / "toolchain"
             emitted = emit_phase1_discovery_artifacts(
                 bundle,
                 output_dir=temp_root / "discovery",
                 lane="primary",
-                host_observations=sample_host_observations(),
+                host_observations=sample_host_observations(tool_root=tool_root),
                 cuda_probe=sample_cuda_probe_payload(),
                 local_mirror_refs=sample_local_mirror_refs(),
                 repo_commit="abc123def456",
@@ -430,11 +540,16 @@ class Phase1BuildTests(unittest.TestCase):
                 probe_calls += 1
                 if probe_calls == 1:
                     return subprocess_completed(
-                        stdout=sample_repo_native_probe_output(),
+                        stdout=sample_repo_native_probe_output(tool_root=tool_root),
                         returncode=0,
                     )
                 patched_rules = cuda_rules.read_text(encoding="utf-8")
                 self.assertIn("$(SPUMA_EXTRA_NVCC_FLAGS)", patched_rules)
+                self.assertIn(
+                    "    $(SPUMA_EXTRA_NVCC_FLAGS) $(CU_LIB_HEADER_DIRS)\n",
+                    patched_rules,
+                )
+                self.assertNotIn("$(FOAM_EXTRA_CXXFLAGS) $(SPUMA_EXTRA_NVCC_FLAGS)", patched_rules)
                 stdout_handle = kwargs["stdout"]
                 stdout_handle.write("Allwmake ok\n")
                 stdout_handle.flush()
@@ -467,11 +582,12 @@ class Phase1BuildTests(unittest.TestCase):
 
         with tempfile.TemporaryDirectory() as temp_dir:
             temp_root = pathlib.Path(temp_dir)
+            tool_root = temp_root / "toolchain"
             emitted = emit_phase1_discovery_artifacts(
                 bundle,
                 output_dir=temp_root / "discovery",
                 lane="primary",
-                host_observations=sample_host_observations(),
+                host_observations=sample_host_observations(tool_root=tool_root),
                 cuda_probe=sample_cuda_probe_payload(),
                 local_mirror_refs=sample_local_mirror_refs(),
                 repo_commit="abc123def456",
@@ -487,7 +603,7 @@ class Phase1BuildTests(unittest.TestCase):
                 probe_calls += 1
                 if probe_calls == 1:
                     return subprocess_completed(
-                        stdout=sample_repo_native_probe_output(),
+                        stdout=sample_repo_native_probe_output(tool_root=tool_root),
                         returncode=0,
                     )
                 observed_shell_command.extend(args[0])
@@ -520,17 +636,19 @@ class Phase1BuildTests(unittest.TestCase):
         run_subprocess: mock.Mock,
     ) -> None:
         bundle = load_authority_bundle(repo_root())
-        run_subprocess.side_effect = phase1_build_subprocess_side_effect(
-            build_stdout="SPUMA_BASHRC_MARKER=enabled\n"
-        )
 
         with tempfile.TemporaryDirectory() as temp_dir:
             temp_root = pathlib.Path(temp_dir)
+            tool_root = temp_root / "toolchain"
+            run_subprocess.side_effect = phase1_build_subprocess_side_effect(
+                build_stdout="SPUMA_BASHRC_MARKER=enabled\n",
+                tool_root=tool_root,
+            )
             emitted = emit_phase1_discovery_artifacts(
                 bundle,
                 output_dir=temp_root / "discovery",
                 lane="primary",
-                host_observations=sample_host_observations(),
+                host_observations=sample_host_observations(tool_root=tool_root),
                 cuda_probe=sample_cuda_probe_payload(),
                 local_mirror_refs=sample_local_mirror_refs(),
                 repo_commit="abc123def456",
@@ -575,17 +693,19 @@ class Phase1BuildTests(unittest.TestCase):
         run_subprocess: mock.Mock,
     ) -> None:
         bundle = load_authority_bundle(repo_root())
-        run_subprocess.side_effect = phase1_build_subprocess_side_effect(
-            build_stdout="bashrc-helper-ok\n"
-        )
 
         with tempfile.TemporaryDirectory() as temp_dir:
             temp_root = pathlib.Path(temp_dir)
+            tool_root = temp_root / "toolchain"
+            run_subprocess.side_effect = phase1_build_subprocess_side_effect(
+                build_stdout="bashrc-helper-ok\n",
+                tool_root=tool_root,
+            )
             emitted = emit_phase1_discovery_artifacts(
                 bundle,
                 output_dir=temp_root / "discovery",
                 lane="primary",
-                host_observations=sample_host_observations(),
+                host_observations=sample_host_observations(tool_root=tool_root),
                 cuda_probe=sample_cuda_probe_payload(),
                 local_mirror_refs=sample_local_mirror_refs(),
                 repo_commit="abc123def456",
@@ -648,7 +768,7 @@ class Phase1BuildTests(unittest.TestCase):
                 bundle,
                 output_dir=temp_root / "discovery",
                 lane="primary",
-                host_observations=sample_host_observations(),
+                host_observations=sample_host_observations(tool_root=temp_root / "toolchain"),
                 cuda_probe=sample_cuda_probe_payload(),
                 local_mirror_refs=sample_local_mirror_refs(),
                 repo_commit="abc123def456",
@@ -717,7 +837,7 @@ class Phase1BuildTests(unittest.TestCase):
                 bundle,
                 output_dir=temp_root / "discovery",
                 lane="primary",
-                host_observations=sample_host_observations(),
+                host_observations=sample_host_observations(tool_root=temp_root / "toolchain"),
                 cuda_probe=sample_cuda_probe_payload(),
                 local_mirror_refs=sample_local_mirror_refs(),
                 repo_commit="abc123def456",
@@ -772,7 +892,7 @@ class Phase1BuildTests(unittest.TestCase):
                 bundle,
                 output_dir=temp_root / "discovery",
                 lane="primary",
-                host_observations=sample_host_observations(),
+                host_observations=sample_host_observations(tool_root=temp_root / "toolchain"),
                 cuda_probe=sample_cuda_probe_payload(),
                 local_mirror_refs=sample_local_mirror_refs(),
                 repo_commit="abc123def456",
@@ -827,7 +947,7 @@ class Phase1BuildTests(unittest.TestCase):
                 bundle,
                 output_dir=temp_root / "discovery",
                 lane="primary",
-                host_observations=sample_host_observations(),
+                host_observations=sample_host_observations(tool_root=temp_root / "toolchain"),
                 cuda_probe=sample_cuda_probe_payload(),
                 local_mirror_refs=sample_local_mirror_refs(),
                 repo_commit="abc123def456",
@@ -885,7 +1005,7 @@ class Phase1BuildTests(unittest.TestCase):
                 bundle,
                 output_dir=temp_root / "discovery",
                 lane="primary",
-                host_observations=sample_host_observations(),
+                host_observations=sample_host_observations(tool_root=temp_root / "toolchain"),
                 cuda_probe=sample_cuda_probe_payload(),
                 local_mirror_refs=sample_local_mirror_refs(),
                 repo_commit="abc123def456",
@@ -916,18 +1036,20 @@ class Phase1BuildTests(unittest.TestCase):
         run_subprocess: mock.Mock,
     ) -> None:
         bundle = load_authority_bundle(repo_root())
-        run_subprocess.side_effect = phase1_build_subprocess_side_effect(
-            build_stdout="Allwmake failed\n",
-            build_returncode=5,
-        )
 
         with tempfile.TemporaryDirectory() as temp_dir:
             temp_root = pathlib.Path(temp_dir)
+            tool_root = temp_root / "toolchain"
+            run_subprocess.side_effect = phase1_build_subprocess_side_effect(
+                build_stdout="Allwmake failed\n",
+                build_returncode=5,
+                tool_root=tool_root,
+            )
             emitted = emit_phase1_discovery_artifacts(
                 bundle,
                 output_dir=temp_root / "discovery",
                 lane="primary",
-                host_observations=sample_host_observations(),
+                host_observations=sample_host_observations(tool_root=tool_root),
                 cuda_probe=sample_cuda_probe_payload(),
                 local_mirror_refs=sample_local_mirror_refs(),
                 repo_commit="abc123def456",
@@ -960,12 +1082,200 @@ class Phase1BuildTests(unittest.TestCase):
         self.assertIn("exit code 5", metadata["failure_reason"])
         self.assertIn("Allwmake failed", build_log)
 
+    @mock.patch("scripts.authority.phase1_build.subprocess.run")
+    def test_run_phase1_build_rejects_imported_discovery_artifacts(
+        self,
+        run_subprocess: mock.Mock,
+    ) -> None:
+        bundle = load_authority_bundle(repo_root())
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_root = pathlib.Path(temp_dir)
+            emitted = emit_phase1_discovery_artifacts(
+                bundle,
+                output_dir=temp_root / "discovery",
+                lane="primary",
+                host_observations=sample_host_observations(tool_root=temp_root / "toolchain"),
+                cuda_probe=sample_cuda_probe_payload(),
+                local_mirror_refs=sample_local_mirror_refs(),
+                repo_commit="abc123def456",
+                provenance_collection_mode="imported_observations",
+            )
+            source_root = temp_root / "spuma"
+            source_root.mkdir()
+            allwmake = source_root / "Allwmake"
+            allwmake.write_text("#!/usr/bin/env bash\nexit 0\n", encoding="utf-8")
+            allwmake.chmod(0o755)
+
+            plan = plan_phase1_build(
+                bundle,
+                source_root=source_root,
+                output_dir=temp_root / "build",
+                discovery_host_env_path=emitted.host_env_path,
+                discovery_manifest_refs_path=emitted.manifest_refs_path,
+                cuda_probe_path=emitted.cuda_probe_path,
+            )
+
+            with self.assertRaisesRegex(Phase1BuildError, "live-collected|collection_mode"):
+                run_phase1_build(plan)
+
+        self.assertEqual(run_subprocess.call_count, 0)
+
+    @mock.patch("scripts.authority.phase1_build.subprocess.run")
+    def test_run_phase1_build_rejects_cross_host_discovery_artifacts(
+        self,
+        run_subprocess: mock.Mock,
+    ) -> None:
+        bundle = load_authority_bundle(repo_root())
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_root = pathlib.Path(temp_dir)
+            emitted = emit_phase1_discovery_artifacts(
+                bundle,
+                output_dir=temp_root / "discovery",
+                lane="primary",
+                host_observations=sample_host_observations(
+                    tool_root=temp_root / "toolchain",
+                    hostname="ws-rtx5080-01",
+                ),
+                cuda_probe=sample_cuda_probe_payload(),
+                local_mirror_refs=sample_local_mirror_refs(),
+                repo_commit="abc123def456",
+            )
+            source_root = temp_root / "spuma"
+            source_root.mkdir()
+            allwmake = source_root / "Allwmake"
+            allwmake.write_text("#!/usr/bin/env bash\nexit 0\n", encoding="utf-8")
+            allwmake.chmod(0o755)
+
+            plan = plan_phase1_build(
+                bundle,
+                source_root=source_root,
+                output_dir=temp_root / "build",
+                discovery_host_env_path=emitted.host_env_path,
+                discovery_manifest_refs_path=emitted.manifest_refs_path,
+                cuda_probe_path=emitted.cuda_probe_path,
+            )
+
+            with self.assertRaisesRegex(Phase1BuildError, "emitter_hostname|current host"):
+                run_phase1_build(plan)
+
+        self.assertEqual(run_subprocess.call_count, 0)
+
+    @mock.patch("scripts.authority.phase1_build.subprocess.run")
+    def test_run_phase1_build_uses_recorded_tool_dirs_for_preflight_when_parent_path_is_empty(
+        self,
+        run_subprocess: mock.Mock,
+    ) -> None:
+        bundle = load_authority_bundle(repo_root())
+        observed_probe_command: list[str] = []
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_root = pathlib.Path(temp_dir)
+            tool_root = temp_root / "toolchain"
+            emitted = emit_phase1_discovery_artifacts(
+                bundle,
+                output_dir=temp_root / "discovery",
+                lane="primary",
+                host_observations=sample_host_observations(tool_root=tool_root),
+                cuda_probe=sample_cuda_probe_payload(),
+                local_mirror_refs=sample_local_mirror_refs(),
+                repo_commit="abc123def456",
+            )
+            source_root = temp_root / "spuma"
+            source_root.mkdir()
+            allwmake = source_root / "Allwmake"
+            allwmake.write_text("#!/usr/bin/env bash\nexit 0\n", encoding="utf-8")
+            allwmake.chmod(0o755)
+
+            def side_effect(*args, **kwargs):
+                observed_probe_command.extend(args[0])
+                if kwargs.get("stdout") is not None:
+                    stdout_handle = kwargs["stdout"]
+                    stdout_handle.write("Allwmake ok\n")
+                    stdout_handle.flush()
+                    return subprocess_completed(returncode=0)
+                return subprocess_completed(
+                    stdout=sample_repo_native_probe_output(tool_root=tool_root),
+                    returncode=0,
+                )
+
+            run_subprocess.side_effect = side_effect
+
+            plan = plan_phase1_build(
+                bundle,
+                source_root=source_root,
+                output_dir=temp_root / "build",
+                discovery_host_env_path=emitted.host_env_path,
+                discovery_manifest_refs_path=emitted.manifest_refs_path,
+                cuda_probe_path=emitted.cuda_probe_path,
+            )
+
+            original_path = os.environ.get("PATH")
+            os.environ["PATH"] = ""
+            try:
+                result = run_phase1_build(plan)
+            finally:
+                if original_path is None:
+                    os.environ.pop("PATH", None)
+                else:
+                    os.environ["PATH"] = original_path
+
+        self.assertTrue(result.succeeded)
+        self.assertEqual(run_subprocess.call_count, 2)
+        self.assertIn((tool_root / "bin").as_posix(), observed_probe_command[-1])
+
+    @mock.patch("scripts.authority.phase1_build.subprocess.run")
+    def test_run_phase1_build_fails_fast_when_recorded_tool_path_is_missing_on_current_host(
+        self,
+        run_subprocess: mock.Mock,
+    ) -> None:
+        bundle = load_authority_bundle(repo_root())
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_root = pathlib.Path(temp_dir)
+            host_observations = sample_host_observations(tool_root=temp_root / "toolchain")
+            host_observations["nvcc_path"] = (temp_root / "missing" / "nvcc").as_posix()
+            emitted = emit_phase1_discovery_artifacts(
+                bundle,
+                output_dir=temp_root / "discovery",
+                lane="primary",
+                host_observations=host_observations,
+                cuda_probe=sample_cuda_probe_payload(),
+                local_mirror_refs=sample_local_mirror_refs(),
+                repo_commit="abc123def456",
+            )
+            source_root = temp_root / "spuma"
+            source_root.mkdir()
+            allwmake = source_root / "Allwmake"
+            allwmake.write_text("#!/usr/bin/env bash\nexit 0\n", encoding="utf-8")
+            allwmake.chmod(0o755)
+
+            plan = plan_phase1_build(
+                bundle,
+                source_root=source_root,
+                output_dir=temp_root / "build",
+                discovery_host_env_path=emitted.host_env_path,
+                discovery_manifest_refs_path=emitted.manifest_refs_path,
+                cuda_probe_path=emitted.cuda_probe_path,
+            )
+
+            with self.assertRaisesRegex(Phase1BuildError, "recorded nvcc_path missing on current host"):
+                run_phase1_build(plan)
+
+        self.assertEqual(run_subprocess.call_count, 0)
+
 
 def subprocess_completed(*, stdout: str = "", returncode: int = 0):
     return mock.Mock(stdout=stdout, returncode=returncode)
 
 
-def phase1_build_subprocess_side_effect(*, build_stdout: str, build_returncode: int = 0):
+def phase1_build_subprocess_side_effect(
+    *,
+    build_stdout: str,
+    build_returncode: int = 0,
+    tool_root: pathlib.Path | None = None,
+):
     call_count = 0
 
     def side_effect(*args, **kwargs):
@@ -973,7 +1283,7 @@ def phase1_build_subprocess_side_effect(*, build_stdout: str, build_returncode: 
         call_count += 1
         if call_count == 1:
             return subprocess_completed(
-                stdout=sample_repo_native_probe_output(),
+                stdout=sample_repo_native_probe_output(tool_root=tool_root),
                 returncode=0,
             )
         stdout_handle = kwargs["stdout"]
@@ -984,17 +1294,28 @@ def phase1_build_subprocess_side_effect(*, build_stdout: str, build_returncode: 
     return side_effect
 
 
-def sample_repo_native_probe_output() -> str:
+def sample_repo_native_probe_output(*, tool_root: pathlib.Path | None = None) -> str:
+    tool_paths = (
+        materialize_sample_toolchain(tool_root)
+        if tool_root is not None
+        else {
+            "nvc": "",
+            "nvcc": "/usr/bin/nvcc",
+            "nsys": "/usr/bin/nsys",
+            "compute_sanitizer": "/usr/bin/compute-sanitizer",
+            "nvidia_smi": "/usr/bin/nvidia-smi",
+        }
+    )
     return (
         "WM_COMPILER=Gcc\n"
-        "NVC=\n"
-        "NVCC=/usr/bin/nvcc\n"
-        "NVCC_VERSION=Cuda compilation tools, release 12.9, V12.9.1\n"
-        "NSYS=/usr/bin/nsys\n"
-        "NSYS_VERSION=NVIDIA Nsight Systems version 2025.2\n"
-        "COMPUTE_SANITIZER=/usr/bin/compute-sanitizer\n"
-        "COMPUTE_SANITIZER_VERSION=Compute Sanitizer version 2025.1\n"
-        "NVIDIA_SMI=/usr/bin/nvidia-smi\n"
+        f"NVC={tool_paths['nvc']}\n"
+        f"NVCC={tool_paths['nvcc']}\n"
+        "NVCC_VERSION=Cuda compilation tools, release 12.9, V12.9.86\n"
+        f"NSYS={tool_paths['nsys']}\n"
+        "NSYS_VERSION=NVIDIA Nsight Systems version 2025.2.1.130-252135690618v0\n"
+        f"COMPUTE_SANITIZER={tool_paths['compute_sanitizer']}\n"
+        "COMPUTE_SANITIZER_VERSION=Compute Sanitizer version 2025.1.0.0\n"
+        f"NVIDIA_SMI={tool_paths['nvidia_smi']}\n"
         "NVIDIA_SMI_GPU=NVIDIA GeForce RTX 5080, 595.50.00, 16384 MiB\n"
     )
 

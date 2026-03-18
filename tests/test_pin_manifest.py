@@ -24,16 +24,16 @@ def repo_root() -> pathlib.Path:
 
 
 def sample_host_observations(*, lane: str = "primary") -> dict[str, str]:
-    nvcc_version = "Cuda compilation tools, release 12.9, V12.9.1"
+    nvcc_version = "Cuda compilation tools, release 12.9, V12.9.86"
     if lane == "experimental":
         nvcc_version = "Cuda compilation tools, release 13.2, V13.2.0"
     return {
         "gpu_query": "NVIDIA GeForce RTX 5080, 595.50.00, 16384 MiB",
         "nvcc_version": nvcc_version,
         "gcc_version": "gcc (Ubuntu 14.2.0) 14.2.0",
-        "nsys_version": "NVIDIA Nsight Systems version 2025.2",
-        "ncu_version": "NVIDIA Nsight Compute version 2025.3",
-        "compute_sanitizer_version": "Compute Sanitizer version 2025.1",
+        "nsys_version": "NVIDIA Nsight Systems version 2025.2.1.130-252135690618v0",
+        "ncu_version": "NVIDIA Nsight Compute version 2025.3.1.0",
+        "compute_sanitizer_version": "Compute Sanitizer version 2025.1.0.0",
         "compiler_version": "gcc (Ubuntu 14.2.0) 14.2.0",
         "os_release": "Ubuntu 24.04.2 LTS",
         "kernel": "6.8.0-60-generic",
@@ -43,11 +43,11 @@ def sample_host_observations(*, lane: str = "primary") -> dict[str, str]:
 def sample_canonical_host_observations() -> dict[str, str]:
     return {
         "gpu_csv": "NVIDIA GeForce RTX 5080, 595.50.00, 16384 MiB",
-        "nvcc_version": "Cuda compilation tools, release 12.9, V12.9.1",
+        "nvcc_version": "Cuda compilation tools, release 12.9, V12.9.86",
         "gcc_version": "gcc (Ubuntu 14.2.0) 14.2.0",
-        "nsys_version": "NVIDIA Nsight Systems version 2025.2",
-        "ncu_version": "NVIDIA Nsight Compute version 2025.3",
-        "compute_sanitizer_version": "Compute Sanitizer version 2025.1",
+        "nsys_version": "NVIDIA Nsight Systems version 2025.2.1.130-252135690618v0",
+        "ncu_version": "NVIDIA Nsight Compute version 2025.3.1.0",
+        "compute_sanitizer_version": "Compute Sanitizer version 2025.1.0.0",
         "os_release": "Ubuntu 24.04.2 LTS",
         "kernel": "6.8.0-60-generic",
     }

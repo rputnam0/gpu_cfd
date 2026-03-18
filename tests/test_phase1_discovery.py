@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import io
 import pathlib
+import socket
 import subprocess
 import tempfile
 import unittest
@@ -21,21 +22,30 @@ def repo_root() -> pathlib.Path:
     return pathlib.Path(__file__).resolve().parents[1]
 
 
-def sample_host_observations(*, lane: str = "primary") -> dict[str, str]:
+def sample_hostname() -> str:
+    return socket.gethostname().strip() or "phase1-test-host"
+
+
+def sample_host_observations(
+    *,
+    lane: str = "primary",
+    hostname: str | None = None,
+) -> dict[str, str]:
     nvcc_version = "Cuda compilation tools, release 12.9, V12.9.1"
     if lane == "experimental":
         nvcc_version = "Cuda compilation tools, release 13.2, V13.2.0"
     return {
-        "hostname": "ws-rtx5080-01",
-        "gpu_query": "NVIDIA GeForce RTX 5080, 595.50.00, 16384 MiB",
+        "hostname": hostname or sample_hostname(),
+        "gpu_csv": "NVIDIA GeForce RTX 5080, 595.50.00, 16384 MiB",
         "nvcc_version": nvcc_version,
         "gcc_version": "gcc (Ubuntu 14.2.0) 14.2.0",
         "nsys_version": "NVIDIA Nsight Systems version 2025.2",
         "ncu_version": "NVIDIA Nsight Compute version 2025.3",
         "compute_sanitizer_version": "Compute Sanitizer version 2025.1",
-        "compiler_version": "gcc (Ubuntu 14.2.0) 14.2.0",
         "os_release": "Ubuntu 24.04.2 LTS",
         "kernel": "6.8.0-60-generic",
+        "nvidia_smi_path": "/usr/bin/nvidia-smi",
+        "nvc_path": "/opt/nvidia/hpc_sdk/Linux_x86_64/25.1/compilers/bin/nvc",
         "nvcc_path": "/opt/cuda/bin/nvcc",
         "nsys_path": "/opt/nsight-systems/bin/nsys",
         "ncu_path": "/opt/nsight-compute/bin/ncu",
@@ -94,10 +104,29 @@ class Phase1DiscoveryTests(unittest.TestCase):
         self.assertEqual(emitted.manifest_refs_path.name, "manifest_refs.json")
         self.assertEqual(emitted.cuda_probe_path.name, "cuda_probe.json")
         self.assertEqual(host_env["canonical_name"], "host_env.json")
-        self.assertEqual(host_env["host_observations"]["hostname"], "ws-rtx5080-01")
+        self.assertEqual(
+            host_env["host_observations"]["hostname"],
+            sample_hostname(),
+        )
+        self.assertEqual(host_env["provenance"]["collection_mode"], "live_host")
+        self.assertEqual(host_env["provenance"]["emitter_hostname"], sample_hostname())
+        self.assertEqual(host_env["provenance"]["repo_commit"], "abc123def456")
+        self.assertIn("emitter_time", host_env["provenance"])
+        self.assertEqual(
+            manifest_refs["provenance"],
+            host_env["provenance"],
+        )
         self.assertEqual(
             manifest_refs["invoked_tool_paths"]["compute_sanitizer_path"],
             "/opt/cuda/bin/compute-sanitizer",
+        )
+        self.assertEqual(
+            manifest_refs["invoked_tool_paths"]["nvidia_smi_path"],
+            "/usr/bin/nvidia-smi",
+        )
+        self.assertEqual(
+            manifest_refs["invoked_tool_paths"]["nvc_path"],
+            "/opt/nvidia/hpc_sdk/Linux_x86_64/25.1/compilers/bin/nvc",
         )
         self.assertEqual(cuda_probe["canonical_name"], "cuda_probe.json")
         self.assertEqual(cuda_probe["toolkit"]["selected_lane"], "primary")
@@ -108,6 +137,7 @@ class Phase1DiscoveryTests(unittest.TestCase):
         self.assertTrue(cuda_probe["managed_memory_probe_ok"])
         self.assertEqual(cuda_probe["host_env"], "host_env.json")
         self.assertEqual(cuda_probe["manifest_refs"], "manifest_refs.json")
+        self.assertEqual(cuda_probe["provenance"], host_env["provenance"])
 
     def test_emit_phase1_discovery_artifacts_rejects_wrong_compute_capability(self) -> None:
         bundle = load_authority_bundle(repo_root())
@@ -197,7 +227,7 @@ class Phase1DiscoveryTests(unittest.TestCase):
         responses = {
             ("hostname",): "ws-rtx5080-01\n",
             (
-                "nvidia-smi",
+                "/mock/bin/nvidia-smi",
                 "--query-gpu=name,driver_version,memory.total",
                 "--format=csv,noheader",
             ): "NVIDIA GeForce RTX 5080, 595.50.00, 16384 MiB\n",
@@ -225,10 +255,105 @@ class Phase1DiscoveryTests(unittest.TestCase):
             observations["gpu_csv"],
             "NVIDIA GeForce RTX 5080, 595.50.00, 16384 MiB",
         )
+        self.assertEqual(observations["nvidia_smi_path"], "/mock/bin/nvidia-smi")
+        self.assertEqual(observations["nvc_path"], "/mock/bin/nvc")
         self.assertEqual(observations["nvcc_path"], "/mock/bin/nvcc")
         self.assertEqual(
             observations["compute_sanitizer_path"],
             "/mock/bin/compute-sanitizer",
+        )
+
+    @mock.patch("scripts.authority.phase1_discovery._is_wsl_environment", return_value=True)
+    @mock.patch("scripts.authority.phase1_discovery.pathlib.Path.is_file", return_value=True)
+    @mock.patch("scripts.authority.phase1_discovery.shutil.which")
+    def test_collect_host_observations_uses_wsl_nvidia_smi_fallback_when_path_missing(
+        self,
+        which: mock.Mock,
+        _is_file: mock.Mock,
+        _is_wsl: mock.Mock,
+    ) -> None:
+        which.side_effect = (
+            lambda tool: None if tool == "nvidia-smi" else f"/mock/bin/{tool}"
+        )
+        responses = {
+            ("hostname",): "ws-rtx5080-01\n",
+            (
+                "/usr/lib/wsl/lib/nvidia-smi",
+                "--query-gpu=name,driver_version,memory.total",
+                "--format=csv,noheader",
+            ): "NVIDIA GeForce RTX 5080, 595.50.00, 16384 MiB\n",
+            ("nvcc", "--version"): "Cuda compilation tools, release 12.9, V12.9.1\n",
+            ("gcc", "--version"): "gcc (Ubuntu 14.2.0) 14.2.0\nCopyright ...\n",
+            ("nsys", "--version"): "NVIDIA Nsight Systems version 2025.2\n",
+            ("ncu", "--version"): "NVIDIA Nsight Compute version 2025.3\n",
+            ("compute-sanitizer", "--version"): "Compute Sanitizer version 2025.1\n",
+            ("uname", "-r"): "6.8.0-60-generic\n",
+        }
+
+        def runner(args: list[str]) -> str:
+            return responses[tuple(args)]
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            os_release = pathlib.Path(temp_dir) / "os-release"
+            os_release.write_text('PRETTY_NAME="Ubuntu 24.04.2 LTS"\n', encoding="utf-8")
+            observations = collect_host_observations(
+                command_runner=runner,
+                os_release_path=os_release,
+            )
+
+        self.assertEqual(observations["nvidia_smi_path"], "/usr/lib/wsl/lib/nvidia-smi")
+
+    def test_main_marks_json_imported_observations_with_imported_provenance(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_root = pathlib.Path(temp_dir)
+            host_observations_path = temp_root / "host_observations.json"
+            host_observations_path.write_text(
+                json.dumps(sample_host_observations(), indent=2, sort_keys=True) + "\n",
+                encoding="utf-8",
+            )
+            cuda_probe_path = temp_root / "raw_cuda_probe.json"
+            cuda_probe_path.write_text(
+                json.dumps(sample_cuda_probe_payload(), indent=2, sort_keys=True) + "\n",
+                encoding="utf-8",
+            )
+            output_dir = temp_root / "artifacts"
+            argv = [
+                "--root",
+                str(repo_root()),
+                "--output-dir",
+                str(output_dir),
+                "--host-observations-json",
+                str(host_observations_path),
+                "--cuda-probe-json",
+                str(cuda_probe_path),
+                "--repo-commit",
+                "abc123def456",
+            ]
+            for component, commit in sample_local_mirror_refs().items():
+                argv.extend(["--local-mirror-ref", f"{component}={commit}"])
+
+            exit_code = main(argv)
+
+            host_env = json.loads((output_dir / "host_env.json").read_text(encoding="utf-8"))
+            manifest_refs = json.loads(
+                (output_dir / "manifest_refs.json").read_text(encoding="utf-8")
+            )
+            cuda_probe = json.loads(
+                (output_dir / "cuda_probe.json").read_text(encoding="utf-8")
+            )
+
+        self.assertEqual(exit_code, 0)
+        self.assertEqual(
+            host_env["provenance"]["collection_mode"],
+            "imported_observations",
+        )
+        self.assertEqual(
+            manifest_refs["provenance"]["collection_mode"],
+            "imported_observations",
+        )
+        self.assertEqual(
+            cuda_probe["provenance"]["collection_mode"],
+            "imported_observations",
         )
 
     @mock.patch("scripts.authority.phase1_discovery.shutil.which")
@@ -240,7 +365,7 @@ class Phase1DiscoveryTests(unittest.TestCase):
         responses = {
             ("hostname",): "ws-rtx5080-01\n",
             (
-                "nvidia-smi",
+                "/mock/bin/nvidia-smi",
                 "--query-gpu=name,driver_version,memory.total",
                 "--format=csv,noheader",
             ): (
