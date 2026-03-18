@@ -70,6 +70,7 @@ repository's authority docs, backlog dependencies, and PR-card scope.
    refresh `origin` before review or PR automation. If the helper reports
    `branch_refresh_required`, stay in the same worker run, refresh the branch against the latest
    `origin/main`, rerun the smallest relevant validation, and rerun the handoff helper. Do not
+   return a PR to `In Review` until the branch contains the latest `origin/main`, and do not
    open or update a conflicted PR. If the workspace still has unrelated dirty control-plane files,
    the helper creates its own clean committed review clone; do not invent a separate manual
    clean-clone workflow.
@@ -94,6 +95,9 @@ repository's authority docs, backlog dependencies, and PR-card scope.
     targeted validation, push, and rerun the handoff helper before returning to `In Review`.
     Do not reopen the local Codex review loop during `Rework`; after Devin findings are fixed,
     the branch returns directly to GitHub auto-merge.
+    If GitHub moved the issue to `Rework` because the PR became `BEHIND` or `DIRTY`, refresh the
+    branch against the latest `origin/main`, rerun the smallest relevant validation, and then
+    rerun the handoff helper to return directly to GitHub auto-merge.
     This workflow requires one Devin review round; after those actionable findings are resolved,
     GitHub may merge without waiting for a second Devin pass on the new head.
 15. Use the `gh api` PR comment/review endpoints described in `AGENTS.md` when you need the full

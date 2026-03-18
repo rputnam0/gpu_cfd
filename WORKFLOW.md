@@ -101,7 +101,7 @@ Execution contract:
 - Run the smallest relevant validation first, then broader checks when the scope requires it.
 - When the task is implementation-complete, commit and push the branch, record validation evidence in the workpad, then run `python3 scripts/symphony/pr_handoff.py --workspace "$PWD"`.
 - Run the handoff helper from the issue workspace directly. If the workspace still contains unrelated dirty control-plane files, the helper materializes its own clean committed clone for local review and PR automation; do not invent a manual clean-clone workflow.
-- The dispatch wrapper and handoff helper both refresh `origin` before review or PR automation. If the handoff helper reports `branch_refresh_required`, stay in the same worker run, refresh the branch against the latest `origin/main`, rerun the smallest relevant validation, and rerun the handoff helper. Do not open or update a PR from a conflicted branch.
+- The dispatch wrapper and handoff helper both refresh `origin` before review or PR automation. If the handoff helper reports `branch_refresh_required`, stay in the same worker run, refresh the branch against the latest `origin/main`, rerun the smallest relevant validation, and rerun the handoff helper. Do not return a PR to `In Review` until the branch contains the latest `origin/main`, and do not open or update a PR from a conflicted branch.
 - The Symphony workflow configuration for this repo applies to the implementation worker only. The local pre-PR review pass uses the repo-owned review profile in `scripts/symphony/runtime_config.toml` (`gpt-5.4` with `xhigh`).
 - If the handoff helper reports findings on remediation pass 1 or 2, inspect the latest artifact under `.codex/review_artifacts/`, fix the valid findings in the same implementation run, rerun the smallest relevant validation, and rerun the handoff helper.
 - Remediation passes 1 and 2 are continuation work for the same implementation worker. Keep the issue in `In Progress`; do not stop or expect Symphony to redispatch a fresh worker for those pre-PR fixes.
@@ -110,6 +110,7 @@ Execution contract:
 - When the handoff helper succeeds cleanly, it opens or updates the GitHub PR, enables auto-merge, moves the issue to `In Review`, returns `stop_worker=true`, and the run should stop after you update the workpad with the PR URL.
 - `In Review` is a dormant automated-review state. Do not wait, poll, or sleep for Devin.
 - GitHub automation owns the `In Review -> Rework` transition when Devin leaves actionable feedback on the current head. Actionable Devin threads are not auto-cleared just because a newer commit exists.
+- GitHub automation also owns the `In Review -> Rework` transition when an open PR becomes `BEHIND` or `DIRTY` against the latest `main`. Refresh the branch in the resumed `Rework` run before returning it to GitHub auto-merge.
 - `Rework` is terminal with respect to local review. After actionable Devin findings are fixed, rerun targeted validation, push, rerun `scripts/symphony/pr_handoff.py`, and return directly to GitHub auto-merge without another local Codex review cycle.
 - GitHub auto-merge owns the final merge once `review-loop-harness` and `devin-review-gate` are green.
 - GitHub post-merge automation owns `In Review -> Done` and dependent release from `Backlog -> Todo`.

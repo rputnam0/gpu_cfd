@@ -149,8 +149,9 @@ def render_issue_description(
         "## Review flow\n\n"
         "* Local review is finite: remediation pass 1, remediation pass 2, then one final local review pass.\n"
         "* On the third pass, residual local findings become child `Backlog` issues and the PR still progresses to `In Review` with auto-merge enabled.\n"
-        "* The dispatch wrapper and handoff helper refresh `origin` before review or PR automation. If the helper reports `branch_refresh_required`, refresh the branch against the latest `origin/main`, rerun the smallest relevant validation, and rerun handoff before opening or updating the PR.\n"
-        "* `Rework` does not reopen local Codex review. After actionable Devin findings are fixed, `scripts/symphony/pr_handoff.py` returns the PR directly to auto-merge.\n"
+        "* The dispatch wrapper and handoff helper refresh `origin` before review or PR automation. If the helper reports `branch_refresh_required`, refresh the branch against the latest `origin/main`, rerun the smallest relevant validation, and rerun handoff before opening or updating the PR. Do not return a PR to `In Review` until the branch contains the latest `origin/main`.\n"
+        "* GitHub automation can also move an `In Review` PR back to `Rework` when actionable Devin feedback remains or when the branch becomes `BEHIND` / `DIRTY` against current `main`.\n"
+        "* `Rework` does not reopen local Codex review. After actionable Devin findings are fixed or the branch has been refreshed, `scripts/symphony/pr_handoff.py` returns the PR directly to auto-merge.\n"
     )
 
 

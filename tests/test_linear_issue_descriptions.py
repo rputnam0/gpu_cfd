@@ -36,6 +36,7 @@ class LinearIssueDescriptionsTests(unittest.TestCase):
         self.assertIn("progresses to `In Review`", description)
         self.assertIn("branch_refresh_required", description)
         self.assertIn("latest `origin/main`", description)
+        self.assertIn("becomes `BEHIND` / `DIRTY`", description)
         self.assertIn("`Rework` does not reopen local Codex review", description)
         self.assertIn("docs/authority/README.md", description)
         self.assertIn("## Task routing", description)
