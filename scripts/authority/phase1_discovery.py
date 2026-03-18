@@ -11,13 +11,29 @@ import subprocess
 from dataclasses import dataclass
 from typing import Any, Callable, Mapping
 
-from .bundle import AuthorityBundle, AuthorityConflictError, load_authority_bundle
-from .pins import (
-    emit_environment_manifests,
-    load_pin_details,
-    normalize_host_observations,
-    write_json,
-)
+try:
+    from .bundle import AuthorityBundle, AuthorityConflictError, load_authority_bundle
+    from .pins import (
+        emit_environment_manifests,
+        load_pin_details,
+        normalize_host_observations,
+        write_json,
+    )
+except ImportError:  # pragma: no cover - script execution fallback
+    import sys
+
+    sys.path.append(str(pathlib.Path(__file__).resolve().parents[2]))
+    from scripts.authority.bundle import (
+        AuthorityBundle,
+        AuthorityConflictError,
+        load_authority_bundle,
+    )
+    from scripts.authority.pins import (
+        emit_environment_manifests,
+        load_pin_details,
+        normalize_host_observations,
+        write_json,
+    )
 
 
 CUDA_PROBE_SCHEMA_VERSION = "1.0.0"
@@ -128,14 +144,14 @@ def collect_host_observations(
     runner = command_runner or _run_command
     observations = {
         "hostname": runner(["hostname"]).strip(),
-        "gpu_csv": _first_line(
+        "gpu_csv": _single_gpu_csv(
             runner(
                 [
                     "nvidia-smi",
                     "--query-gpu=name,driver_version,memory.total",
                     "--format=csv,noheader",
                 ]
-            )
+            ),
         ),
         "nvcc_version": runner(["nvcc", "--version"]).strip(),
         "gcc_version": _first_line(runner(["gcc", "--version"])),
@@ -387,6 +403,17 @@ def _first_line(value: str) -> str:
         if stripped:
             return stripped
     return ""
+
+
+def _single_gpu_csv(value: str) -> str:
+    lines = [line.strip() for line in value.splitlines() if line.strip()]
+    if not lines:
+        return ""
+    if len(lines) > 1:
+        raise ValueError(
+            "nvidia-smi returned multiple GPU rows; Phase 1 host discovery requires a single-GPU workstation baseline"
+        )
+    return lines[0]
 
 
 def _parse_local_mirror_refs(entries: list[str]) -> dict[str, str]:

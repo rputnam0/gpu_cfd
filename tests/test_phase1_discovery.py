@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import io
 import pathlib
+import subprocess
 import tempfile
 import unittest
 from contextlib import redirect_stdout
@@ -187,6 +188,42 @@ class Phase1DiscoveryTests(unittest.TestCase):
             "/mock/bin/compute-sanitizer",
         )
 
+    @mock.patch("scripts.authority.phase1_discovery.shutil.which")
+    def test_collect_host_observations_rejects_multiple_detected_gpus(
+        self,
+        which: mock.Mock,
+    ) -> None:
+        which.side_effect = lambda tool: f"/mock/bin/{tool}"
+        responses = {
+            ("hostname",): "ws-rtx5080-01\n",
+            (
+                "nvidia-smi",
+                "--query-gpu=name,driver_version,memory.total",
+                "--format=csv,noheader",
+            ): (
+                "NVIDIA GeForce RTX 5080, 595.50.00, 16384 MiB\n"
+                "NVIDIA GeForce RTX 4090, 595.50.00, 24576 MiB\n"
+            ),
+            ("nvcc", "--version"): "Cuda compilation tools, release 12.9, V12.9.1\n",
+            ("gcc", "--version"): "gcc (Ubuntu 14.2.0) 14.2.0\n",
+            ("nsys", "--version"): "NVIDIA Nsight Systems version 2025.2\n",
+            ("ncu", "--version"): "NVIDIA Nsight Compute version 2025.3\n",
+            ("compute-sanitizer", "--version"): "Compute Sanitizer version 2025.1\n",
+            ("uname", "-r"): "6.8.0-60-generic\n",
+        }
+
+        def runner(args: list[str]) -> str:
+            return responses[tuple(args)]
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            os_release = pathlib.Path(temp_dir) / "os-release"
+            os_release.write_text('PRETTY_NAME="Ubuntu 24.04.2 LTS"\n', encoding="utf-8")
+            with self.assertRaisesRegex(ValueError, "multiple GPU rows"):
+                collect_host_observations(
+                    command_runner=runner,
+                    os_release_path=os_release,
+                )
+
     def test_main_emits_phase1_discovery_artifacts_from_json_inputs(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             temp_root = pathlib.Path(temp_dir)
@@ -231,6 +268,19 @@ class Phase1DiscoveryTests(unittest.TestCase):
         self.assertTrue(cuda_probe_exists)
         self.assertTrue(result["host_env"].endswith("host_env.json"))
         self.assertTrue(result["cuda_probe"].endswith("cuda_probe.json"))
+
+    def test_phase1_discovery_script_runs_as_direct_file_path(self) -> None:
+        script_path = repo_root() / "scripts" / "authority" / "phase1_discovery.py"
+        completed = subprocess.run(
+            ["uv", "run", "python", str(script_path), "--help"],
+            cwd=repo_root(),
+            text=True,
+            capture_output=True,
+            check=False,
+        )
+
+        self.assertEqual(completed.returncode, 0, completed.stderr)
+        self.assertIn("cuda-probe-json", completed.stdout)
 
 
 if __name__ == "__main__":
