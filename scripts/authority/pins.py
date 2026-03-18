@@ -22,6 +22,7 @@ CANONICAL_MANIFEST_REFS_NAME = "manifest_refs.json"
 COMPATIBILITY_ALIASES = {"env.json": CANONICAL_HOST_ENV_NAME}
 SUPPORTED_CONSUMERS = {"build", "run", "profiling"}
 CANONICAL_HOST_OBSERVATION_FIELDS = (
+    "hostname",
     "gpu_csv",
     "nvcc_version",
     "gcc_version",
