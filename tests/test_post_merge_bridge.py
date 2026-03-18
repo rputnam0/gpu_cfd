@@ -134,32 +134,19 @@ class PostMergeBridgeTests(unittest.TestCase):
         )
 
     @mock.patch("scripts.symphony.post_merge_bridge.devin_review_gate.process_pull_request")
-    @mock.patch("scripts.symphony.post_merge_bridge.linear_api.fetch_issue")
-    @mock.patch("scripts.symphony.post_merge_bridge.devin_review_gate.select_issue_identifier")
-    @mock.patch("scripts.symphony.post_merge_bridge.devin_review_gate.fetch_pr_snapshot")
-    @mock.patch("scripts.symphony.post_merge_bridge.list_open_pull_request_numbers")
+    @mock.patch("scripts.symphony.post_merge_bridge.collect_in_review_pull_request_candidates")
     def test_reconcile_open_review_pull_requests_wakes_behind_issue_into_rework(
         self,
-        mock_list_open_pull_request_numbers: mock.Mock,
-        mock_fetch_pr_snapshot: mock.Mock,
-        mock_select_issue_identifier: mock.Mock,
-        mock_fetch_issue: mock.Mock,
+        mock_collect_candidates: mock.Mock,
         mock_process_pull_request: mock.Mock,
     ) -> None:
-        mock_list_open_pull_request_numbers.return_value = [26]
-        mock_fetch_pr_snapshot.return_value = devin_review_gate.PullRequestSnapshot(
-            number=26,
-            title="PRO-16 Example",
-            body="Closes PRO-16",
-            head_ref_name="rputnam0/pro-16-example",
-            head_oid="abc123",
-            url="https://github.com/rputnam0/gpu_cfd/pull/26",
-            state="OPEN",
-            is_draft=False,
-            merge_state_status="BEHIND",
-        )
-        mock_select_issue_identifier.return_value = "PRO-16"
-        mock_fetch_issue.return_value = {"state": {"name": "In Review"}}
+        mock_collect_candidates.return_value = [
+            {
+                "pr_number": 26,
+                "issue_identifier": "PRO-16",
+                "merge_state_status": "BEHIND",
+            }
+        ]
         mock_process_pull_request.return_value = {
             "decision": {"review_state": "branch_refresh_required"},
             "linear_update": {"current_state": "Rework"},
@@ -173,6 +160,99 @@ class PostMergeBridgeTests(unittest.TestCase):
         self.assertEqual(result[0]["issue_identifier"], "PRO-16")
         self.assertEqual(result[0]["merge_state_status"], "BEHIND")
         mock_process_pull_request.assert_called_once()
+
+    @mock.patch("scripts.symphony.post_merge_bridge.time.sleep")
+    @mock.patch("scripts.symphony.post_merge_bridge.devin_review_gate.process_pull_request")
+    @mock.patch("scripts.symphony.post_merge_bridge.collect_in_review_pull_request_candidates")
+    def test_reconcile_open_review_pull_requests_retries_until_candidate_becomes_behind(
+        self,
+        mock_collect_candidates: mock.Mock,
+        mock_process_pull_request: mock.Mock,
+        mock_sleep: mock.Mock,
+    ) -> None:
+        mock_collect_candidates.side_effect = [
+            [
+                {
+                    "pr_number": 26,
+                    "issue_identifier": "PRO-16",
+                    "merge_state_status": "",
+                }
+            ],
+            [
+                {
+                    "pr_number": 26,
+                    "issue_identifier": "PRO-16",
+                    "merge_state_status": "BEHIND",
+                }
+            ],
+        ]
+        mock_process_pull_request.return_value = {
+            "decision": {"review_state": "branch_refresh_required"},
+            "linear_update": {"current_state": "Rework"},
+        }
+
+        result = post_merge_bridge.reconcile_open_review_pull_requests(
+            "rputnam0/gpu_cfd",
+            max_attempts=2,
+            retry_delay_seconds=1.5,
+        )
+
+        self.assertEqual(len(result), 1)
+        self.assertEqual(result[0]["merge_state_status"], "BEHIND")
+        mock_sleep.assert_called_once_with(1.5)
+        mock_process_pull_request.assert_called_once()
+
+    @mock.patch("scripts.symphony.post_merge_bridge.time.sleep")
+    @mock.patch("scripts.symphony.post_merge_bridge.collect_in_review_pull_request_candidates")
+    def test_reconcile_open_review_pull_requests_returns_empty_without_candidates(
+        self,
+        mock_collect_candidates: mock.Mock,
+        mock_sleep: mock.Mock,
+    ) -> None:
+        mock_collect_candidates.return_value = []
+
+        result = post_merge_bridge.reconcile_open_review_pull_requests(
+            "rputnam0/gpu_cfd",
+        )
+
+        self.assertEqual(result, [])
+        mock_sleep.assert_not_called()
+
+    @mock.patch("scripts.symphony.post_merge_bridge.time.sleep")
+    @mock.patch("scripts.symphony.post_merge_bridge.devin_review_gate.process_pull_request")
+    @mock.patch("scripts.symphony.post_merge_bridge.collect_in_review_pull_request_candidates")
+    def test_reconcile_open_review_pull_requests_stops_after_retry_budget_without_refresh_state(
+        self,
+        mock_collect_candidates: mock.Mock,
+        mock_process_pull_request: mock.Mock,
+        mock_sleep: mock.Mock,
+    ) -> None:
+        mock_collect_candidates.side_effect = [
+            [
+                {
+                    "pr_number": 26,
+                    "issue_identifier": "PRO-16",
+                    "merge_state_status": "",
+                }
+            ],
+            [
+                {
+                    "pr_number": 26,
+                    "issue_identifier": "PRO-16",
+                    "merge_state_status": "",
+                }
+            ],
+        ]
+
+        result = post_merge_bridge.reconcile_open_review_pull_requests(
+            "rputnam0/gpu_cfd",
+            max_attempts=2,
+            retry_delay_seconds=2.0,
+        )
+
+        self.assertEqual(result, [])
+        mock_sleep.assert_called_once_with(2.0)
+        mock_process_pull_request.assert_not_called()
 
 
 if __name__ == "__main__":

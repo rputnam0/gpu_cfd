@@ -7,6 +7,7 @@ import argparse
 import json
 import pathlib
 import sys
+import time
 from dataclasses import asdict, dataclass
 
 try:
@@ -30,6 +31,8 @@ PR_FIELDS = ",".join(
     ]
 )
 OPEN_PR_FIELDS = ",".join(["number"])
+RECONCILE_MAX_ATTEMPTS = 3
+RECONCILE_RETRY_DELAY_SECONDS = 15.0
 
 
 @dataclass(frozen=True)
@@ -123,12 +126,12 @@ def list_open_pull_request_numbers(repo: str) -> list[int]:
     return [int(item["number"]) for item in payload]
 
 
-def reconcile_open_review_pull_requests(
+def collect_in_review_pull_request_candidates(
     repo: str,
     *,
     exclude_pr_number: int | None = None,
 ) -> list[dict[str, object]]:
-    reconciled: list[dict[str, object]] = []
+    candidates: list[dict[str, object]] = []
     for pr_number in list_open_pull_request_numbers(repo):
         if exclude_pr_number is not None and pr_number == exclude_pr_number:
             continue
@@ -140,24 +143,57 @@ def reconcile_open_review_pull_requests(
         current_state = str((issue.get("state") or {}).get("name") or "")
         if current_state != IN_REVIEW_STATE:
             continue
-        if (snapshot.merge_state_status or "").strip() not in review_loop.REFRESH_REQUIRED_MERGE_STATES:
-            continue
-        result = devin_review_gate.process_pull_request(
-            repo,
-            pr_number,
-            issue_override=issue_identifier,
-            reviewers=list(devin_review_gate.DEFAULT_REVIEWERS),
-        )
-        reconciled.append(
+        candidates.append(
             {
                 "pr_number": pr_number,
                 "issue_identifier": issue_identifier,
-                "merge_state_status": snapshot.merge_state_status,
-                "decision": result["decision"],
-                "linear_update": result["linear_update"],
+                "merge_state_status": (snapshot.merge_state_status or "").strip(),
             }
         )
-    return reconciled
+    return candidates
+
+
+def reconcile_open_review_pull_requests(
+    repo: str,
+    *,
+    exclude_pr_number: int | None = None,
+    max_attempts: int = RECONCILE_MAX_ATTEMPTS,
+    retry_delay_seconds: float = RECONCILE_RETRY_DELAY_SECONDS,
+) -> list[dict[str, object]]:
+    attempts = max(1, int(max_attempts))
+    for attempt in range(attempts):
+        reconciled: list[dict[str, object]] = []
+        candidates = collect_in_review_pull_request_candidates(
+            repo,
+            exclude_pr_number=exclude_pr_number,
+        )
+        if not candidates:
+            return []
+        refresh_candidates = [
+            candidate
+            for candidate in candidates
+            if candidate["merge_state_status"] in review_loop.REFRESH_REQUIRED_MERGE_STATES
+        ]
+        for candidate in refresh_candidates:
+            result = devin_review_gate.process_pull_request(
+                repo,
+                int(candidate["pr_number"]),
+                issue_override=str(candidate["issue_identifier"]),
+                reviewers=list(devin_review_gate.DEFAULT_REVIEWERS),
+            )
+            reconciled.append(
+                {
+                    "pr_number": int(candidate["pr_number"]),
+                    "issue_identifier": str(candidate["issue_identifier"]),
+                    "merge_state_status": candidate["merge_state_status"],
+                    "decision": result["decision"],
+                    "linear_update": result["linear_update"],
+                }
+            )
+        if reconciled or attempt == attempts - 1:
+            return reconciled
+        time.sleep(max(0.0, retry_delay_seconds))
+    return []
 
 
 def main() -> int:
