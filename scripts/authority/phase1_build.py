@@ -31,7 +31,22 @@ except ImportError:  # pragma: no cover - script execution fallback
 BUILD_METADATA_SCHEMA_VERSION = "1.0.0"
 SUPPORTED_BUILD_MODES = {"debug", "relwithdebinfo"}
 SKIP_AUDIT_DIR_NAMES = {".git", "__pycache__", ".venv", "build", "artifacts"}
-NVTX2_INCLUDE_PATTERN = re.compile(r"nvtoolsext\.h", flags=re.IGNORECASE)
+AUDIT_SOURCE_SUFFIXES = {
+    ".c",
+    ".cc",
+    ".cpp",
+    ".cxx",
+    ".cu",
+    ".cuh",
+    ".h",
+    ".hh",
+    ".hpp",
+    ".hxx",
+}
+NVTX2_INCLUDE_PATTERN = re.compile(
+    r'^\s*#\s*include\s*[<"]\s*nvtoolsext\.h\s*[>"]',
+    flags=re.IGNORECASE | re.MULTILINE,
+)
 
 
 @dataclass(frozen=True)
@@ -261,6 +276,8 @@ def audit_nvtx_includes(source_root: pathlib.Path | str) -> tuple[str, ...]:
         if not path.is_file():
             continue
         if any(part in SKIP_AUDIT_DIR_NAMES for part in path.parts):
+            continue
+        if path.suffix.lower() not in AUDIT_SOURCE_SUFFIXES:
             continue
         try:
             content = path.read_text(encoding="utf-8", errors="ignore")

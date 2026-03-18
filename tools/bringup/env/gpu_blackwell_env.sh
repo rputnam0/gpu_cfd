@@ -13,7 +13,7 @@ host_env_json="${GPU_CFD_HOST_ENV:?set GPU_CFD_HOST_ENV to the canonical P1-01 h
 manifest_refs_json="${GPU_CFD_MANIFEST_REFS:?set GPU_CFD_MANIFEST_REFS to the canonical P1-01 manifest_refs.json path}"
 cuda_probe_json="${GPU_CFD_CUDA_PROBE:?set GPU_CFD_CUDA_PROBE to the canonical P1-01 cuda_probe.json path}"
 
-eval "$(
+if env_exports="$(
   cd "${repo_root}"
   uv run python scripts/authority/phase1_build.py env \
     --root "${repo_root}" \
@@ -24,4 +24,9 @@ eval "$(
     --cuda-probe-json "${cuda_probe_json}" \
     --lane "${lane}" \
     --mode "${mode}"
-)"
+)"; then
+  eval "${env_exports}"
+else
+  status=$?
+  return "${status}" 2>/dev/null || exit "${status}"
+fi

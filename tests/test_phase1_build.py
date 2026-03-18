@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 import json
+import os
 import pathlib
+import subprocess
 import tempfile
 import unittest
 from unittest import mock
@@ -198,6 +200,106 @@ class Phase1BuildTests(unittest.TestCase):
             'export FOAM_EXTRA_CXXFLAGS="${FOAM_EXTRA_CXXFLAGS:+${FOAM_EXTRA_CXXFLAGS} }${SPUMA_EXTRA_CXX_FLAGS}"',
             exports,
         )
+
+    def test_gpu_blackwell_env_wrapper_fails_fast_when_env_render_fails(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_root = pathlib.Path(temp_dir)
+            source_root = temp_root / "spuma"
+            source_root.mkdir()
+            env = os.environ.copy()
+            env.update(
+                {
+                    "UV_CACHE_DIR": "/tmp/uv-cache-pro21",
+                    "SPUMA_SOURCE_ROOT": source_root.as_posix(),
+                    "GPU_CFD_PHASE1_BUILD_ARTIFACTS": (temp_root / "build").as_posix(),
+                    "GPU_CFD_HOST_ENV": (temp_root / "missing-host_env.json").as_posix(),
+                    "GPU_CFD_MANIFEST_REFS": (temp_root / "manifest_refs.json").as_posix(),
+                    "GPU_CFD_CUDA_PROBE": (temp_root / "cuda_probe.json").as_posix(),
+                }
+            )
+            completed = subprocess.run(
+                [
+                    "bash",
+                    "-lc",
+                    f". {repo_root() / 'tools/bringup/env/gpu_blackwell_env.sh'} primary relwithdebinfo",
+                ],
+                cwd=repo_root(),
+                env=env,
+                capture_output=True,
+                text=True,
+            )
+
+        self.assertNotEqual(completed.returncode, 0)
+        self.assertIn("unable to read JSON payload", completed.stderr)
+
+    def test_plan_phase1_build_ignores_nvtx2_mentions_in_non_source_files(self) -> None:
+        bundle = load_authority_bundle(repo_root())
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_root = pathlib.Path(temp_dir)
+            emitted = emit_phase1_discovery_artifacts(
+                bundle,
+                output_dir=temp_root / "discovery",
+                lane="primary",
+                host_observations=sample_host_observations(),
+                cuda_probe=sample_cuda_probe_payload(),
+                local_mirror_refs=sample_local_mirror_refs(),
+                repo_commit="abc123def456",
+            )
+            source_root = temp_root / "spuma"
+            source_root.mkdir()
+            readme = source_root / "README.md"
+            readme.write_text("legacy doc mention: nvtoolsext.h\n", encoding="utf-8")
+            allwmake = source_root / "Allwmake"
+            allwmake.write_text("#!/usr/bin/env bash\nexit 0\n", encoding="utf-8")
+            allwmake.chmod(0o755)
+
+            plan = plan_phase1_build(
+                bundle,
+                source_root=source_root,
+                output_dir=temp_root / "build",
+                discovery_host_env_path=emitted.host_env_path,
+                discovery_manifest_refs_path=emitted.manifest_refs_path,
+                cuda_probe_path=emitted.cuda_probe_path,
+            )
+
+        self.assertEqual(plan.nvtx_audit_hits, ())
+
+    def test_plan_phase1_build_allows_nvtx3_include_paths(self) -> None:
+        bundle = load_authority_bundle(repo_root())
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_root = pathlib.Path(temp_dir)
+            emitted = emit_phase1_discovery_artifacts(
+                bundle,
+                output_dir=temp_root / "discovery",
+                lane="primary",
+                host_observations=sample_host_observations(),
+                cuda_probe=sample_cuda_probe_payload(),
+                local_mirror_refs=sample_local_mirror_refs(),
+                repo_commit="abc123def456",
+            )
+            source_root = temp_root / "spuma"
+            source_root.mkdir()
+            nvtx_wrapper = source_root / "NvtxScope.H"
+            nvtx_wrapper.write_text(
+                '#include "nvtx3/nvtoolsext.h"\n',
+                encoding="utf-8",
+            )
+            allwmake = source_root / "Allwmake"
+            allwmake.write_text("#!/usr/bin/env bash\nexit 0\n", encoding="utf-8")
+            allwmake.chmod(0o755)
+
+            plan = plan_phase1_build(
+                bundle,
+                source_root=source_root,
+                output_dir=temp_root / "build",
+                discovery_host_env_path=emitted.host_env_path,
+                discovery_manifest_refs_path=emitted.manifest_refs_path,
+                cuda_probe_path=emitted.cuda_probe_path,
+            )
+
+        self.assertEqual(plan.nvtx_audit_hits, ())
 
     def test_plan_phase1_build_requires_repo_native_build_entrypoint(self) -> None:
         bundle = load_authority_bundle(repo_root())
