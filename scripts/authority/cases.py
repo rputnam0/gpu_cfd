@@ -52,6 +52,9 @@ class ResolvedReferenceCase:
 class EmittedCaseArtifacts:
     case_meta_path: pathlib.Path
     stage_plan_path: pathlib.Path
+    build_fingerprint_path: pathlib.Path | None = None
+    field_signatures_path: pathlib.Path | None = None
+    metrics_path: pathlib.Path | None = None
 
 
 def resolve_reference_case(bundle: AuthorityBundle, *, case_role: str) -> ResolvedReferenceCase:
@@ -930,6 +933,7 @@ def emit_case_bundle(
     output_dir: pathlib.Path | str,
     case_meta: Mapping[str, Any],
     stage_plan: Mapping[str, Any],
+    reference_artifacts: Mapping[str, Any] | None = None,
 ) -> EmittedCaseArtifacts:
     validated_case_meta = validate_case_meta(bundle, dict(case_meta))
     validated_stage_plan = validate_stage_plan(bundle, dict(stage_plan))
@@ -966,9 +970,41 @@ def emit_case_bundle(
     stage_plan_path = target_dir / CANONICAL_STAGE_PLAN_NAME
     _write_json(case_meta_path, validated_case_meta)
     _write_json(stage_plan_path, validated_stage_plan)
+    build_fingerprint_path: pathlib.Path | None = None
+    field_signatures_path: pathlib.Path | None = None
+    metrics_path: pathlib.Path | None = None
+    if reference_artifacts is not None:
+        from .reference_problem import emit_reference_problem_artifacts
+
+        emitted_reference = emit_reference_problem_artifacts(
+            bundle,
+            case_dir=_require_path_argument(reference_artifacts, "case_dir"),
+            artifact_root=reference_artifacts.get("artifact_root", target_dir),
+            case_meta_path=case_meta_path,
+            stage_plan_path=stage_plan_path,
+            normalized_steady_root=_require_path_argument(
+                reference_artifacts,
+                "normalized_steady_root",
+            ),
+            normalized_transient_root=_require_path_argument(
+                reference_artifacts,
+                "normalized_transient_root",
+            ),
+            run_meta_path=reference_artifacts.get("run_meta_path"),
+            metrics=_optional_mapping(reference_artifacts, "metrics"),
+            metric_sources=_optional_string_mapping(reference_artifacts, "metric_sources"),
+            time_windows=_optional_mapping(reference_artifacts, "time_windows"),
+            angle_source=_optional_string(reference_artifacts.get("angle_source")),
+        )
+        build_fingerprint_path = emitted_reference.build_fingerprint_path
+        field_signatures_path = emitted_reference.field_signatures_path
+        metrics_path = emitted_reference.metrics_path
     return EmittedCaseArtifacts(
         case_meta_path=case_meta_path,
         stage_plan_path=stage_plan_path,
+        build_fingerprint_path=build_fingerprint_path,
+        field_signatures_path=field_signatures_path,
+        metrics_path=metrics_path,
     )
 
 
@@ -1416,3 +1452,40 @@ def _read_json_dict(path: pathlib.Path) -> dict[str, Any]:
 
 def _write_json(path: pathlib.Path, payload: Mapping[str, Any]) -> None:
     path.write_text(json.dumps(dict(payload), indent=2, sort_keys=True) + "\n", encoding="utf-8")
+
+
+def _require_path_argument(payload: Mapping[str, Any], field_name: str) -> pathlib.Path:
+    value = payload.get(field_name)
+    if value is None:
+        raise AuthoritySelectionError(
+            f"reference_artifacts requires {field_name}"
+        )
+    return pathlib.Path(value)
+
+
+def _optional_mapping(payload: Mapping[str, Any], field_name: str) -> Mapping[str, Any] | None:
+    value = payload.get(field_name)
+    if value is None:
+        return None
+    if not isinstance(value, Mapping):
+        raise AuthoritySelectionError(f"reference_artifacts {field_name} must be an object")
+    return value
+
+
+def _optional_string_mapping(
+    payload: Mapping[str, Any],
+    field_name: str,
+) -> Mapping[str, str] | None:
+    value = _optional_mapping(payload, field_name)
+    if value is None:
+        return None
+    normalized: dict[str, str] = {}
+    for key, raw_value in value.items():
+        normalized[str(key)] = str(raw_value)
+    return normalized
+
+
+def _optional_string(value: Any) -> str | None:
+    if value is None:
+        return None
+    return str(value)
