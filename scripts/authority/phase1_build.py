@@ -656,6 +656,7 @@ def _build_metadata_payload(
 ) -> dict[str, Any]:
     return {
         "schema_version": BUILD_METADATA_SCHEMA_VERSION,
+        "runtime_base": pin_details.runtime_base,
         "lane": lane,
         "mode": mode,
         "have_cuda": True,
@@ -664,6 +665,13 @@ def _build_metadata_payload(
         "instrumentation": pin_details.instrumentation,
         "gpu_target": pin_details.gpu_target,
         "selected_lane_value": selected_lane_value,
+        "toolkit": {
+            "selected_lane": lane,
+            "selected_lane_value": selected_lane_value,
+            "primary_lane": pin_details.primary_toolkit_lane,
+            "experimental_lane": pin_details.experimental_toolkit_lane,
+            "driver_floor": pin_details.driver_floor,
+        },
         "build_entrypoint": build_command[0],
         "build_command": list(build_command),
         "bashrc_path": bashrc_path.as_posix() if bashrc_path else None,

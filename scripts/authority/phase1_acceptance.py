@@ -419,6 +419,17 @@ def build_phase1_acceptance_report(
             observed={"reviewed_source_tuple_id": build_metadata.get("reviewed_source_tuple_id")},
             evidence=resolved_paths["build_metadata"].as_posix(),
         ),
+        "build_metadata_traceable": _gate_result(
+            label="Build metadata matches the reviewed tuple, runtime base, and primary lane",
+            passed=_artifact_traceable_to_primary_lane(
+                build_metadata,
+                manifest_refs=manifest_refs,
+                pin_details=pin_details,
+            ),
+            expected=_traceability_expectation(pin_details),
+            observed=_traceability_observed(build_metadata),
+            evidence=resolved_paths["build_metadata"].as_posix(),
+        ),
         "build_succeeded": _gate_result(
             label="SPUMA builds in required lane",
             passed=bool(build_metadata.get("succeeded")) and int(build_metadata.get("returncode", 1)) == 0,

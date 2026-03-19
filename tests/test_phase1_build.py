@@ -126,6 +126,7 @@ def materialize_sample_build_artifact(source_root: pathlib.Path) -> pathlib.Path
 class Phase1BuildTests(unittest.TestCase):
     def test_plan_phase1_build_emits_build_manifests_metadata_and_env(self) -> None:
         bundle = load_authority_bundle(repo_root())
+        pin_details = load_pin_details(bundle)
 
         with tempfile.TemporaryDirectory() as temp_dir:
             temp_root = pathlib.Path(temp_dir)
@@ -178,6 +179,9 @@ class Phase1BuildTests(unittest.TestCase):
         self.assertEqual(build_manifest_refs["consumer"], "build")
         self.assertEqual(metadata["lane"], "primary")
         self.assertEqual(metadata["mode"], "relwithdebinfo")
+        self.assertEqual(metadata["runtime_base"], pin_details.runtime_base)
+        self.assertEqual(metadata["toolkit"]["selected_lane"], "primary")
+        self.assertEqual(metadata["toolkit"]["selected_lane_value"], pin_details.primary_toolkit_lane)
         self.assertEqual(metadata["build_entrypoint"], "./Allwmake")
         self.assertTrue(metadata["ptx_retention_required"])
         self.assertEqual(metadata["have_cuda"], True)
