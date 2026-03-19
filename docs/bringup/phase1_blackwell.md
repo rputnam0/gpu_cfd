@@ -12,6 +12,29 @@ Phase 1 acceptance report can be treated as reviewable.
 - Compute Sanitizer memcheck result from `P1-05`
 - Nsight Systems `basic` and `um_fault` result JSONs from `P1-06`
 
+## WSL Driver Guard
+
+On WSL, the checked-in discovery path now rejects mixed driver stacks before the
+CUDA probe runs. If `tools/bringup/env/run_cuda_probe.sh` prints a message like:
+
+```text
+WSL host should not expose Linux display driver libraries at /usr/lib/x86_64-linux-gnu/libcuda.so.1.
+Remove the Linux display driver packages from WSL and rely on /usr/lib/wsl/lib.
+```
+
+then the distro is exposing native Linux NVIDIA driver libraries alongside the WSL
+driver shim. This is a host-configuration problem, not a Phase 1 artifact-parser
+problem.
+
+Expected remediation:
+
+- remove the Linux display-driver packages from the WSL distro
+- keep using the Windows-side NVIDIA WSL driver and the `/usr/lib/wsl/lib` shim
+- rerun the canonical CUDA probe first
+
+Do not continue to build, smoke, memcheck, Nsight, PTX-JIT, or final acceptance
+until the CUDA probe returns real RTX 5080 metadata and `managed_memory_probe_ok=true`.
+
 ## PTX-JIT Proof
 
 Run the Phase 1 compatibility proof with the checked-in wrapper:
