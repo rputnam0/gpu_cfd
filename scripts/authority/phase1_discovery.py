@@ -57,6 +57,12 @@ SUPPORTED_COLLECTION_MODES = {"live_host", "imported_observations"}
 WSL_NVIDIA_SMI_PATH = pathlib.Path("/usr/lib/wsl/lib/nvidia-smi")
 WSL_LIBCUDA_PATH = pathlib.Path("/usr/lib/wsl/lib/libcuda.so.1")
 NATIVE_LIBCUDA_ROOT = pathlib.Path("/usr/lib/x86_64-linux-gnu")
+WSL_CONFLICT_PACKAGE_PATTERNS = (
+    "libnvidia-compute-*",
+    "libcudart*",
+    "nvidia-cuda-dev",
+    "nvidia-cuda-toolkit",
+)
 
 
 @dataclass(frozen=True)
@@ -507,12 +513,48 @@ def _validate_wsl_driver_stack(
     if not conflicting_paths:
         return
 
+    conflicting_packages = _discover_conflicting_wsl_cuda_packages()
+    package_suffix = ""
+    if conflicting_packages:
+        package_suffix = " Installed Linux-side CUDA/NVIDIA packages: " + ", ".join(
+            conflicting_packages
+        )
+
     raise ValueError(
         "WSL host discovery found Linux display driver libraries under "
         f"{native_libcuda_root}. Remove the Linux display driver packages from WSL "
         f"and rely on the WSL driver shim under {wsl_lib_root}. Conflicting paths: "
         + ", ".join(conflicting_paths)
+        + "."
+        + package_suffix
     )
+
+
+def _discover_conflicting_wsl_cuda_packages() -> list[str]:
+    dpkg_query = shutil.which("dpkg-query")
+    if not dpkg_query:
+        return []
+    completed = subprocess.run(
+        [
+            dpkg_query,
+            "-W",
+            "-f=${binary:Package}\n",
+            *WSL_CONFLICT_PACKAGE_PATTERNS,
+        ],
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+    if completed.returncode not in (0, 1):
+        return []
+    packages = sorted(
+        {
+            line.strip()
+            for line in completed.stdout.splitlines()
+            if line.strip()
+        }
+    )
+    return packages
 
 
 def _is_wsl_environment() -> bool:

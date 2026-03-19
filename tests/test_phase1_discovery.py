@@ -309,12 +309,20 @@ class Phase1DiscoveryTests(unittest.TestCase):
 
     @mock.patch("scripts.authority.phase1_discovery._is_wsl_environment", return_value=True)
     @mock.patch("scripts.authority.phase1_discovery.shutil.which")
+    @mock.patch(
+        "scripts.authority.phase1_discovery._discover_conflicting_wsl_cuda_packages"
+    )
     def test_collect_host_observations_rejects_linux_display_driver_libs_on_wsl(
         self,
+        discover_conflicting_packages: mock.Mock,
         which: mock.Mock,
         _is_wsl: mock.Mock,
     ) -> None:
         which.side_effect = lambda tool: f"/mock/bin/{tool}"
+        discover_conflicting_packages.return_value = [
+            "libnvidia-compute-535",
+            "nvidia-cuda-toolkit",
+        ]
         responses = {
             ("hostname",): "ws-rtx5080-01\n",
             (
@@ -344,7 +352,10 @@ class Phase1DiscoveryTests(unittest.TestCase):
             (wsl_lib_root / "libcuda.so.1").write_text("", encoding="utf-8")
             (native_lib_root / "libcuda.so.1").write_text("", encoding="utf-8")
 
-            with self.assertRaisesRegex(ValueError, "Linux display driver"):
+            with self.assertRaisesRegex(
+                ValueError,
+                "libnvidia-compute-535, nvidia-cuda-toolkit",
+            ):
                 collect_host_observations(
                     command_runner=runner,
                     os_release_path=os_release,

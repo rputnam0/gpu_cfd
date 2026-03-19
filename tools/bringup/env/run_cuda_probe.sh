@@ -27,8 +27,18 @@ wsl_lib_dir="/usr/lib/wsl/lib"
 native_libcuda="/usr/lib/x86_64-linux-gnu/libcuda.so.1"
 
 if [[ -e "${wsl_lib_dir}/libcuda.so.1" && -e "${native_libcuda}" ]]; then
+  conflicting_packages="$(
+    dpkg-query -W -f='${binary:Package}\n' \
+      'libnvidia-compute-*' \
+      'libcudart*' \
+      'nvidia-cuda-dev' \
+      'nvidia-cuda-toolkit' 2>/dev/null | sort -u || true
+  )"
   echo "WSL host should not expose Linux display driver libraries at ${native_libcuda}." >&2
   echo "Remove the Linux display driver packages from WSL and rely on ${wsl_lib_dir}." >&2
+  if [[ -n "${conflicting_packages}" ]]; then
+    echo "Installed Linux-side CUDA/NVIDIA packages: ${conflicting_packages//$'\n'/, }" >&2
+  fi
   exit 1
 fi
 

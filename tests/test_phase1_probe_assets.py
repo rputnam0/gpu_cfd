@@ -36,6 +36,9 @@ class Phase1ProbeAssetTests(unittest.TestCase):
         self.assertIn("LD_LIBRARY_PATH", wrapper)
         self.assertIn("/usr/lib/x86_64-linux-gnu/libcuda.so.1", wrapper)
         self.assertIn("Linux display driver", wrapper)
+        self.assertIn("dpkg-query", wrapper)
+        self.assertIn("nvidia-cuda-toolkit", wrapper)
+        self.assertIn("libnvidia-compute-", wrapper)
 
     def test_cuda_runtime_probe_source_mentions_required_probe_fields(self) -> None:
         source = (
