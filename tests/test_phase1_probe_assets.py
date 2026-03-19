@@ -111,7 +111,20 @@ class Phase1ProbeAssetTests(unittest.TestCase):
 
             for tool_name in ("nvcc", "g++", "g++-12"):
                 tool_path = fake_bin / tool_name
-                tool_path.write_text("#!/usr/bin/env bash\nexit 0\n", encoding="utf-8")
+                if tool_name == "nvcc":
+                    tool_path.write_text(
+                        "#!/usr/bin/env bash\n"
+                        "if [[ \"${1:-}\" == \"--version\" ]]; then\n"
+                        "  echo \"Cuda compilation tools, release 12.9, V12.9.86\"\n"
+                        "  exit 0\n"
+                        "fi\n"
+                        "exit 0\n",
+                        encoding="utf-8",
+                    )
+                else:
+                    tool_path.write_text(
+                        "#!/usr/bin/env bash\nexit 0\n", encoding="utf-8"
+                    )
                 tool_path.chmod(0o755)
 
             dpkg_query_path = fake_bin / "dpkg-query"
@@ -167,6 +180,8 @@ class Phase1ProbeAssetTests(unittest.TestCase):
         self.assertEqual(completed.returncode, 1)
         self.assertEqual(completed.stdout, "")
         self.assertIn("WSL host should not expose Linux display driver libraries", completed.stderr)
+        self.assertIn(f"Resolved nvcc: {fake_bin / 'nvcc'}", completed.stderr)
+        self.assertIn("Resolved nvcc version: Cuda compilation tools, release 12.9, V12.9.86", completed.stderr)
         self.assertIn(str(fake_native / "libcuda.so.1"), completed.stderr)
         self.assertIn("Example cleanup command: sudo apt remove --purge", completed.stderr)
         self.assertIn("libnvidia-compute-535-server", completed.stderr)

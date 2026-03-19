@@ -42,6 +42,7 @@ mkdir -p "${build_dir}" "$(dirname "${output_json}")"
 
 binary_path="${build_dir}/validate_cuda_runtime"
 cuda_home="${CUDA_HOME:-$(cd "$(dirname "${nvcc_bin}")/.." && pwd)}"
+nvcc_version_line="$("${nvcc_bin}" --version 2>/dev/null | tail -n 1 || true)"
 # These overrides exist so the WSL mixed-driver guard can be exercised under
 # subprocess tests without changing the default live workstation behavior.
 wsl_lib_dir="${GPU_CFD_WSL_LIB_DIR:-/usr/lib/wsl/lib}"
@@ -126,6 +127,10 @@ if [[ -e "${wsl_lib_dir}/libcuda.so.1" ]]; then
         'nvidia-cuda-dev' \
         'nvidia-cuda-toolkit' 2>/dev/null | awk '$1 == "ii" { print $2 }' | sort -u || true
     )"
+    echo "Resolved nvcc: ${nvcc_bin}" >&2
+    if [[ -n "${nvcc_version_line}" ]]; then
+      echo "Resolved nvcc version: ${nvcc_version_line}" >&2
+    fi
     echo "WSL host should not expose Linux display driver libraries at ${native_libcuda}." >&2
     echo "Remove the Linux display driver packages from WSL and rely on ${wsl_lib_dir}." >&2
     echo "Conflicting Linux-side driver libraries: ${conflicting_driver_paths[*]}" >&2
