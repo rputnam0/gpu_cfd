@@ -82,6 +82,18 @@ Expected remediation:
   of distro copies; on this workstation that experiment still ended at
   `cudaFree(0): OS call failed or operation not supported on this OS`, which
   means the remaining fault is deeper in the host CUDA/WSL runtime path
+- the deeper non-canonical raw-probe trace on this workstation shows that
+  `libcuda.so.1` still resolves from `/usr/lib/wsl/lib/libcuda.so.1`, so the
+  remaining failure is not just a search-path race against
+  `/usr/lib/x86_64-linux-gnu/libcuda.so.1`
+- on this workstation, that WSL shim then loads the larger driver payload under
+  `/usr/lib/wsl/drivers/.../libcuda.so.1.1`, and init of that payload fails on
+  undefined `cuPvtCompilePtx` / `cuPvtBinaryFree` symbols before the runtime can
+  get past `cudaFree(0)`
+- on this workstation, adding the WSL driver directory directly to
+  `LD_LIBRARY_PATH` and preloading the sibling
+  `libnvidia-ptxjitcompiler.so.1` library both reproduced the same `cudaFree(0)`
+  failure, so those non-privileged loader hacks are already exhausted
 - if the failure remains after cleanup, move to the Phase 1 spec's host-level
   HMM/KASLR path: this workstation's `/proc/cmdline` does not currently include
   `nokaslr`, the WSL-visible worker view does not expose `nvidia_uvm` tunables,
