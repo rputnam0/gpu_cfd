@@ -112,6 +112,9 @@ write_runtime_snapshot() {
     echo "# apt-mark showmanual (relevant packages)"
     apt-mark showmanual 2>/dev/null | rg 'libnvidia-compute-535|nvidia-cuda-toolkit|nvidia-cuda-dev' || true
     echo
+    echo "# apt-cache depends (toolkit anchor)"
+    apt-cache depends nvidia-cuda-toolkit nvidia-cuda-dev 2>/dev/null | rg '^(nvidia-cuda-toolkit|nvidia-cuda-dev)|Depends: nvidia-cuda-dev|Depends: libnvidia-compute-' || true
+    echo
     echo "# dmesg dxg tail"
     dmesg 2>/dev/null | rg -i 'dxgkio_query_adapter_info|dxgkio_is_feature_enabled|uvm|hmm|kaslr' | tail -n 40 || true
   } > "${snapshot_path}" 2>/dev/null || true

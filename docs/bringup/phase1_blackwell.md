@@ -94,8 +94,9 @@ Expected remediation:
   `ldconfig -p` CUDA-driver resolution, native-vs-WSL driver library paths,
   canonical native-driver `realpath` output, `dpkg -S` owner lookups, installed
   NVIDIA/CUDA package rows, relevant `apt-cache policy` output, relevant
-  `apt-mark showmanual` rows, `nvidia-smi` state, `/proc/cmdline`, and the
-  recent `dxg` kernel messages in one place
+  `apt-mark showmanual` rows, the current `apt-cache depends` toolkit-anchor
+  chain, `nvidia-smi` state, `/proc/cmdline`, and the recent `dxg` kernel
+  messages in one place
 - the same discovery directory now also keeps `check_host_env.log`, which preserves
   the exact `run_cuda_probe.sh` / discovery wrapper terminal output from the failed
   run so the cleanup hint and any later discovery-side failure text survive handoff;

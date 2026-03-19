@@ -430,6 +430,9 @@ class Phase1ProbeAssetTests(unittest.TestCase):
             self.assertIn("LD_LIBRARY_PATH=", snapshot_body)
             self.assertIn(f"PATH={fake_bin}:", snapshot_body)
             self.assertIn("# ldconfig -p (CUDA driver libraries)", snapshot_body)
+            self.assertIn("# apt-cache depends (toolkit anchor)", snapshot_body)
+            self.assertIn("Depends: nvidia-cuda-dev", snapshot_body)
+            self.assertIn("Depends: libnvidia-compute-535", snapshot_body)
 
     def test_cuda_runtime_probe_source_mentions_required_probe_fields(self) -> None:
         source = (
