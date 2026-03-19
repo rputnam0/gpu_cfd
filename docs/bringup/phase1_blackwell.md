@@ -125,6 +125,18 @@ https://docs.nvidia.com/cuda/archive/13.0.0/wsl-user-guide/index.html
 Do not continue to build, smoke, memcheck, Nsight, PTX-JIT, or final acceptance
 until the CUDA probe returns real RTX 5080 metadata and `managed_memory_probe_ok=true`.
 
+## Resume Sequence After Cleanup
+
+Once the privileged WSL cleanup is complete, resume `P1-07` in this exact order:
+
+1. rerun canonical discovery with `tools/bringup/env/check_host_env.sh <discovery-dir> primary`
+2. confirm the emitted `host_env.json`, `manifest_refs.json`, and `cuda_probe.json`
+   show real RTX 5080 metadata plus `managed_memory_probe_ok=true`
+3. run the PTX-JIT proof with `tools/bringup/run/check_ptx_jit.sh`
+4. generate the final acceptance packet with `tools/bringup/run/run_phase1_acceptance.sh`
+5. when the real Phase 1 outputs are review-ready, run `pr_handoff` and then open
+   the GitHub PR from `codex/PRO-26-p1-07-acceptance-bundle`
+
 ## PTX-JIT Proof
 
 Run the Phase 1 compatibility proof with the checked-in wrapper:
