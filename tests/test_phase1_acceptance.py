@@ -696,6 +696,15 @@ class Phase1AcceptanceTests(unittest.TestCase):
             bundle_index["authority_revisions"],
             payload["authority_revisions"],
         )
+        self.assertEqual(
+            bundle_index["accepted_phase1_proposal"],
+            payload["accepted_phase1_proposal"],
+        )
+        self.assertEqual(
+            bundle_index["tuple_admission"],
+            payload["tuple_admission"],
+        )
+        self.assertIsNone(bundle_index["accepted_tuple_id"])
         self.assertEqual(bundle_index["lane"], "primary")
         self.assertEqual(bundle_index["workstation"]["hostname"], payload["workstation"]["hostname"])
         self.assertEqual(bundle_index["workstation"]["device_name"], "NVIDIA GeForce RTX 5080")

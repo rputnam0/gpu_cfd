@@ -892,6 +892,9 @@ def build_phase1_acceptance_report(
         "authority_revisions": payload["authority_revisions"],
         "required_revalidation": payload["required_revalidation"],
         "acceptance_manifest_revision": payload["acceptance_manifest_revision"],
+        "accepted_phase1_proposal": payload["accepted_phase1_proposal"],
+        "accepted_tuple_id": payload["accepted_tuple_id"],
+        "tuple_admission": payload["tuple_admission"],
         "workstation": dict(payload["workstation"]),
         "workstation_manifests": {
             "host_env": resolved_paths["host_env"].as_posix(),
