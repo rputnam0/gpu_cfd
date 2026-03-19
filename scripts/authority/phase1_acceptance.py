@@ -808,6 +808,8 @@ def build_phase1_acceptance_report(
         "required_revalidation": manifest_refs.get("required_revalidation", []),
         "artifact_paths": {
             **{name: path.as_posix() for name, path in resolved_paths.items()},
+            "build_log": build_metadata.get("build_log"),
+            "ptx_jit_logs": _ptx_jit_log_paths(ptx_jit_result),
             "smoke_results": {
                 str((_read_json(pathlib.Path(item)).get("case_name") or pathlib.Path(item).stem)): pathlib.Path(item).as_posix()
                 for item in smoke_result_paths
@@ -1221,6 +1223,7 @@ def _render_acceptance_markdown(payload: Mapping[str, Any]) -> str:
             f"- `manifest_refs.json`: `{payload['artifact_paths']['manifest_refs']}`",
             f"- `cuda_probe.json`: `{payload['artifact_paths']['cuda_probe']}`",
             f"- Build metadata: `{payload['artifact_paths']['build_metadata']}`",
+            f"- Build log: `{payload['artifact_paths']['build_log']}`",
             f"- `fatbinary_report.json`: `{payload['artifact_paths']['fatbinary_report']}`",
             f"- Memcheck result: `{payload['artifact_paths']['memcheck_result']}`",
             f"- PTX-JIT result: `{payload['artifact_paths']['ptx_jit_result']}`",
@@ -1245,6 +1248,16 @@ def _render_acceptance_markdown(payload: Mapping[str, Any]) -> str:
                 "### Nsight Results",
                 "",
                 *[f"- `{profile_mode}`: `{artifact_path}`" for profile_mode, artifact_path in nsys_results.items()],
+                "",
+            ]
+        )
+    ptx_jit_logs = payload["artifact_paths"]["ptx_jit_logs"]
+    if ptx_jit_logs:
+        lines.extend(
+            [
+                "### PTX-JIT Logs",
+                "",
+                *[f"- `{command_name}`: `{artifact_path}`" for command_name, artifact_path in ptx_jit_logs.items()],
                 "",
             ]
         )
@@ -1313,6 +1326,23 @@ def _logs_are_clean(command_results: list[dict[str, Any]]) -> bool:
         if LOG_NAN_INF_PATTERN.search(text):
             return False
     return True
+
+
+def _ptx_jit_log_paths(payload: Mapping[str, Any]) -> dict[str, str]:
+    log_paths: dict[str, str] = {}
+    for index, entry in enumerate(payload.get("command_results", []), start=1):
+        if not isinstance(entry, Mapping):
+            continue
+        command = entry.get("command")
+        command_name: str | None = None
+        if isinstance(command, (list, tuple)) and command:
+            command_name = str(command[0])
+        log_path = entry.get("log_path")
+        if not command_name or not log_path:
+            continue
+        key = command_name if command_name not in log_paths else f"{index}_{command_name}"
+        log_paths[key] = str(log_path)
+    return log_paths
 
 
 def _write_json(path: pathlib.Path | str, payload: Mapping[str, Any]) -> None:

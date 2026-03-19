@@ -304,6 +304,19 @@ def sample_ptx_jit_result(
         "solver": solver,
         "status": status,
         "failure_reasons": list(failure_reasons or []),
+        "command_results": [
+            {
+                "command": ["blockMesh"],
+                "log_path": "ptx_jit/cubeLinear/01_blockMesh.log",
+                "returncode": 0,
+            },
+            {
+                "command": [solver],
+                "log_path": "ptx_jit/cubeLinear/02_ptx_jit.log",
+                "returncode": 0,
+                "env_overrides": {"CUDA_FORCE_PTX_JIT": "1"},
+            },
+        ],
         "environment": {"CUDA_FORCE_PTX_JIT": "1"},
         "success_criteria": success_criteria,
     }
@@ -548,6 +561,15 @@ class Phase1AcceptanceTests(unittest.TestCase):
         self.assertEqual(payload["failing_gate_ids"], [])
         self.assertEqual(bundle_index["phase_gate"], "Phase 1")
         self.assertEqual(bundle_index["status"], "PASS")
+        self.assertEqual(payload["artifact_paths"]["build_log"], (temp_root / "build" / "build.log").as_posix())
+        self.assertEqual(
+            payload["artifact_paths"]["ptx_jit_logs"]["blockMesh"],
+            "ptx_jit/cubeLinear/01_blockMesh.log",
+        )
+        self.assertEqual(
+            payload["artifact_paths"]["ptx_jit_logs"]["laplacianFoam"],
+            "ptx_jit/cubeLinear/02_ptx_jit.log",
+        )
         self.assertEqual(
             bundle_index["reviewed_source_tuple_id"],
             load_pin_details(self.bundle).reviewed_source_tuple_id,
@@ -581,6 +603,9 @@ class Phase1AcceptanceTests(unittest.TestCase):
         self.assertIn("## Accepted Proposal", markdown)
         self.assertIn(load_pin_details(self.bundle).primary_toolkit_lane, markdown)
         self.assertIn(PHASE1_PTX_JIT_RESULT_NAME, markdown)
+        self.assertIn((temp_root / "build" / "build.log").as_posix(), markdown)
+        self.assertIn("ptx_jit/cubeLinear/01_blockMesh.log", markdown)
+        self.assertIn("ptx_jit/cubeLinear/02_ptx_jit.log", markdown)
         self.assertIn(smoke_result_paths[0].as_posix(), markdown)
         self.assertIn(smoke_result_paths[1].as_posix(), markdown)
         self.assertIn(smoke_result_paths[2].as_posix(), markdown)

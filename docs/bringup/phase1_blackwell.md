@@ -170,8 +170,9 @@ Expected outputs:
 - `phase1_acceptance_bundle_index.json`
 
 The JSON report is the deterministic gate source. The Markdown report is the review-facing
-summary that points back to each artifact path, including the smoke-result and Nsight-result
-JSON inputs used by the hard gates. The bundle index is the archive-facing
+summary that points back to each artifact path, including the build log, PTX-JIT command
+logs, and the smoke-result and Nsight-result JSON inputs used by the hard gates. The bundle
+index is the archive-facing
 directory of the final reports plus the supporting artifact inputs used to build them.
 It explicitly records the reviewed tuple, selected lane, workstation summary, and the
 canonical workstation-manifest paths (`host_env.json`, `manifest_refs.json`,
