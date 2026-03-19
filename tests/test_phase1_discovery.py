@@ -354,7 +354,7 @@ class Phase1DiscoveryTests(unittest.TestCase):
 
             with self.assertRaisesRegex(
                 ValueError,
-                "libnvidia-compute-535, nvidia-cuda-toolkit",
+                "sudo apt remove --purge libnvidia-compute-535 nvidia-cuda-toolkit",
             ):
                 collect_host_observations(
                     command_runner=runner,

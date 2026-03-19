@@ -38,6 +38,7 @@ if [[ -e "${wsl_lib_dir}/libcuda.so.1" && -e "${native_libcuda}" ]]; then
   echo "Remove the Linux display driver packages from WSL and rely on ${wsl_lib_dir}." >&2
   if [[ -n "${conflicting_packages}" ]]; then
     echo "Installed Linux-side CUDA/NVIDIA packages: ${conflicting_packages//$'\n'/, }" >&2
+    echo "Example cleanup command: sudo apt remove --purge ${conflicting_packages//$'\n'/ }" >&2
   fi
   exit 1
 fi

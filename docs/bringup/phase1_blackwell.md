@@ -21,6 +21,7 @@ CUDA probe runs. If `tools/bringup/env/run_cuda_probe.sh` prints a message like:
 WSL host should not expose Linux display driver libraries at /usr/lib/x86_64-linux-gnu/libcuda.so.1.
 Remove the Linux display driver packages from WSL and rely on /usr/lib/wsl/lib.
 Installed Linux-side CUDA/NVIDIA packages: libcudart12:amd64, libnvidia-compute-535:amd64, nvidia-cuda-dev:amd64, nvidia-cuda-toolkit
+Example cleanup command: sudo apt remove --purge libcudart12:amd64 libnvidia-compute-535:amd64 nvidia-cuda-dev:amd64 nvidia-cuda-toolkit
 ```
 
 then the distro is exposing native Linux NVIDIA driver libraries alongside the WSL

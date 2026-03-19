@@ -519,6 +519,10 @@ def _validate_wsl_driver_stack(
         package_suffix = " Installed Linux-side CUDA/NVIDIA packages: " + ", ".join(
             conflicting_packages
         )
+        package_suffix += (
+            ". Example cleanup command: sudo apt remove --purge "
+            + " ".join(conflicting_packages)
+        )
 
     raise ValueError(
         "WSL host discovery found Linux display driver libraries under "
