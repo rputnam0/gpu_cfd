@@ -11,6 +11,7 @@ import unittest
 from unittest import mock
 
 from scripts.authority import emit_phase1_discovery_artifacts, load_authority_bundle
+from scripts.authority.pins import load_pin_details
 from scripts.authority.phase1_build import (
     Phase1BuildError,
     _tool_path_prefixes,
@@ -606,10 +607,15 @@ class Phase1BuildTests(unittest.TestCase):
             )
             result = run_phase1_build(plan)
             report = json.loads(plan.fatbinary_report_path.read_text(encoding="utf-8"))
+            pin_details = load_pin_details(bundle)
 
         self.assertTrue(result.succeeded)
         self.assertTrue(report["smoke_gate_ready"])
         self.assertEqual(report["inspected_binary_count"], 1)
+        self.assertEqual(report["reviewed_source_tuple_id"], pin_details.reviewed_source_tuple_id)
+        self.assertEqual(report["runtime_base"], pin_details.runtime_base)
+        self.assertEqual(report["toolkit"]["selected_lane"], "primary")
+        self.assertEqual(report["toolkit"]["selected_lane_value"], pin_details.primary_toolkit_lane)
 
     @mock.patch("scripts.authority.phase1_build.subprocess.run")
     def test_run_phase1_build_temporarily_wires_extra_nvcc_flags_into_cuda_rules(

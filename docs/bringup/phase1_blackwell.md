@@ -12,6 +12,8 @@ Phase 1 acceptance report can be treated as reviewable.
 - `cuda_probe.json` must also carry the same reviewed tuple, runtime base, and primary-lane
   toolkit selection as `host_env.json` and `manifest_refs.json`
 - Primary-lane build metadata and fatbinary evidence from `P1-02` and `P1-03`
+- `fatbinary_report.json` must stay traceable to the same reviewed tuple, runtime base, and
+  primary-lane toolkit selection as the canonical manifests
 - Smoke-case results for `cubeLinear`, `channelSteady`, and `channelTransient` from `P1-04`
 - Smoke, memcheck, and Nsight result JSONs must stay traceable to the same reviewed tuple,
   runtime base, and primary-lane toolkit selection as the canonical manifests
@@ -156,6 +158,7 @@ Phase 1 acceptance is `PASS` only when all hard checks in the `P1-07` card succe
 - `cuda_probe.json` is traceable to the same reviewed tuple, runtime base, and primary lane
 - build metadata records `have_cuda=true` and `NVARCH=120`
 - fatbinary inspection proves native `sm_120` and retained PTX
+- `fatbinary_report.json` is traceable to the same reviewed tuple, runtime base, and primary lane
 - the PTX-JIT run succeeds under `CUDA_FORCE_PTX_JIT=1`
 - `ptx_jit_result.json` is traceable to the same reviewed tuple, runtime base, and primary lane
 - all three Phase 1 smoke cases passed

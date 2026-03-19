@@ -733,8 +733,12 @@ def _write_fatbinary_report(
     failure_reason: str | None,
     smoke_gate_targets: list[str],
 ) -> dict[str, Any]:
+    host_env = _read_json_payload(plan.host_env_path)
     report = {
         "schema_version": FATBINARY_REPORT_SCHEMA_VERSION,
+        "reviewed_source_tuple_id": host_env.get("reviewed_source_tuple_id"),
+        "runtime_base": host_env.get("runtime_base"),
+        "toolkit": dict(host_env.get("toolkit") or {}),
         "source_root": plan.source_root.as_posix(),
         "cuobjdump_path": cuobjdump_path,
         "required_native_sm": int(plan.env_exports["NVARCH"]),

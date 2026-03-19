@@ -444,6 +444,17 @@ def build_phase1_acceptance_report(
             observed=fatbinary_report.get("ptx_present"),
             evidence=resolved_paths["fatbinary_report"].as_posix(),
         ),
+        "fatbinary_traceable": _gate_result(
+            label="Fatbinary inspection matches the reviewed tuple, runtime base, and primary lane",
+            passed=_artifact_traceable_to_primary_lane(
+                fatbinary_report,
+                manifest_refs=manifest_refs,
+                pin_details=pin_details,
+            ),
+            expected=_traceability_expectation(pin_details),
+            observed=_traceability_observed(fatbinary_report),
+            evidence=resolved_paths["fatbinary_report"].as_posix(),
+        ),
         "ptx_jit_succeeds": _gate_result(
             label="CUDA_FORCE_PTX_JIT=1 run succeeds",
             passed=(
