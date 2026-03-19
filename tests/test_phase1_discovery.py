@@ -16,6 +16,11 @@ from scripts.authority import (
     load_authority_bundle,
 )
 from scripts.authority.phase1_discovery import collect_host_observations, main
+from scripts.authority.phase1_discovery import (
+    _discover_conflicting_wsl_cuda_packages,
+    _discover_conflicting_wsl_libcuda_owner_packages,
+    _package_base_name,
+)
 
 
 def repo_root() -> pathlib.Path:
@@ -78,6 +83,77 @@ def sample_cuda_probe_payload() -> dict[str, object]:
 
 
 class Phase1DiscoveryTests(unittest.TestCase):
+    @mock.patch("scripts.authority.phase1_discovery.shutil.which", return_value="/usr/bin/dpkg-query")
+    @mock.patch("scripts.authority.phase1_discovery.subprocess.run")
+    def test_discover_conflicting_wsl_cuda_packages_only_returns_installed_packages(
+        self,
+        run: mock.Mock,
+        _which: mock.Mock,
+    ) -> None:
+        run.return_value = subprocess.CompletedProcess(
+            args=[],
+            returncode=0,
+            stdout=(
+                "ii libcudart12:amd64\n"
+                "ii libnvidia-compute-535:amd64\n"
+                "un libnvidia-compute-525\n"
+                "ii nvidia-cuda-dev:amd64\n"
+                "un libnvidia-compute-535-server\n"
+            ),
+            stderr="",
+        )
+
+        packages = _discover_conflicting_wsl_cuda_packages()
+
+        self.assertEqual(
+            packages,
+            [
+                "libcudart12:amd64",
+                "libnvidia-compute-535:amd64",
+                "nvidia-cuda-dev:amd64",
+            ],
+        )
+
+    @mock.patch("scripts.authority.phase1_discovery.shutil.which", return_value="/usr/bin/dpkg-query")
+    @mock.patch("scripts.authority.phase1_discovery.subprocess.run")
+    def test_discover_conflicting_wsl_libcuda_owner_packages_reads_dpkg_owners(
+        self,
+        run: mock.Mock,
+        _which: mock.Mock,
+    ) -> None:
+        run.side_effect = [
+            subprocess.CompletedProcess(
+                args=[],
+                returncode=0,
+                stdout=(
+                    "libnvidia-compute-535:amd64: /usr/lib/x86_64-linux-gnu/libcuda.so.1\n"
+                ),
+                stderr="",
+            ),
+            subprocess.CompletedProcess(
+                args=[],
+                returncode=0,
+                stdout=(
+                    "libnvidia-compute-535:amd64: "
+                    "/usr/lib/x86_64-linux-gnu/libcuda.so.535.288.01\n"
+                ),
+                stderr="",
+            ),
+        ]
+
+        owners = _discover_conflicting_wsl_libcuda_owner_packages(
+            [
+                "/usr/lib/x86_64-linux-gnu/libcuda.so.1",
+                "/usr/lib/x86_64-linux-gnu/libcuda.so.535.288.01",
+            ]
+        )
+
+        self.assertEqual(owners, ["libnvidia-compute-535"])
+
+    def test_package_base_name_strips_arch_suffix(self) -> None:
+        self.assertEqual(_package_base_name("libnvidia-compute-535:amd64"), "libnvidia-compute-535")
+        self.assertEqual(_package_base_name("nvidia-cuda-toolkit"), "nvidia-cuda-toolkit")
+
     def test_emit_phase1_discovery_artifacts_emits_canonical_host_and_cuda_probe_json(
         self,
     ) -> None:
