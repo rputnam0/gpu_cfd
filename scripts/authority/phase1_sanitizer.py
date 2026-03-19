@@ -35,13 +35,20 @@ except ImportError:  # pragma: no cover - script execution fallback
 
 
 SMALLEST_PHASE1_SMOKE_CASE = "cubeLinear"
+PHASE1_SANITIZER_ARTIFACT_DIRNAME = "compute_sanitizer"
 PHASE1_MEMCHECK_RESULT_NAME = "memcheck_result.json"
 PHASE1_MEMCHECK_LOG_NAME = "memcheck.log"
 ERROR_SUMMARY_PATTERN = re.compile(r"ERROR SUMMARY:\s*(?P<count>\d+)\s+errors?", flags=re.IGNORECASE)
+MEMCHECK_EVENT_PATTERN = re.compile(r"^=+\s+(?P<message>.+)$")
 LOG_NAN_INF_PATTERN = re.compile(r"(^|[^A-Za-z])(nan|inf)([^A-Za-z]|$)", flags=re.IGNORECASE)
 NON_ACTIONABLE_NOTE_PATTERNS = (
     ("lineinfo_absent", re.compile(r"lineinfo", flags=re.IGNORECASE)),
     ("debug_symbols_missing", re.compile(r"debug symbols?", flags=re.IGNORECASE)),
+    ("third_party_noise", re.compile(r"third[- ]party|external allocator|system library", flags=re.IGNORECASE)),
+)
+ACTIONABLE_EVENT_PATTERN = re.compile(
+    r"invalid|misaligned|uninitialized|out of bounds|leak|error|cudaError",
+    flags=re.IGNORECASE,
 )
 
 
@@ -93,7 +100,6 @@ def parse_compute_sanitizer_memcheck_log(log_text: str) -> Phase1MemcheckParseRe
         )
 
     error_summary_count = int(summary_match.group("count"))
-    classification = "clean" if error_summary_count == 0 else "actionable_errors"
     summary_line = next(
         (
             line.strip()
@@ -102,10 +108,21 @@ def parse_compute_sanitizer_memcheck_log(log_text: str) -> Phase1MemcheckParseRe
         ),
         None,
     )
+    actionable_events = _collect_actionable_events(log_text)
+    actionable_errors = error_summary_count
+    if error_summary_count == 0:
+        classification = "clean"
+    elif actionable_errors == 0 and notes:
+        classification = "non_actionable_noise"
+    elif not actionable_events and notes:
+        actionable_errors = 0
+        classification = "non_actionable_noise"
+    else:
+        classification = "actionable_errors"
     return Phase1MemcheckParseResult(
         error_summary_found=True,
         error_summary_count=error_summary_count,
-        actionable_errors=error_summary_count,
+        actionable_errors=actionable_errors,
         classification=classification,
         notes=notes,
         summary_line=summary_line,
@@ -130,7 +147,11 @@ def run_phase1_memcheck(
     resolved_root = repo_root(pathlib.Path(root) if root is not None else None)
     audit_report = scan_phase1_smoke_case(bundle, case_name=case_name, root=resolved_root)
     case_definition = _definition_by_name(case_name)
-    artifact_case_root = pathlib.Path(artifact_root) / case_name
+    artifact_case_root = (
+        pathlib.Path(artifact_root)
+        / PHASE1_SANITIZER_ARTIFACT_DIRNAME
+        / case_name
+    )
     artifact_case_root.mkdir(parents=True, exist_ok=True)
     audit_report_path = artifact_case_root / PHASE1_SMOKE_AUDIT_NAME
     _write_json(audit_report_path, audit_report.as_dict())
@@ -308,6 +329,22 @@ def _build_failure_reasons(
     if not no_nan_inf:
         failure_reasons.append("nan_or_inf_detected")
     return failure_reasons
+
+
+def _collect_actionable_events(log_text: str) -> list[str]:
+    actionable_events: list[str] = []
+    for line in log_text.splitlines():
+        match = MEMCHECK_EVENT_PATTERN.match(line.strip())
+        if not match:
+            continue
+        message = match.group("message").strip()
+        if ERROR_SUMMARY_PATTERN.search(message):
+            continue
+        if any(pattern.search(message) for _, pattern in NON_ACTIONABLE_NOTE_PATTERNS):
+            continue
+        if ACTIONABLE_EVENT_PATTERN.search(message):
+            actionable_events.append(message)
+    return actionable_events
 
 
 def _parse_memcheck_log(log_path: pathlib.Path) -> Phase1MemcheckParseResult:
