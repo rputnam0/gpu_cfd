@@ -116,6 +116,7 @@ class Phase1ProbeAssetTests(unittest.TestCase):
                         "#!/usr/bin/env bash\n"
                         "if [[ \"${1:-}\" == \"--version\" ]]; then\n"
                         "  echo \"Cuda compilation tools, release 12.9, V12.9.86\"\n"
+                        "  echo \"Build cuda_12.9.r12.9/compiler.36037853_0\"\n"
                         "  exit 0\n"
                         "fi\n"
                         "exit 0\n",
@@ -182,6 +183,7 @@ class Phase1ProbeAssetTests(unittest.TestCase):
         self.assertIn("WSL host should not expose Linux display driver libraries", completed.stderr)
         self.assertIn(f"Resolved nvcc: {fake_bin / 'nvcc'}", completed.stderr)
         self.assertIn("Resolved nvcc version: Cuda compilation tools, release 12.9, V12.9.86", completed.stderr)
+        self.assertIn("Resolved nvcc version: Build cuda_12.9.r12.9/compiler.36037853_0", completed.stderr)
         self.assertIn(str(fake_native / "libcuda.so.1"), completed.stderr)
         self.assertIn("Example cleanup command: sudo apt remove --purge", completed.stderr)
         self.assertIn("libnvidia-compute-535-server", completed.stderr)
