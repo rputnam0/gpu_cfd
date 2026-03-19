@@ -98,6 +98,12 @@ from .phase1_sanitizer import (
     parse_compute_sanitizer_memcheck_log,
     run_phase1_memcheck,
 )
+from .phase1_nsys import (
+    DEFAULT_PHASE1_PROFILE_CASE,
+    PHASE1_NSYS_RESULT_NAME,
+    Phase1NsysRunResult,
+    run_phase1_nsys_profile,
+)
 from .reference_io import (
     REFERENCE_IO_COMPARISON_SCOPE,
     REFERENCE_IO_OVERLAY_ARTIFACT,
@@ -176,6 +182,7 @@ __all__ = [
     "Phase1BuildResult",
     "Phase1MemcheckParseResult",
     "Phase1MemcheckRunResult",
+    "Phase1NsysRunResult",
     "Phase1SmokeAuditReport",
     "Phase1SmokeCaseDefinition",
     "Phase1SmokeIssue",
@@ -201,7 +208,9 @@ __all__ = [
     "PHASE0_PROVENANCE_MANIFEST_NAME",
     "PHASE1_MEMCHECK_LOG_NAME",
     "PHASE1_MEMCHECK_RESULT_NAME",
+    "PHASE1_NSYS_RESULT_NAME",
     "StageRegistryReport",
+    "DEFAULT_PHASE1_PROFILE_CASE",
     "SMALLEST_PHASE1_SMOKE_CASE",
     "SupportBoundaryCondition",
     "SupportFunctionObject",
@@ -248,6 +257,7 @@ __all__ = [
     "reference_io_overlay_stage",
     "repo_root",
     "run_phase1_memcheck",
+    "run_phase1_nsys_profile",
     "run_phase1_smoke_case",
     "scan_phase1_smoke_case",
     "render_stage_runner_log_context",
