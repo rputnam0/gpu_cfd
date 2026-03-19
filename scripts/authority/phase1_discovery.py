@@ -534,6 +534,11 @@ def _validate_wsl_driver_stack(
         cleanup_fallout = _simulate_wsl_cleanup_fallout(cleanup_targets)
         if cleanup_fallout:
             package_suffix += ". Simulated apt fallout: " + ", ".join(cleanup_fallout)
+        package_suffix += (
+            ". If you need to restore the CUDA toolkit in WSL afterward, use NVIDIA's "
+            "WSL-Ubuntu installer path or the cuda-toolkit-12-x meta-package only; "
+            "do not install cuda, cuda-12-x, or cuda-drivers under WSL"
+        )
     if related_packages:
         package_suffix += " Installed related CUDA toolkit packages: " + ", ".join(
             related_packages

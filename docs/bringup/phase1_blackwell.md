@@ -23,6 +23,7 @@ Remove the Linux display driver packages from WSL and rely on /usr/lib/wsl/lib.
 Installed Linux-side libcuda owner packages: libnvidia-compute-535
 Example cleanup command: sudo apt remove --purge libnvidia-compute-535 libnvidia-compute-535-server
 Simulated apt fallout: libcuinj64-12.0, libnvidia-ml-dev, nsight-systems, nsight-systems-target, nvidia-cuda-dev, nvidia-cuda-toolkit, nvidia-profiler, nvidia-visual-profiler
+If you need to restore the CUDA toolkit in WSL afterward, use NVIDIA's WSL-Ubuntu installer path or the cuda-toolkit-12-x meta-package only; do not install cuda, cuda-12-x, or cuda-drivers under WSL.
 Installed related CUDA toolkit packages: libcudart12:amd64, nvidia-cuda-dev:amd64, nvidia-cuda-toolkit
 ```
 
@@ -42,12 +43,17 @@ Expected remediation:
 - expect `apt` to propose removing dependent toolkit packages when the native
   `libcuda` owner package is purged; the guard now prints a `Simulated apt fallout`
   line so the operator can review that blast radius before making host changes
+- if the toolkit must be restored after cleanup, follow NVIDIA's WSL-specific
+  toolkit path: use the WSL-Ubuntu installer or the `cuda-toolkit-12-x` meta-package
+  only, and do not install `cuda`, `cuda-12-x`, or `cuda-drivers` inside WSL
 - keep using the Windows-side NVIDIA WSL driver and the `/usr/lib/wsl/lib` shim
 - rerun the canonical CUDA probe first
 
 NVIDIA's CUDA on WSL guide says the Windows display driver is the only driver
-needed and explicitly says not to install a Linux display driver in WSL:
-https://docs.nvidia.com/cuda/archive/12.0.0/wsl-user-guide/index.html
+needed, warns that the default CUDA installation can overwrite the WSL driver mapping,
+recommends the WSL-Ubuntu toolkit path, and says not to install a Linux display
+driver in WSL:
+https://docs.nvidia.com/cuda/archive/12.3.1/wsl-user-guide/index.html
 
 Do not continue to build, smoke, memcheck, Nsight, PTX-JIT, or final acceptance
 until the CUDA probe returns real RTX 5080 metadata and `managed_memory_probe_ok=true`.

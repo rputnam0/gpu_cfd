@@ -235,7 +235,7 @@ class Phase1DiscoveryTests(unittest.TestCase):
             (wsl_root / "libcuda.so.1").write_text("", encoding="utf-8")
             (native_root / "libcuda.so.1").write_text("", encoding="utf-8")
 
-            with self.assertRaisesRegex(ValueError, "Simulated apt fallout"):
+            with self.assertRaisesRegex(ValueError, "cuda-toolkit-12-x"):
                 _validate_wsl_driver_stack(
                     wsl_lib_root=wsl_root,
                     native_libcuda_root=native_root,

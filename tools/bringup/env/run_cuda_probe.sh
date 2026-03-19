@@ -104,6 +104,7 @@ if [[ -e "${wsl_lib_dir}/libcuda.so.1" && -e "${native_libcuda}" ]]; then
     if [[ -n "${cleanup_fallout}" ]]; then
       echo "Simulated apt fallout: ${cleanup_fallout//$'\n'/, }" >&2
     fi
+    echo "If you need to restore the CUDA toolkit in WSL afterward, use NVIDIA's WSL-Ubuntu installer path or the cuda-toolkit-12-x meta-package only; do not install cuda, cuda-12-x, or cuda-drivers under WSL." >&2
   fi
   if [[ -n "${conflicting_packages}" ]]; then
     related_packages="$(

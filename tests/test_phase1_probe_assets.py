@@ -44,6 +44,8 @@ class Phase1ProbeAssetTests(unittest.TestCase):
         self.assertIn("-server", wrapper)
         self.assertIn("apt-get", wrapper)
         self.assertIn("Simulated apt fallout", wrapper)
+        self.assertIn("cuda-toolkit-12-x", wrapper)
+        self.assertIn("cuda-drivers", wrapper)
 
     def test_cuda_runtime_probe_source_mentions_required_probe_fields(self) -> None:
         source = (
