@@ -1,7 +1,26 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-output_json="${1:?usage: run_cuda_probe.sh <output-json>}"
+usage() {
+  cat <<'EOF'
+Usage: run_cuda_probe.sh <output-json>
+
+Compiles and runs the Phase 1 CUDA runtime probe, then writes:
+- raw_cuda_probe.json
+EOF
+}
+
+if [[ "${1:-}" == "--help" || "${1:-}" == "-h" ]]; then
+  usage
+  exit 0
+fi
+
+if [[ $# -ne 1 ]]; then
+  usage >&2
+  exit 2
+fi
+
+output_json="${1}"
 
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 repo_root="$(cd "${script_dir}/../../.." && pwd)"

@@ -52,8 +52,40 @@ class Phase1ProbeAssetTests(unittest.TestCase):
         self.assertIn("Simulated apt fallout", wrapper)
         self.assertIn("cuda-toolkit-12-x", wrapper)
         self.assertIn("cuda-drivers", wrapper)
+        self.assertIn("Usage: run_cuda_probe.sh", wrapper)
         self.assertNotIn('&& -e "${native_libcuda}"', wrapper)
         self.assertIn('if [[ -e "${wsl_lib_dir}/libcuda.so.1" ]]; then', wrapper)
+
+    def test_cuda_runtime_probe_wrapper_renders_help_without_running_probe(self) -> None:
+        wrapper_path = repo_root() / "tools" / "bringup" / "env" / "run_cuda_probe.sh"
+        with tempfile.TemporaryDirectory() as temp_dir:
+            completed = subprocess.run(
+                [str(wrapper_path), "--help"],
+                cwd=temp_dir,
+                check=False,
+                capture_output=True,
+                text=True,
+            )
+
+        self.assertEqual(completed.returncode, 0)
+        self.assertIn("Usage: run_cuda_probe.sh", completed.stdout)
+        self.assertIn("<output-json>", completed.stdout)
+        self.assertEqual(completed.stderr, "")
+
+    def test_cuda_runtime_probe_wrapper_requires_output_path_argument(self) -> None:
+        wrapper_path = repo_root() / "tools" / "bringup" / "env" / "run_cuda_probe.sh"
+        with tempfile.TemporaryDirectory() as temp_dir:
+            completed = subprocess.run(
+                [str(wrapper_path)],
+                cwd=temp_dir,
+                check=False,
+                capture_output=True,
+                text=True,
+            )
+
+        self.assertEqual(completed.returncode, 2)
+        self.assertIn("Usage: run_cuda_probe.sh", completed.stderr)
+        self.assertEqual(completed.stdout, "")
 
     def test_host_env_wrapper_runs_probe_and_discovery(self) -> None:
         wrapper = (
