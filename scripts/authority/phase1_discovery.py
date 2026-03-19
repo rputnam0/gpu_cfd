@@ -574,7 +574,7 @@ def _validate_wsl_driver_stack(
             if _package_base_name(package) not in cleanup_target_bases
         ]
     if related_packages:
-        package_suffix += " Installed related CUDA toolkit packages: " + ", ".join(
+        package_suffix += ". Installed related CUDA toolkit packages: " + ", ".join(
             related_packages
         )
 

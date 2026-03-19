@@ -309,6 +309,59 @@ class Phase1DiscoveryTests(unittest.TestCase):
                     native_libcuda_root=native_root,
                 )
 
+    @mock.patch(
+        "scripts.authority.phase1_discovery._simulate_wsl_cleanup_fallout",
+        return_value=["nsight-systems"],
+    )
+    @mock.patch(
+        "scripts.authority.phase1_discovery._discover_conflicting_wsl_cuda_packages",
+        return_value=[
+            "libcudart12:amd64",
+            "libnvidia-compute-535:amd64",
+            "nvidia-cuda-dev:amd64",
+            "nvidia-cuda-toolkit",
+        ],
+    )
+    @mock.patch(
+        "scripts.authority.phase1_discovery._discover_conflicting_wsl_libcuda_owner_packages",
+        return_value=["libnvidia-compute-535"],
+    )
+    @mock.patch(
+        "scripts.authority.phase1_discovery._detect_manual_wsl_toolkit_anchor",
+        return_value=(
+            "Manual toolkit package anchor: nvidia-cuda-toolkit -> "
+            "nvidia-cuda-dev -> libnvidia-compute-535"
+        ),
+    )
+    @mock.patch("scripts.authority.phase1_discovery._is_wsl_environment", return_value=True)
+    def test_validate_wsl_driver_stack_separates_restore_and_related_package_text(
+        self,
+        _is_wsl_environment: mock.Mock,
+        _detect_manual_anchor: mock.Mock,
+        _discover_owners: mock.Mock,
+        _discover_packages: mock.Mock,
+        _simulate_fallout: mock.Mock,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_path = pathlib.Path(temp_dir)
+            wsl_root = temp_path / "wsl"
+            native_root = temp_path / "native"
+            wsl_root.mkdir()
+            native_root.mkdir()
+            (wsl_root / "libcuda.so.1").write_text("", encoding="utf-8")
+            (native_root / "libcuda.so.1").write_text("", encoding="utf-8")
+
+            with self.assertRaisesRegex(
+                ValueError,
+                "do not install cuda, cuda-12-x, or cuda-drivers under WSL\\. "
+                "Installed related CUDA toolkit packages: "
+                "libcudart12:amd64, nvidia-cuda-dev:amd64",
+            ):
+                _validate_wsl_driver_stack(
+                    wsl_lib_root=wsl_root,
+                    native_libcuda_root=native_root,
+                )
+
     def test_emit_phase1_discovery_artifacts_emits_canonical_host_and_cuda_probe_json(
         self,
     ) -> None:
