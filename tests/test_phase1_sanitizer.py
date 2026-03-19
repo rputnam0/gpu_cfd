@@ -125,6 +125,54 @@ class Phase1SanitizerTests(unittest.TestCase):
         self.assertEqual(result_payload["memcheck"]["actionable_errors"], 2)
         self.assertIn("actionable_memcheck_errors", result_payload["failure_reasons"])
 
+    def test_run_phase1_memcheck_does_not_reuse_stale_log_when_memcheck_never_runs(self) -> None:
+        def command_runner(command: tuple[str, ...], *, cwd: pathlib.Path, log_path: pathlib.Path) -> int:
+            log_path.write_text("setup failed\n", encoding="utf-8")
+            return 1
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            artifact_root = pathlib.Path(temp_dir) / "artifacts"
+            stale_log = artifact_root / "cubeLinear" / "memcheck.log"
+            stale_log.parent.mkdir(parents=True, exist_ok=True)
+            stale_log.write_text("========= ERROR SUMMARY: 0 errors\n", encoding="utf-8")
+
+            result = run_phase1_memcheck(
+                self.bundle,
+                artifact_root=artifact_root,
+                scratch_root=pathlib.Path(temp_dir) / "scratch",
+                root=self.root,
+                command_runner=command_runner,
+            )
+            result_payload = json.loads(result.result_json_path.read_text(encoding="utf-8"))
+
+        self.assertEqual(result.status, "fail")
+        self.assertFalse(result_payload["memcheck"]["error_summary_found"])
+        self.assertIn("memcheck_not_run", result_payload["failure_reasons"])
+        self.assertIn("missing_error_summary", result_payload["failure_reasons"])
+
+    def test_run_phase1_memcheck_writes_failed_artifact_when_binary_is_missing(self) -> None:
+        def command_runner(command: tuple[str, ...], *, cwd: pathlib.Path, log_path: pathlib.Path) -> int:
+            if command[0] == "blockMesh":
+                log_path.write_text("Created mesh.\n", encoding="utf-8")
+                (cwd / "constant" / "polyMesh").mkdir(parents=True, exist_ok=True)
+                return 0
+            raise FileNotFoundError(command[0])
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            result = run_phase1_memcheck(
+                self.bundle,
+                artifact_root=pathlib.Path(temp_dir) / "artifacts",
+                scratch_root=pathlib.Path(temp_dir) / "scratch",
+                root=self.root,
+                command_runner=command_runner,
+            )
+            result_payload = json.loads(result.result_json_path.read_text(encoding="utf-8"))
+
+        self.assertEqual(result.status, "fail")
+        self.assertIn("memcheck_command_failed", result_payload["failure_reasons"])
+        self.assertIn("missing_error_summary", result_payload["failure_reasons"])
+        self.assertFalse(result_payload["memcheck"]["error_summary_found"])
+
     def test_run_phase1_memcheck_rejects_non_smallest_case(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             with self.assertRaisesRegex(ValueError, "cubeLinear"):

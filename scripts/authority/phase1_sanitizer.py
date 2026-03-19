@@ -140,6 +140,8 @@ def run_phase1_memcheck(
         shutil.rmtree(scratch_case_dir)
 
     memcheck_log_path = artifact_case_root / PHASE1_MEMCHECK_LOG_NAME
+    if memcheck_log_path.exists():
+        memcheck_log_path.unlink()
     if not audit_report.startup_allowed:
         result_payload = _build_result_payload(
             case_name=case_name,
@@ -170,7 +172,12 @@ def run_phase1_memcheck(
     command_results: list[dict[str, Any]] = []
 
     block_mesh_log_path = artifact_case_root / "01_blockMesh.log"
-    block_mesh_returncode = runner(("blockMesh",), cwd=scratch_case_dir, log_path=block_mesh_log_path)
+    block_mesh_returncode = _run_command(
+        runner,
+        ("blockMesh",),
+        cwd=scratch_case_dir,
+        log_path=block_mesh_log_path,
+    )
     command_results.append(
         {
             "command": ["blockMesh"],
@@ -181,7 +188,12 @@ def run_phase1_memcheck(
     )
     if block_mesh_returncode == 0:
         memcheck_command = (*compute_sanitizer_command, "--tool", "memcheck", case_definition.solver)
-        memcheck_returncode = runner(memcheck_command, cwd=scratch_case_dir, log_path=memcheck_log_path)
+        memcheck_returncode = _run_command(
+            runner,
+            memcheck_command,
+            cwd=scratch_case_dir,
+            log_path=memcheck_log_path,
+        )
         command_results.append(
             {
                 "command": list(memcheck_command),
@@ -322,6 +334,21 @@ def _default_command_runner(
             check=False,
         )
     return completed.returncode
+
+
+def _run_command(
+    runner: Callable[..., int],
+    command: tuple[str, ...],
+    *,
+    cwd: pathlib.Path,
+    log_path: pathlib.Path,
+) -> int:
+    try:
+        return runner(command, cwd=cwd, log_path=log_path)
+    except OSError as exc:
+        log_path.parent.mkdir(parents=True, exist_ok=True)
+        log_path.write_text(f"command launch failed: {exc}\n", encoding="utf-8")
+        return 127 if isinstance(exc, FileNotFoundError) else 126
 
 
 def _logs_are_clean(command_results: list[dict[str, Any]]) -> bool:
