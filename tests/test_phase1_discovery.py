@@ -219,8 +219,10 @@ class Phase1DiscoveryTests(unittest.TestCase):
             self.assertFalse((output_dir / "cuda_probe.json").exists())
 
     @mock.patch("scripts.authority.phase1_discovery.shutil.which")
+    @mock.patch("scripts.authority.phase1_discovery._validate_wsl_driver_stack")
     def test_collect_host_observations_reads_required_host_fields(
         self,
+        _validate_wsl_driver_stack: mock.Mock,
         which: mock.Mock,
     ) -> None:
         which.side_effect = lambda tool: f"/mock/bin/{tool}"
@@ -266,8 +268,10 @@ class Phase1DiscoveryTests(unittest.TestCase):
     @mock.patch("scripts.authority.phase1_discovery._is_wsl_environment", return_value=True)
     @mock.patch("scripts.authority.phase1_discovery.pathlib.Path.is_file", return_value=True)
     @mock.patch("scripts.authority.phase1_discovery.shutil.which")
+    @mock.patch("scripts.authority.phase1_discovery._validate_wsl_driver_stack")
     def test_collect_host_observations_uses_wsl_nvidia_smi_fallback_when_path_missing(
         self,
+        _validate_wsl_driver_stack: mock.Mock,
         which: mock.Mock,
         _is_file: mock.Mock,
         _is_wsl: mock.Mock,
@@ -302,6 +306,51 @@ class Phase1DiscoveryTests(unittest.TestCase):
             )
 
         self.assertEqual(observations["nvidia_smi_path"], "/usr/lib/wsl/lib/nvidia-smi")
+
+    @mock.patch("scripts.authority.phase1_discovery._is_wsl_environment", return_value=True)
+    @mock.patch("scripts.authority.phase1_discovery.shutil.which")
+    def test_collect_host_observations_rejects_linux_display_driver_libs_on_wsl(
+        self,
+        which: mock.Mock,
+        _is_wsl: mock.Mock,
+    ) -> None:
+        which.side_effect = lambda tool: f"/mock/bin/{tool}"
+        responses = {
+            ("hostname",): "ws-rtx5080-01\n",
+            (
+                "/mock/bin/nvidia-smi",
+                "--query-gpu=name,driver_version,memory.total",
+                "--format=csv,noheader",
+            ): "NVIDIA GeForce RTX 5080, 595.50.00, 16384 MiB\n",
+            ("nvcc", "--version"): "Cuda compilation tools, release 12.9, V12.9.1\n",
+            ("gcc", "--version"): "gcc (Ubuntu 14.2.0) 14.2.0\nCopyright ...\n",
+            ("nsys", "--version"): "NVIDIA Nsight Systems version 2025.2\n",
+            ("ncu", "--version"): "NVIDIA Nsight Compute version 2025.3\n",
+            ("compute-sanitizer", "--version"): "Compute Sanitizer version 2025.1\n",
+            ("uname", "-r"): "6.8.0-60-generic\n",
+        }
+
+        def runner(args: list[str]) -> str:
+            return responses[tuple(args)]
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_root = pathlib.Path(temp_dir)
+            os_release = temp_root / "os-release"
+            os_release.write_text('PRETTY_NAME="Ubuntu 24.04.2 LTS"\n', encoding="utf-8")
+            wsl_lib_root = temp_root / "wsl-lib"
+            native_lib_root = temp_root / "native-lib"
+            wsl_lib_root.mkdir()
+            native_lib_root.mkdir()
+            (wsl_lib_root / "libcuda.so.1").write_text("", encoding="utf-8")
+            (native_lib_root / "libcuda.so.1").write_text("", encoding="utf-8")
+
+            with self.assertRaisesRegex(ValueError, "Linux display driver"):
+                collect_host_observations(
+                    command_runner=runner,
+                    os_release_path=os_release,
+                    wsl_lib_root=wsl_lib_root,
+                    native_libcuda_root=native_lib_root,
+                )
 
     def test_main_marks_json_imported_observations_with_imported_provenance(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -357,8 +406,10 @@ class Phase1DiscoveryTests(unittest.TestCase):
         )
 
     @mock.patch("scripts.authority.phase1_discovery.shutil.which")
+    @mock.patch("scripts.authority.phase1_discovery._validate_wsl_driver_stack")
     def test_collect_host_observations_rejects_multiple_detected_gpus(
         self,
+        _validate_wsl_driver_stack: mock.Mock,
         which: mock.Mock,
     ) -> None:
         which.side_effect = lambda tool: f"/mock/bin/{tool}"

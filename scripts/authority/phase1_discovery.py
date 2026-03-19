@@ -55,6 +55,8 @@ REQUIRED_CUDA_PROBE_FIELDS = (
 )
 SUPPORTED_COLLECTION_MODES = {"live_host", "imported_observations"}
 WSL_NVIDIA_SMI_PATH = pathlib.Path("/usr/lib/wsl/lib/nvidia-smi")
+WSL_LIBCUDA_PATH = pathlib.Path("/usr/lib/wsl/lib/libcuda.so.1")
+NATIVE_LIBCUDA_ROOT = pathlib.Path("/usr/lib/x86_64-linux-gnu")
 
 
 @dataclass(frozen=True)
@@ -164,9 +166,15 @@ def collect_host_observations(
     *,
     command_runner: Callable[[list[str]], str] | None = None,
     os_release_path: pathlib.Path | str = "/etc/os-release",
+    wsl_lib_root: pathlib.Path | str = "/usr/lib/wsl/lib",
+    native_libcuda_root: pathlib.Path | str = "/usr/lib/x86_64-linux-gnu",
 ) -> dict[str, str]:
     runner = command_runner or _run_command
     nvidia_smi_path = _resolve_nvidia_smi_path()
+    _validate_wsl_driver_stack(
+        wsl_lib_root=pathlib.Path(wsl_lib_root),
+        native_libcuda_root=pathlib.Path(native_libcuda_root),
+    )
     observations = {
         "hostname": runner(["hostname"]).strip(),
         "gpu_csv": _single_gpu_csv(
@@ -476,6 +484,35 @@ def _resolve_nvidia_smi_path() -> str:
     if _is_wsl_environment() and WSL_NVIDIA_SMI_PATH.is_file():
         return WSL_NVIDIA_SMI_PATH.as_posix()
     raise ValueError("required tool 'nvidia-smi' was not found in PATH")
+
+
+def _validate_wsl_driver_stack(
+    *,
+    wsl_lib_root: pathlib.Path,
+    native_libcuda_root: pathlib.Path,
+) -> None:
+    if not _is_wsl_environment():
+        return
+    if not (wsl_lib_root / "libcuda.so.1").is_file():
+        return
+
+    conflicting_paths = sorted(
+        {
+            path.resolve().as_posix()
+            for pattern in ("libcuda.so", "libcuda.so.1", "libcuda.so.*")
+            for path in native_libcuda_root.glob(pattern)
+            if path.is_file() or path.is_symlink()
+        }
+    )
+    if not conflicting_paths:
+        return
+
+    raise ValueError(
+        "WSL host discovery found Linux display driver libraries under "
+        f"{native_libcuda_root}. Remove the Linux display driver packages from WSL "
+        f"and rely on the WSL driver shim under {wsl_lib_root}. Conflicting paths: "
+        + ", ".join(conflicting_paths)
+    )
 
 
 def _is_wsl_environment() -> bool:
