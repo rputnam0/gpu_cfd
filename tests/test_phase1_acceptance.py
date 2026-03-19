@@ -1103,6 +1103,35 @@ class Phase1AcceptanceTests(unittest.TestCase):
         self.assertEqual(payload["status"], "FAIL")
         self.assertIn("cuda_probe_runtime_ready", payload["failing_gate_ids"])
 
+    def test_build_phase1_acceptance_report_requires_expected_workstation_gpu(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_root = pathlib.Path(temp_dir)
+            inputs = create_phase1_acceptance_inputs(temp_root, self.bundle)
+
+            wrong_probe = sample_cuda_probe(self.bundle)
+            wrong_probe["device_name"] = "NVIDIA GeForce RTX 5090"
+            wrong_probe["cc_minor"] = 1
+            write_json(pathlib.Path(inputs["cuda_probe_path"]), wrong_probe)
+
+            report = build_phase1_acceptance_report(
+                self.bundle,
+                output_dir=temp_root / "acceptance",
+                host_env_path=inputs["host_env_path"],
+                manifest_refs_path=inputs["manifest_refs_path"],
+                cuda_probe_path=inputs["cuda_probe_path"],
+                build_metadata_path=inputs["build_metadata_path"],
+                fatbinary_report_path=inputs["fatbinary_report_path"],
+                smoke_result_paths=inputs["smoke_result_paths"],
+                memcheck_result_path=inputs["memcheck_result_path"],
+                nsys_result_paths=inputs["nsys_result_paths"],
+                ptx_jit_result_path=inputs["ptx_jit_result_path"],
+                bringup_doc_path=inputs["docs_path"],
+            )
+            payload = json.loads(report.json_path.read_text(encoding="utf-8"))
+
+        self.assertEqual(payload["status"], "FAIL")
+        self.assertIn("gpu_target_matches_workstation", payload["failing_gate_ids"])
+
     def test_build_phase1_acceptance_report_requires_cuda_probe_to_match_primary_tuple(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             temp_root = pathlib.Path(temp_dir)
@@ -1222,6 +1251,49 @@ class Phase1AcceptanceTests(unittest.TestCase):
 
         self.assertEqual(payload["status"], "FAIL")
         self.assertIn("build_metadata_matches_primary_lane", payload["failing_gate_ids"])
+
+    def test_build_phase1_acceptance_report_requires_build_env_and_fatbinary_contract(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_root = pathlib.Path(temp_dir)
+            inputs = create_phase1_acceptance_inputs(temp_root, self.bundle)
+
+            weak_build = sample_build_metadata(
+                self.bundle,
+                build_log=(temp_root / "build" / "build.log").as_posix(),
+            )
+            weak_build["have_cuda"] = False
+            weak_build["nvarch"] = 80
+            weak_build["succeeded"] = False
+            weak_build["returncode"] = 1
+            weak_build["failure_reason"] = "nvarch mismatch"
+            write_json(pathlib.Path(inputs["build_metadata_path"]), weak_build)
+
+            weak_fatbinary = sample_fatbinary_report(self.bundle)
+            weak_fatbinary["required_native_sm_found"] = False
+            weak_fatbinary["ptx_present"] = False
+            write_json(pathlib.Path(inputs["fatbinary_report_path"]), weak_fatbinary)
+
+            report = build_phase1_acceptance_report(
+                self.bundle,
+                output_dir=temp_root / "acceptance",
+                host_env_path=inputs["host_env_path"],
+                manifest_refs_path=inputs["manifest_refs_path"],
+                cuda_probe_path=inputs["cuda_probe_path"],
+                build_metadata_path=inputs["build_metadata_path"],
+                fatbinary_report_path=inputs["fatbinary_report_path"],
+                smoke_result_paths=inputs["smoke_result_paths"],
+                memcheck_result_path=inputs["memcheck_result_path"],
+                nsys_result_paths=inputs["nsys_result_paths"],
+                ptx_jit_result_path=inputs["ptx_jit_result_path"],
+                bringup_doc_path=inputs["docs_path"],
+            )
+            payload = json.loads(report.json_path.read_text(encoding="utf-8"))
+
+        self.assertEqual(payload["status"], "FAIL")
+        self.assertIn("build_env_recorded", payload["failing_gate_ids"])
+        self.assertIn("build_succeeded", payload["failing_gate_ids"])
+        self.assertIn("fatbinary_native_sm_present", payload["failing_gate_ids"])
+        self.assertIn("fatbinary_ptx_present", payload["failing_gate_ids"])
 
     def test_build_phase1_acceptance_report_requires_cube_linear_memcheck_evidence(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -1380,6 +1452,42 @@ class Phase1AcceptanceTests(unittest.TestCase):
         self.assertIn("laplacian_smoke_passes", payload["failing_gate_ids"])
         self.assertIn("simple_smoke_passes", payload["failing_gate_ids"])
         self.assertIn("pimple_smoke_passes", payload["failing_gate_ids"])
+
+    def test_build_phase1_acceptance_report_requires_nsys_visibility_and_uvm_classification(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_root = pathlib.Path(temp_dir)
+            inputs = create_phase1_acceptance_inputs(temp_root, self.bundle)
+
+            basic = sample_nsys_result("basic", self.bundle)
+            basic["success_criteria"]["phase1_required_ranges_present"] = False
+            basic["success_criteria"]["gpu_kernels_present"] = False
+            basic["nvtx"]["missing_phase1_ranges"] = ["phase1:solveLoop"]
+            write_json(pathlib.Path(inputs["nsys_result_paths"][0]), basic)
+
+            um_fault = sample_nsys_result("um_fault", self.bundle)
+            um_fault["uvm"]["classification"] = "recurring_unexplained_migrations"
+            write_json(pathlib.Path(inputs["nsys_result_paths"][1]), um_fault)
+
+            report = build_phase1_acceptance_report(
+                self.bundle,
+                output_dir=temp_root / "acceptance",
+                host_env_path=inputs["host_env_path"],
+                manifest_refs_path=inputs["manifest_refs_path"],
+                cuda_probe_path=inputs["cuda_probe_path"],
+                build_metadata_path=inputs["build_metadata_path"],
+                fatbinary_report_path=inputs["fatbinary_report_path"],
+                smoke_result_paths=inputs["smoke_result_paths"],
+                memcheck_result_path=inputs["memcheck_result_path"],
+                nsys_result_paths=inputs["nsys_result_paths"],
+                ptx_jit_result_path=inputs["ptx_jit_result_path"],
+                bringup_doc_path=inputs["docs_path"],
+            )
+            payload = json.loads(report.json_path.read_text(encoding="utf-8"))
+
+        self.assertEqual(payload["status"], "FAIL")
+        self.assertIn("nvtx_visible_in_nsys", payload["failing_gate_ids"])
+        self.assertIn("gpu_kernels_visible_in_nsys", payload["failing_gate_ids"])
+        self.assertIn("no_unexplained_recurring_page_migrations", payload["failing_gate_ids"])
 
     def test_build_phase1_acceptance_report_fails_when_nsys_artifacts_are_marked_failed(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -2060,6 +2168,31 @@ class Phase1AcceptanceTests(unittest.TestCase):
 
         self.assertEqual(payload["status"], "FAIL")
         self.assertIn("nsys_results_traceable", payload["failing_gate_ids"])
+
+    def test_build_phase1_acceptance_report_requires_bringup_doc(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_root = pathlib.Path(temp_dir)
+            inputs = create_phase1_acceptance_inputs(temp_root, self.bundle)
+            pathlib.Path(inputs["docs_path"]).unlink()
+
+            report = build_phase1_acceptance_report(
+                self.bundle,
+                output_dir=temp_root / "acceptance",
+                host_env_path=inputs["host_env_path"],
+                manifest_refs_path=inputs["manifest_refs_path"],
+                cuda_probe_path=inputs["cuda_probe_path"],
+                build_metadata_path=inputs["build_metadata_path"],
+                fatbinary_report_path=inputs["fatbinary_report_path"],
+                smoke_result_paths=inputs["smoke_result_paths"],
+                memcheck_result_path=inputs["memcheck_result_path"],
+                nsys_result_paths=inputs["nsys_result_paths"],
+                ptx_jit_result_path=inputs["ptx_jit_result_path"],
+                bringup_doc_path=inputs["docs_path"],
+            )
+            payload = json.loads(report.json_path.read_text(encoding="utf-8"))
+
+        self.assertEqual(payload["status"], "FAIL")
+        self.assertIn("bringup_doc_present", payload["failing_gate_ids"])
 
     def test_check_ptx_jit_wrapper_exists_and_invokes_phase1_acceptance_ptx_jit(self) -> None:
         wrapper_path = repo_root() / "tools" / "bringup" / "run" / "check_ptx_jit.sh"
