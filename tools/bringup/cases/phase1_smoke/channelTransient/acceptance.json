@@ -1,0 +1,9 @@
+{
+  "case_name": "channelTransient",
+  "required_outputs": [
+    "0.1/U",
+    "0.1/p"
+  ],
+  "schema_version": "1.0.0",
+  "solver": "pimpleFoam"
+}
