@@ -29,8 +29,14 @@ problem.
 Expected remediation:
 
 - remove the Linux display-driver packages from the WSL distro
+- if the host looks like this workstation, check for conflicting packages such as
+  `libnvidia-compute-535`, `libcudart12`, `nvidia-cuda-dev`, and `nvidia-cuda-toolkit`
 - keep using the Windows-side NVIDIA WSL driver and the `/usr/lib/wsl/lib` shim
 - rerun the canonical CUDA probe first
+
+NVIDIA's CUDA on WSL guide says the Windows display driver is the only driver
+needed and explicitly says not to install a Linux display driver in WSL:
+https://docs.nvidia.com/cuda/archive/12.0.0/wsl-user-guide/index.html
 
 Do not continue to build, smoke, memcheck, Nsight, PTX-JIT, or final acceptance
 until the CUDA probe returns real RTX 5080 metadata and `managed_memory_probe_ok=true`.
