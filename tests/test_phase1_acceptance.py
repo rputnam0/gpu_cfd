@@ -548,6 +548,22 @@ class Phase1AcceptanceTests(unittest.TestCase):
         self.assertEqual(payload["failing_gate_ids"], [])
         self.assertEqual(bundle_index["phase_gate"], "Phase 1")
         self.assertEqual(bundle_index["status"], "PASS")
+        self.assertEqual(
+            bundle_index["reviewed_source_tuple_id"],
+            load_pin_details(self.bundle).reviewed_source_tuple_id,
+        )
+        self.assertEqual(bundle_index["lane"], "primary")
+        self.assertEqual(bundle_index["workstation"]["hostname"], payload["workstation"]["hostname"])
+        self.assertEqual(bundle_index["workstation"]["device_name"], "NVIDIA GeForce RTX 5080")
+        self.assertEqual(bundle_index["workstation_manifests"]["host_env"], host_env_path.as_posix())
+        self.assertEqual(
+            bundle_index["workstation_manifests"]["manifest_refs"],
+            manifest_refs_path.as_posix(),
+        )
+        self.assertEqual(
+            bundle_index["workstation_manifests"]["cuda_probe"],
+            cuda_probe_path.as_posix(),
+        )
         self.assertEqual(bundle_index["outputs"]["phase1_acceptance_report_json"], report.json_path.as_posix())
         self.assertEqual(
             bundle_index["outputs"]["phase1_acceptance_report_markdown"],

@@ -172,6 +172,10 @@ Expected outputs:
 The JSON report is the deterministic gate source. The Markdown report is the review-facing
 summary that points back to each artifact path. The bundle index is the archive-facing
 directory of the final reports plus the supporting artifact inputs used to build them.
+It explicitly records the reviewed tuple, selected lane, workstation summary, and the
+canonical workstation-manifest paths (`host_env.json`, `manifest_refs.json`,
+`cuda_probe.json`) so downstream consumers can trace the acceptance packet back to the
+same frozen Phase 1 host evidence without reparsing the full report body.
 
 ## PASS Criteria
 

@@ -841,6 +841,12 @@ def build_phase1_acceptance_report(
         "runtime_base": payload["runtime_base"],
         "lane": payload["lane"],
         "lane_value": payload["lane_value"],
+        "workstation": dict(payload["workstation"]),
+        "workstation_manifests": {
+            "host_env": resolved_paths["host_env"].as_posix(),
+            "manifest_refs": resolved_paths["manifest_refs"].as_posix(),
+            "cuda_probe": resolved_paths["cuda_probe"].as_posix(),
+        },
         "outputs": {
             "phase1_acceptance_report_json": json_path.as_posix(),
             "phase1_acceptance_report_markdown": markdown_path.as_posix(),
