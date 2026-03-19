@@ -145,9 +145,11 @@ Expected outputs:
 
 - `phase1_acceptance_report.json`
 - `phase1_acceptance_report.md`
+- `phase1_acceptance_bundle_index.json`
 
 The JSON report is the deterministic gate source. The Markdown report is the review-facing
-summary that points back to each artifact path.
+summary that points back to each artifact path. The bundle index is the archive-facing
+directory of the final reports plus the supporting artifact inputs used to build them.
 
 ## PASS Criteria
 

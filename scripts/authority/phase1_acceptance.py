@@ -42,6 +42,7 @@ PHASE1_PTX_JIT_ARTIFACT_DIRNAME = "ptx_jit"
 PHASE1_PTX_JIT_RESULT_NAME = "ptx_jit_result.json"
 PHASE1_ACCEPTANCE_REPORT_NAME = "phase1_acceptance_report.json"
 PHASE1_ACCEPTANCE_MARKDOWN_NAME = "phase1_acceptance_report.md"
+PHASE1_ACCEPTANCE_BUNDLE_INDEX_NAME = "phase1_acceptance_bundle_index.json"
 LOG_NAN_INF_PATTERN = re.compile(r"(^|[^A-Za-z])(nan|inf)([^A-Za-z]|$)", flags=re.IGNORECASE)
 VERSION_PATTERN = re.compile(r"(\d+)\.(\d+)\.(\d+)")
 
@@ -59,6 +60,7 @@ class Phase1PtxJitRunResult:
 class Phase1AcceptanceReportResult:
     json_path: pathlib.Path
     markdown_path: pathlib.Path
+    bundle_index_path: pathlib.Path
     status: str
 
 
@@ -779,11 +781,36 @@ def build_phase1_acceptance_report(
 
     json_path = output_dir_path / PHASE1_ACCEPTANCE_REPORT_NAME
     markdown_path = output_dir_path / PHASE1_ACCEPTANCE_MARKDOWN_NAME
+    bundle_index_path = output_dir_path / PHASE1_ACCEPTANCE_BUNDLE_INDEX_NAME
+    bundle_index = {
+        "schema_version": MANIFEST_SCHEMA_VERSION,
+        "phase_gate": "Phase 1",
+        "card_id": "P1-07",
+        "status": status,
+        "disposition": disposition,
+        "reviewed_source_tuple_id": payload["reviewed_source_tuple_id"],
+        "runtime_base": payload["runtime_base"],
+        "lane": payload["lane"],
+        "lane_value": payload["lane_value"],
+        "outputs": {
+            "phase1_acceptance_report_json": json_path.as_posix(),
+            "phase1_acceptance_report_markdown": markdown_path.as_posix(),
+            "phase1_acceptance_bundle_index": bundle_index_path.as_posix(),
+        },
+        "inputs": {
+            name: path.as_posix()
+            for name, path in resolved_paths.items()
+        },
+        "smoke_results": payload["artifact_paths"]["smoke_results"],
+        "nsys_results": payload["artifact_paths"]["nsys_results"],
+    }
     _write_json(json_path, payload)
     markdown_path.write_text(_render_acceptance_markdown(payload), encoding="utf-8")
+    _write_json(bundle_index_path, bundle_index)
     return Phase1AcceptanceReportResult(
         json_path=json_path,
         markdown_path=markdown_path,
+        bundle_index_path=bundle_index_path,
         status=status,
     )
 

@@ -8,6 +8,7 @@ import unittest
 from scripts.authority import load_authority_bundle, repo_root
 from scripts.authority.pins import load_pin_details
 from scripts.authority.phase1_acceptance import (
+    PHASE1_ACCEPTANCE_BUNDLE_INDEX_NAME,
     PHASE1_ACCEPTANCE_MARKDOWN_NAME,
     PHASE1_ACCEPTANCE_REPORT_NAME,
     PHASE1_PTX_JIT_RESULT_NAME,
@@ -435,9 +436,11 @@ class Phase1AcceptanceTests(unittest.TestCase):
             )
             payload = json.loads(report.json_path.read_text(encoding="utf-8"))
             markdown = report.markdown_path.read_text(encoding="utf-8")
+            bundle_index = json.loads(report.bundle_index_path.read_text(encoding="utf-8"))
 
         self.assertEqual(report.json_path.name, PHASE1_ACCEPTANCE_REPORT_NAME)
         self.assertEqual(report.markdown_path.name, PHASE1_ACCEPTANCE_MARKDOWN_NAME)
+        self.assertEqual(report.bundle_index_path.name, PHASE1_ACCEPTANCE_BUNDLE_INDEX_NAME)
         self.assertEqual(payload["status"], "PASS")
         self.assertEqual(payload["disposition"], "pass")
         self.assertEqual(payload["lane"], "primary")
@@ -468,6 +471,21 @@ class Phase1AcceptanceTests(unittest.TestCase):
         self.assertTrue(payload["gate_results"]["hard"]["ptx_jit_succeeds"]["passed"])
         self.assertTrue(payload["gate_results"]["hard"]["uvm_trace_captured"]["passed"])
         self.assertEqual(payload["failing_gate_ids"], [])
+        self.assertEqual(bundle_index["phase_gate"], "Phase 1")
+        self.assertEqual(bundle_index["status"], "PASS")
+        self.assertEqual(bundle_index["outputs"]["phase1_acceptance_report_json"], report.json_path.as_posix())
+        self.assertEqual(
+            bundle_index["outputs"]["phase1_acceptance_report_markdown"],
+            report.markdown_path.as_posix(),
+        )
+        self.assertEqual(
+            bundle_index["outputs"]["phase1_acceptance_bundle_index"],
+            report.bundle_index_path.as_posix(),
+        )
+        self.assertEqual(
+            bundle_index["inputs"]["ptx_jit_result"],
+            ptx_jit_result_path.as_posix(),
+        )
         self.assertIn("Status: PASS", markdown)
         self.assertIn("## Accepted Proposal", markdown)
         self.assertIn(load_pin_details(self.bundle).primary_toolkit_lane, markdown)
