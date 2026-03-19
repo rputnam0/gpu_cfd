@@ -62,6 +62,15 @@ Expected remediation:
 - if the toolkit must be restored after cleanup, follow NVIDIA's WSL-specific
   toolkit path: use the WSL-Ubuntu installer or the `cuda-toolkit-12-x` meta-package
   only, and do not install `cuda`, `cuda-12-x`, or `cuda-drivers` inside WSL
+- on this workstation, `command -v nvcc` currently resolves to
+  `/home/rputn/.local/nvidia/cuda-12.9.1/bin/nvcc` and `nvcc --version` reports
+  `12.9.86`, so the active primary-lane compiler is already outside the distro
+  `nvidia-cuda-toolkit` package set that `apt` proposes removing
+- on this workstation, `apt-cache search cuda-toolkit` currently shows only the
+  distro `nvidia-cuda-toolkit` packages and does not expose a `cuda-toolkit-12-x`
+  meta-package; if cleanup really does remove the active toolchain path, follow
+  NVIDIA's WSL-Ubuntu installer guidance rather than assuming the Ubuntu archive
+  can restore the reviewed CUDA 12.9.1 lane directly
 - if cleanup removes the native Linux bundle but the probe still fails, try one
   last diagnostic pass with the WSL-side PTX JIT and NVML libraries forced ahead
   of distro copies; on this workstation that experiment still ended at
