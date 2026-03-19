@@ -42,9 +42,15 @@ Expected remediation:
   `nvidia-cuda-dev`, and `nvidia-cuda-toolkit`
 - on Ubuntu 24.04, purging `libnvidia-compute-535` alone may cause `apt` to install
   `libnvidia-compute-535-server` as a replacement, so include both in the purge command
+- on this workstation, simulating `apt-get -s remove --purge libnvidia-compute-535
+  libnvidia-compute-535-server` confirms that naming both packages explicitly avoids
+  that replacement loop; the remaining direct blast radius is the expected toolkit
+  and profiler package set already shown in the guard output
 - expect `apt` to propose removing dependent toolkit packages when the native
   `libcuda` owner package is purged; the guard now prints a `Simulated apt fallout`
   line so the operator can review that blast radius before making host changes
+- treat `apt autoremove` as a separate follow-up choice, not as part of the minimum
+  cleanup step needed to remove the conflicting native Linux driver package
 - if the toolkit must be restored after cleanup, follow NVIDIA's WSL-specific
   toolkit path: use the WSL-Ubuntu installer or the `cuda-toolkit-12-x` meta-package
   only, and do not install `cuda`, `cuda-12-x`, or `cuda-drivers` inside WSL
