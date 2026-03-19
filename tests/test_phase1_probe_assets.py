@@ -163,6 +163,29 @@ class Phase1ProbeAssetTests(unittest.TestCase):
             )
             apt_get_path.chmod(0o755)
 
+            apt_mark_path = fake_bin / "apt-mark"
+            apt_mark_path.write_text(
+                "#!/usr/bin/env bash\n"
+                "echo \"nvidia-cuda-toolkit\"\n",
+                encoding="utf-8",
+            )
+            apt_mark_path.chmod(0o755)
+
+            apt_cache_path = fake_bin / "apt-cache"
+            apt_cache_path.write_text(
+                "#!/usr/bin/env bash\n"
+                "if [[ \"$1\" == \"depends\" ]]; then\n"
+                "  cat <<'EOF'\n"
+                "nvidia-cuda-toolkit\n"
+                "  Depends: nvidia-cuda-dev\n"
+                "nvidia-cuda-dev\n"
+                "  Depends: libnvidia-compute-535\n"
+                "EOF\n"
+                "fi\n",
+                encoding="utf-8",
+            )
+            apt_cache_path.chmod(0o755)
+
             env = dict(os.environ)
             env["PATH"] = f"{fake_bin}:{env['PATH']}"
             env["GPU_CFD_WSL_LIB_DIR"] = str(fake_wsl)
@@ -190,6 +213,10 @@ class Phase1ProbeAssetTests(unittest.TestCase):
         self.assertIn("Example cleanup command: sudo apt remove --purge", completed.stderr)
         self.assertIn("libnvidia-compute-535-server", completed.stderr)
         self.assertIn("Simulated apt fallout: nvidia-cuda-toolkit, nsight-systems", completed.stderr)
+        self.assertIn(
+            "Manual toolkit package anchor: nvidia-cuda-toolkit -> nvidia-cuda-dev -> libnvidia-compute-535",
+            completed.stderr,
+        )
 
     def test_host_env_wrapper_runs_probe_and_discovery(self) -> None:
         wrapper = (
@@ -329,6 +356,29 @@ class Phase1ProbeAssetTests(unittest.TestCase):
             )
             apt_get_path.chmod(0o755)
 
+            apt_mark_path = fake_bin / "apt-mark"
+            apt_mark_path.write_text(
+                "#!/usr/bin/env bash\n"
+                "echo \"nvidia-cuda-toolkit\"\n",
+                encoding="utf-8",
+            )
+            apt_mark_path.chmod(0o755)
+
+            apt_cache_path = fake_bin / "apt-cache"
+            apt_cache_path.write_text(
+                "#!/usr/bin/env bash\n"
+                "if [[ \"$1\" == \"depends\" ]]; then\n"
+                "  cat <<'EOF'\n"
+                "nvidia-cuda-toolkit\n"
+                "  Depends: nvidia-cuda-dev\n"
+                "nvidia-cuda-dev\n"
+                "  Depends: libnvidia-compute-535\n"
+                "EOF\n"
+                "fi\n",
+                encoding="utf-8",
+            )
+            apt_cache_path.chmod(0o755)
+
             output_dir = temp_root / "discovery"
             log_path = output_dir / "check_host_env.log"
             snapshot_path = output_dir / "nvidia_runtime_snapshot.txt"
@@ -361,6 +411,10 @@ class Phase1ProbeAssetTests(unittest.TestCase):
             self.assertIn("lane=primary", log_body)
             self.assertIn(
                 "Simulated apt fallout: nvidia-cuda-toolkit, nsight-systems",
+                log_body,
+            )
+            self.assertIn(
+                "Manual toolkit package anchor: nvidia-cuda-toolkit -> nvidia-cuda-dev -> libnvidia-compute-535",
                 log_body,
             )
             self.assertIn("# /dev/dxg", snapshot_body)

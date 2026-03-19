@@ -103,6 +103,22 @@ if [[ -e "${wsl_lib_dir}/libcuda.so.1" ]]; then
     '
   }
 
+  detect_manual_toolkit_anchor() {
+    local driver_owner="${1:-}"
+    [[ -n "${driver_owner}" ]] || return 0
+    command -v apt-mark >/dev/null 2>&1 || return 0
+    command -v apt-cache >/dev/null 2>&1 || return 0
+
+    apt-mark showmanual 2>/dev/null | awk '$1 == "nvidia-cuda-toolkit" { found = 1 } END { exit(found ? 0 : 1) }' || return 0
+
+    local depends_output
+    depends_output="$(apt-cache depends nvidia-cuda-toolkit nvidia-cuda-dev 2>/dev/null || true)"
+    [[ "${depends_output}" == *"Depends: nvidia-cuda-dev"* ]] || return 0
+    [[ "${depends_output}" == *"Depends: ${driver_owner}"* ]] || return 0
+
+    printf 'Manual toolkit package anchor: nvidia-cuda-toolkit -> nvidia-cuda-dev -> %s\n' "${driver_owner}"
+  }
+
   mapfile -t conflicting_driver_paths < <(
     find "${native_driver_glob_root}" -maxdepth 1 \
       \( -name 'libcuda.so' -o -name 'libcuda.so.1' -o -name 'libcuda.so.*' \
@@ -144,6 +160,14 @@ if [[ -e "${wsl_lib_dir}/libcuda.so.1" ]]; then
       cleanup_fallout="$(simulate_cleanup_fallout "${cleanup_targets[@]}")"
       if [[ -n "${cleanup_fallout}" ]]; then
         echo "Simulated apt fallout: ${cleanup_fallout//$'\n'/, }" >&2
+      fi
+      manual_toolkit_anchor="$(
+        detect_manual_toolkit_anchor "$(
+          printf '%s\n' "${owner_packages}" | awk '/^libnvidia-compute-/ { print; exit }'
+        )"
+      )"
+      if [[ -n "${manual_toolkit_anchor}" ]]; then
+        echo "${manual_toolkit_anchor}" >&2
       fi
       echo "If you need to restore the CUDA toolkit in WSL afterward, use NVIDIA's WSL-Ubuntu installer path or the cuda-toolkit-12-x meta-package only; do not install cuda, cuda-12-x, or cuda-drivers under WSL." >&2
     fi
