@@ -94,10 +94,20 @@ mkdir -p "${output_dir}"
 raw_cuda_probe_json="${output_dir}/raw_cuda_probe.json"
 wrapper_log_path="${output_dir}/check_host_env.log"
 snapshot_path="${output_dir}/nvidia_runtime_snapshot.txt"
+repo_commit="$(git -C "${repo_root}" rev-parse HEAD 2>/dev/null || echo unknown)"
 
 trap 'write_runtime_snapshot' ERR
 
 exec > >(tee -a "${wrapper_log_path}") 2>&1
+
+printf '# check_host_env invocation\n'
+printf 'utc_time=%s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+printf 'repo_root=%s\n' "${repo_root}"
+printf 'repo_commit=%s\n' "${repo_commit}"
+printf 'output_dir=%s\n' "${output_dir}"
+printf 'lane=%s\n' "${lane}"
+printf 'command=%q %q %q\n' "${BASH_SOURCE[0]}" "${output_arg}" "${lane}"
+printf '\n'
 
 "${script_dir}/run_cuda_probe.sh" "${raw_cuda_probe_json}"
 

@@ -68,7 +68,9 @@ Expected remediation:
   `dxg` kernel messages in one place
 - the same discovery directory now also keeps `check_host_env.log`, which preserves
   the exact `run_cuda_probe.sh` / discovery wrapper terminal output from the failed
-  run so the cleanup hint and any later discovery-side failure text survive handoff
+  run so the cleanup hint and any later discovery-side failure text survive handoff;
+  the log now also records the wrapper UTC time, repo commit, lane, output directory,
+  and invocation line for quick provenance checks
 - on Ubuntu/WSL usrmerged systems, `ldconfig -p` may show the conflicting native
   libraries under `/lib/x86_64-linux-gnu` even though the canonical paths resolve
   back into `/usr/lib/x86_64-linux-gnu`; use the snapshot's `realpath` section to
