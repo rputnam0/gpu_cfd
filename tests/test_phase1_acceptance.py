@@ -612,6 +612,9 @@ class Phase1AcceptanceTests(unittest.TestCase):
         self.assertEqual(payload["failing_gate_ids"], [])
         self.assertEqual(bundle_index["phase_gate"], "Phase 1")
         self.assertEqual(bundle_index["status"], "PASS")
+        self.assertEqual(bundle_index["disposition"], "pass")
+        self.assertEqual(bundle_index["reason"], payload["reason"])
+        self.assertEqual(bundle_index["failing_gate_ids"], [])
         self.assertEqual(payload["artifact_paths"]["build_log"], (temp_root / "build" / "build.log").as_posix())
         self.assertEqual(
             payload["artifact_paths"]["ptx_jit_logs"]["blockMesh"],
@@ -680,6 +683,18 @@ class Phase1AcceptanceTests(unittest.TestCase):
         self.assertEqual(
             bundle_index["reviewed_source_tuple_id"],
             load_pin_details(self.bundle).reviewed_source_tuple_id,
+        )
+        self.assertEqual(
+            bundle_index["required_revalidation"],
+            list(load_pin_details(self.bundle).required_revalidation),
+        )
+        self.assertEqual(
+            bundle_index["acceptance_manifest_revision"],
+            self.bundle.authority_revisions["acceptance_manifest"]["sha256"],
+        )
+        self.assertEqual(
+            bundle_index["authority_revisions"],
+            payload["authority_revisions"],
         )
         self.assertEqual(bundle_index["lane"], "primary")
         self.assertEqual(bundle_index["workstation"]["hostname"], payload["workstation"]["hostname"])
