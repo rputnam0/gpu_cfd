@@ -286,12 +286,14 @@ def build_phase1_acceptance_report(
     um_fault_nsys = nsys_results.get("um_fault", {})
     basic_nsys_pass = (
         str(basic_nsys.get("status", "")).lower() == "pass"
+        and _nested_bool(basic_nsys, "success_criteria", "audit_passed")
         and _nested_bool(basic_nsys, "success_criteria", "trace_generated")
         and _nested_bool(basic_nsys, "success_criteria", "required_outputs_present")
         and _nested_bool(basic_nsys, "success_criteria", "no_nan_inf")
     )
     um_fault_nsys_pass = (
         str(um_fault_nsys.get("status", "")).lower() == "pass"
+        and _nested_bool(um_fault_nsys, "success_criteria", "audit_passed")
         and _nested_bool(um_fault_nsys, "success_criteria", "trace_generated")
         and _nested_bool(um_fault_nsys, "success_criteria", "required_outputs_present")
         and _nested_bool(um_fault_nsys, "success_criteria", "no_nan_inf")
@@ -616,7 +618,13 @@ def build_phase1_acceptance_report(
         "nsys_basic_artifact_passes": _gate_result(
             label="Baseline Nsight artifact completed successfully",
             passed=basic_nsys_pass,
-            expected={"status": "pass", "trace_generated": True, "required_outputs_present": True, "no_nan_inf": True},
+            expected={
+                "status": "pass",
+                "audit_passed": True,
+                "trace_generated": True,
+                "required_outputs_present": True,
+                "no_nan_inf": True,
+            },
             observed={
                 "status": basic_nsys.get("status"),
                 "failure_reasons": basic_nsys.get("failure_reasons"),
@@ -701,7 +709,13 @@ def build_phase1_acceptance_report(
         "nsys_um_fault_artifact_passes": _gate_result(
             label="UVM diagnostic Nsight artifact completed successfully",
             passed=um_fault_nsys_pass,
-            expected={"status": "pass", "trace_generated": True, "required_outputs_present": True, "no_nan_inf": True},
+            expected={
+                "status": "pass",
+                "audit_passed": True,
+                "trace_generated": True,
+                "required_outputs_present": True,
+                "no_nan_inf": True,
+            },
             observed={
                 "status": um_fault_nsys.get("status"),
                 "failure_reasons": um_fault_nsys.get("failure_reasons"),
