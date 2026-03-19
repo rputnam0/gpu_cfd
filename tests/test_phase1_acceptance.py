@@ -1635,6 +1635,26 @@ class Phase1AcceptanceTests(unittest.TestCase):
         self.assertEqual(payload["status"], "FAIL")
         self.assertIn("nsys_results_traceable", payload["failing_gate_ids"])
 
+    def test_check_ptx_jit_wrapper_exists_and_invokes_phase1_acceptance_ptx_jit(self) -> None:
+        wrapper_path = repo_root() / "tools" / "bringup" / "run" / "check_ptx_jit.sh"
+
+        self.assertTrue(wrapper_path.is_file())
+
+        wrapper = wrapper_path.read_text(encoding="utf-8")
+        self.assertIn("scripts/authority/phase1_acceptance.py ptx-jit", wrapper)
+        self.assertIn("UV_CACHE_DIR", wrapper)
+        self.assertIn('"$@"', wrapper)
+
+    def test_run_phase1_acceptance_wrapper_exists_and_invokes_phase1_acceptance_report(self) -> None:
+        wrapper_path = repo_root() / "tools" / "bringup" / "run" / "run_phase1_acceptance.sh"
+
+        self.assertTrue(wrapper_path.is_file())
+
+        wrapper = wrapper_path.read_text(encoding="utf-8")
+        self.assertIn("scripts/authority/phase1_acceptance.py report", wrapper)
+        self.assertIn("UV_CACHE_DIR", wrapper)
+        self.assertIn('"$@"', wrapper)
+
 
 if __name__ == "__main__":
     unittest.main()
