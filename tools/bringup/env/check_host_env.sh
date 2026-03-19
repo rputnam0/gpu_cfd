@@ -1,7 +1,31 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-output_arg="${1:-host_env.json}"
+usage() {
+  cat <<'EOF'
+Usage: check_host_env.sh <output-dir-or-host-env-json> [primary|experimental]
+
+Runs the Phase 1 CUDA probe plus discovery flow and emits:
+- host_env.json
+- manifest_refs.json
+- cuda_probe.json
+- raw_cuda_probe.json
+- check_host_env.log
+- nvidia_runtime_snapshot.txt
+EOF
+}
+
+if [[ "${1:-}" == "--help" || "${1:-}" == "-h" ]]; then
+  usage
+  exit 0
+fi
+
+if [[ $# -lt 1 || $# -gt 2 ]]; then
+  usage >&2
+  exit 2
+fi
+
+output_arg="${1}"
 lane="${2:-primary}"
 
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"

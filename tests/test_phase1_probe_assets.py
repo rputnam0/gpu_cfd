@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import pathlib
+import subprocess
+import tempfile
 import unittest
 
 
@@ -84,6 +86,38 @@ class Phase1ProbeAssetTests(unittest.TestCase):
         self.assertIn("/lib/x86_64-linux-gnu", wrapper)
         self.assertIn("/usr/lib/x86_64-linux-gnu", wrapper)
         self.assertIn("--output-dir", wrapper)
+        self.assertIn("Usage: check_host_env.sh", wrapper)
+
+    def test_host_env_wrapper_renders_help_without_running_probe(self) -> None:
+        wrapper_path = repo_root() / "tools" / "bringup" / "env" / "check_host_env.sh"
+        with tempfile.TemporaryDirectory() as temp_dir:
+            completed = subprocess.run(
+                [str(wrapper_path), "--help"],
+                cwd=temp_dir,
+                check=False,
+                capture_output=True,
+                text=True,
+            )
+
+        self.assertEqual(completed.returncode, 0)
+        self.assertIn("Usage: check_host_env.sh", completed.stdout)
+        self.assertIn("<output-dir-or-host-env-json>", completed.stdout)
+        self.assertEqual(completed.stderr, "")
+
+    def test_host_env_wrapper_requires_output_path_argument(self) -> None:
+        wrapper_path = repo_root() / "tools" / "bringup" / "env" / "check_host_env.sh"
+        with tempfile.TemporaryDirectory() as temp_dir:
+            completed = subprocess.run(
+                [str(wrapper_path)],
+                cwd=temp_dir,
+                check=False,
+                capture_output=True,
+                text=True,
+            )
+
+        self.assertEqual(completed.returncode, 2)
+        self.assertIn("Usage: check_host_env.sh", completed.stderr)
+        self.assertEqual(completed.stdout, "")
 
     def test_cuda_runtime_probe_source_mentions_required_probe_fields(self) -> None:
         source = (
