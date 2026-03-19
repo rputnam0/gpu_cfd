@@ -134,8 +134,9 @@ Once the privileged WSL cleanup is complete, resume `P1-07` in this exact order:
    show real RTX 5080 metadata plus `managed_memory_probe_ok=true`
 3. run the PTX-JIT proof with `tools/bringup/run/check_ptx_jit.sh`
 4. generate the final acceptance packet with `tools/bringup/run/run_phase1_acceptance.sh`
-5. when the real Phase 1 outputs are review-ready, run `pr_handoff` and then open
-   the GitHub PR from `codex/PRO-26-p1-07-acceptance-bundle`
+5. when the real Phase 1 outputs are review-ready, run
+   `python3 "$GPU_CFD_CONTROL_REPO_ROOT/scripts/symphony/pr_handoff.py" --workspace "$PWD"`
+   and then open the GitHub PR from `codex/PRO-26-p1-07-acceptance-bundle`
 
 ## PTX-JIT Proof
 
