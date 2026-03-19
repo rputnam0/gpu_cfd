@@ -12,13 +12,13 @@ import subprocess
 from typing import Any, Callable, Mapping
 
 try:
-    from .bundle import AuthorityBundle, repo_root
+    from .bundle import AuthorityBundle, load_authority_bundle, repo_root
     from .support_scanner import SupportFunctionObject, SupportScanRequest, scan_support_matrix
 except ImportError:  # pragma: no cover - script execution fallback
     import sys
 
     sys.path.append(str(pathlib.Path(__file__).resolve().parents[2]))
-    from scripts.authority.bundle import AuthorityBundle, repo_root  # type: ignore
+    from scripts.authority.bundle import AuthorityBundle, load_authority_bundle, repo_root  # type: ignore
     from scripts.authority.support_scanner import (  # type: ignore
         SupportFunctionObject,
         SupportScanRequest,
@@ -37,6 +37,7 @@ PACK_CITATION = "docs/specs/phase1_blackwell_bringup_spec.md#step-9"
 TASK_CARD_CITATION = "docs/tasks/03_phase1_blackwell_bringup.md#p1-04"
 DISALLOWED_PRECONDITIONERS = frozenset({"DIC", "DILU"})
 ALLOWED_GAMG_SMOOTHERS = frozenset({"Richardson", "twoStageGaussSeidel", "diagonal"})
+UNSUPPORTED_TIME_SCHEMES = frozenset({"localEuler", "CrankNicolson"})
 INCLUDE_PATTERN = re.compile(r"^\s*#include(?:Etc|Func|IfPresent)?\b", flags=re.MULTILINE)
 LOG_NAN_INF_PATTERN = re.compile(r"(^|[^A-Za-z])(nan|inf)([^A-Za-z]|$)", flags=re.IGNORECASE)
 TOKEN_PATTERN = re.compile(r'"[^"]*"|[{};]|\S+')
@@ -110,6 +111,7 @@ class Phase1SmokeRunResult:
     audit_report: Phase1SmokeAuditReport
     audit_report_path: pathlib.Path
     result_json_path: pathlib.Path
+    status: str
 
 
 CASE_DEFINITIONS = (
@@ -283,6 +285,14 @@ def scan_phase1_smoke_case(
                 )
             )
 
+    fv_schemes = _read_foam_dictionary(resolved_case_dir / "system" / "fvSchemes", issues=issues)
+    turbulence_properties = _read_foam_dictionary(
+        resolved_case_dir / "constant" / "turbulenceProperties",
+        issues=issues,
+    )
+    parsed_turbulence_model = _parse_turbulence_model(turbulence_properties)
+    issues.extend(_audit_fvschemes(fv_schemes))
+
     function_objects = _extract_function_objects(control_dict)
     support_report = scan_support_matrix(
         bundle,
@@ -291,6 +301,12 @@ def scan_phase1_smoke_case(
             fallback_policy="failFast",
             backend="native",
             scheme_audit=False,
+            schemes={
+                block: value
+                for block, value in fv_schemes.items()
+                if isinstance(value, Mapping)
+            },
+            turbulence_model=parsed_turbulence_model,
             function_objects=function_objects,
         ),
     )
@@ -368,6 +384,7 @@ def run_phase1_smoke_case(
             audit_report=audit_report,
             audit_report_path=audit_report_path,
             result_json_path=result_json_path,
+            status="blocked",
         )
 
     shutil.copytree(audit_report.case_dir, scratch_case_dir)
@@ -405,6 +422,7 @@ def run_phase1_smoke_case(
                 audit_report=audit_report,
                 audit_report_path=audit_report_path,
                 result_json_path=result_json_path,
+                status="fail",
             )
 
     required_outputs_present = all(
@@ -431,6 +449,7 @@ def run_phase1_smoke_case(
         audit_report=audit_report,
         audit_report_path=audit_report_path,
         result_json_path=result_json_path,
+        status=status,
     )
 
 
@@ -465,11 +484,6 @@ def main(argv: list[str] | None = None) -> int:
         print(json.dumps(payload, indent=2, sort_keys=True))
         return 0
 
-    try:
-        from .bundle import load_authority_bundle  # type: ignore
-    except ImportError:  # pragma: no cover - script execution fallback
-        from scripts.authority.bundle import load_authority_bundle  # type: ignore
-
     resolved_bundle = load_authority_bundle(resolved_root)
     if args.command == "audit":
         report = scan_phase1_smoke_case(resolved_bundle, case_name=args.case, root=resolved_root)
@@ -484,7 +498,7 @@ def main(argv: list[str] | None = None) -> int:
         root=resolved_root,
     )
     print(result.result_json_path.as_posix())
-    return 0 if result.audit_report.startup_allowed else 1
+    return 0 if result.status == "pass" else 1
 
 
 def _definition_by_name(case_name: str) -> Phase1SmokeCaseDefinition:
@@ -652,6 +666,28 @@ def _extract_function_objects(control_dict: Mapping[str, Any]) -> tuple[SupportF
             )
         )
     return tuple(items)
+
+
+def _parse_turbulence_model(turbulence_properties: Mapping[str, Any]) -> str:
+    simulation_type = _clean_token(turbulence_properties.get("simulationType"))
+    return simulation_type or "laminar"
+
+
+def _audit_fvschemes(fv_schemes: Mapping[str, Any]) -> tuple[Phase1SmokeIssue, ...]:
+    ddt_schemes = fv_schemes.get("ddtSchemes")
+    if not isinstance(ddt_schemes, Mapping):
+        return ()
+    default_scheme = _clean_token(ddt_schemes.get("default"))
+    if default_scheme in UNSUPPORTED_TIME_SCHEMES:
+        return (
+            Phase1SmokeIssue(
+                code="unsupported_time_scheme",
+                message="Phase 1 smoke cases must reject unsupported time schemes before execution.",
+                citations=(FV_SOLUTION_CITATION,),
+                detail={"scheme": default_scheme},
+            ),
+        )
+    return ()
 
 
 def _audit_fvsolution(fv_solution: Mapping[str, Any]) -> tuple[Phase1SmokeIssue, ...]:

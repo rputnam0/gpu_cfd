@@ -5,6 +5,7 @@ import pathlib
 import shutil
 import tempfile
 import unittest
+from unittest import mock
 
 from scripts.authority import (
     build_phase1_smoke_manifest,
@@ -13,6 +14,7 @@ from scripts.authority import (
     run_phase1_smoke_case,
     scan_phase1_smoke_case,
 )
+from scripts.authority.phase1_smoke import Phase1SmokeAuditReport, Phase1SmokeRunResult, main
 
 
 def repo_path() -> pathlib.Path:
@@ -46,6 +48,21 @@ class Phase1SmokeTests(unittest.TestCase):
                 self.assertEqual(report.reject_reasons, ())
                 self.assertTrue(report.support_scan["startup_allowed"])
 
+    def test_channel_steady_checked_in_run_window_exceeds_half_timestep(self) -> None:
+        control_dict = (
+            self.root
+            / "tools"
+            / "bringup"
+            / "cases"
+            / "phase1_smoke"
+            / "channelSteady"
+            / "system"
+            / "controlDict"
+        ).read_text(encoding="utf-8")
+
+        self.assertIn("endTime 0.1;", control_dict)
+        self.assertIn("deltaT 0.05;", control_dict)
+
     def test_audit_rejects_unsupported_fvsolution_settings(self) -> None:
         source_case = self.root / "tools" / "bringup" / "cases" / "phase1_smoke" / "channelSteady"
 
@@ -62,6 +79,44 @@ class Phase1SmokeTests(unittest.TestCase):
 
         codes = tuple(reason["code"] for reason in report.reject_reasons)
         self.assertIn("unsupported_preconditioner", codes)
+        self.assertFalse(report.startup_allowed)
+
+    def test_audit_rejects_unsupported_scheme_settings(self) -> None:
+        source_case = self.root / "tools" / "bringup" / "cases" / "phase1_smoke" / "channelTransient"
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_case = pathlib.Path(temp_dir) / "channelTransient"
+            shutil.copytree(source_case, temp_case)
+            fv_schemes = temp_case / "system" / "fvSchemes"
+            fv_schemes.write_text(
+                fv_schemes.read_text(encoding="utf-8").replace("default Euler;", "default localEuler;"),
+                encoding="utf-8",
+            )
+
+            report = scan_phase1_smoke_case(self.bundle, case_dir=temp_case)
+
+        codes = tuple(reason["code"] for reason in report.reject_reasons)
+        self.assertIn("unsupported_time_scheme", codes)
+        self.assertFalse(report.startup_allowed)
+
+    def test_audit_rejects_non_laminar_turbulence_settings(self) -> None:
+        source_case = self.root / "tools" / "bringup" / "cases" / "phase1_smoke" / "channelSteady"
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_case = pathlib.Path(temp_dir) / "channelSteady"
+            shutil.copytree(source_case, temp_case)
+            turbulence_properties = temp_case / "constant" / "turbulenceProperties"
+            turbulence_properties.write_text(
+                turbulence_properties.read_text(encoding="utf-8").replace(
+                    "simulationType laminar;", "simulationType RAS;"
+                ),
+                encoding="utf-8",
+            )
+
+            report = scan_phase1_smoke_case(self.bundle, case_dir=temp_case)
+
+        codes = tuple(reason["code"] for reason in report.reject_reasons)
+        self.assertIn("turbulence_scope_violation", codes)
         self.assertFalse(report.startup_allowed)
 
     def test_run_phase1_smoke_case_copies_case_and_emits_result_json(self) -> None:
@@ -142,6 +197,69 @@ class Phase1SmokeTests(unittest.TestCase):
         self.assertEqual(commands, [])
         self.assertEqual(result_payload["status"], "blocked")
         self.assertIn("function_object_debug_only_in_production", result_payload["reject_codes"])
+
+    def test_run_phase1_smoke_case_marks_failed_run_when_outputs_are_missing(self) -> None:
+        def command_runner(command: tuple[str, ...], *, cwd: pathlib.Path, log_path: pathlib.Path) -> int:
+            log_path.write_text("Execution completed successfully.\n", encoding="utf-8")
+            if command[0] == "blockMesh":
+                (cwd / "constant" / "polyMesh").mkdir(parents=True, exist_ok=True)
+            return 0
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            result = run_phase1_smoke_case(
+                self.bundle,
+                case_name="cubeLinear",
+                artifact_root=pathlib.Path(temp_dir) / "artifacts",
+                scratch_root=pathlib.Path(temp_dir) / "scratch",
+                root=self.root,
+                command_runner=command_runner,
+            )
+            result_payload = json.loads(result.result_json_path.read_text(encoding="utf-8"))
+
+        self.assertEqual(result.status, "fail")
+        self.assertEqual(result_payload["status"], "fail")
+        self.assertFalse(result_payload["success_criteria"]["required_outputs_present"])
+
+    @mock.patch("scripts.authority.phase1_smoke.load_authority_bundle")
+    @mock.patch("scripts.authority.phase1_smoke.run_phase1_smoke_case")
+    def test_main_returns_non_zero_when_runtime_smoke_run_fails(
+        self,
+        run_phase1_smoke_case_mock: mock.Mock,
+        load_authority_bundle_mock: mock.Mock,
+    ) -> None:
+        load_authority_bundle_mock.return_value = self.bundle
+        run_phase1_smoke_case_mock.return_value = Phase1SmokeRunResult(
+            case_name="cubeLinear",
+            scratch_case_dir=pathlib.Path("/tmp/cubeLinear"),
+            audit_report=Phase1SmokeAuditReport(
+                case_name="cubeLinear",
+                solver="laplacianFoam",
+                case_dir=pathlib.Path("/tmp/source"),
+                startup_allowed=True,
+                authority_citations=(),
+                issues=(),
+                support_scan={"startup_allowed": True},
+            ),
+            audit_report_path=pathlib.Path("/tmp/audit.json"),
+            result_json_path=pathlib.Path("/tmp/result.json"),
+            status="fail",
+        )
+
+        exit_code = main(
+            [
+                "--root",
+                str(self.root),
+                "run",
+                "--case",
+                "cubeLinear",
+                "--artifact-root",
+                "/tmp/artifacts",
+                "--scratch-root",
+                "/tmp/scratch",
+            ]
+        )
+
+        self.assertEqual(exit_code, 1)
 
 
 if __name__ == "__main__":
