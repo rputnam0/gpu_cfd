@@ -269,6 +269,30 @@ def build_phase1_acceptance_report(
             observed=resolved_paths["host_env"].as_posix(),
             evidence=resolved_paths["host_env"].as_posix(),
         ),
+        "manifest_refs_traceable": _gate_result(
+            label="Manifest refs exist and match the host manifest",
+            passed=all(
+                (
+                    bool(manifest_refs),
+                    bool(manifest_refs.get("reviewed_source_tuple_id")),
+                    bool(manifest_refs.get("runtime_base")),
+                    bool(manifest_refs.get("required_revalidation")),
+                    manifest_refs.get("reviewed_source_tuple_id") == host_env.get("reviewed_source_tuple_id"),
+                    manifest_refs.get("runtime_base") == host_env.get("runtime_base"),
+                )
+            ),
+            expected={
+                "reviewed_source_tuple_id": host_env.get("reviewed_source_tuple_id"),
+                "runtime_base": host_env.get("runtime_base"),
+                "required_revalidation_present": True,
+            },
+            observed={
+                "reviewed_source_tuple_id": manifest_refs.get("reviewed_source_tuple_id"),
+                "runtime_base": manifest_refs.get("runtime_base"),
+                "required_revalidation": manifest_refs.get("required_revalidation"),
+            },
+            evidence=resolved_paths["manifest_refs"].as_posix(),
+        ),
         "gpu_target_matches_workstation": _gate_result(
             label="Detected GPU is RTX 5080, CC 12.0",
             passed=(
@@ -312,6 +336,19 @@ def build_phase1_acceptance_report(
             passed=bool(build_metadata.get("have_cuda")) and int(build_metadata.get("nvarch", -1)) == 120,
             expected={"have_cuda": True, "nvarch": 120},
             observed={"have_cuda": build_metadata.get("have_cuda"), "nvarch": build_metadata.get("nvarch")},
+            evidence=resolved_paths["build_metadata"].as_posix(),
+        ),
+        "build_metadata_matches_primary_lane": _gate_result(
+            label="Build metadata comes from the required primary lane",
+            passed=(
+                build_metadata.get("lane") == "primary"
+                and build_metadata.get("selected_lane_value") == bundle.pins.primary_toolkit_lane
+            ),
+            expected={"lane": "primary", "selected_lane_value": bundle.pins.primary_toolkit_lane},
+            observed={
+                "lane": build_metadata.get("lane"),
+                "selected_lane_value": build_metadata.get("selected_lane_value"),
+            },
             evidence=resolved_paths["build_metadata"].as_posix(),
         ),
         "build_succeeded": _gate_result(
@@ -384,6 +421,19 @@ def build_phase1_acceptance_report(
             observed=_nested_value(nsys_results.get("basic", {}), "success_criteria", "gpu_kernels_present"),
             evidence=_nsys_evidence_path(nsys_result_paths, "basic"),
         ),
+        "memcheck_matches_required_case": _gate_result(
+            label="Memcheck evidence comes from the required cubeLinear lane",
+            passed=(
+                memcheck_result.get("case_name") == DEFAULT_PHASE1_PTX_JIT_CASE
+                and memcheck_result.get("solver") == "laplacianFoam"
+            ),
+            expected={"case_name": DEFAULT_PHASE1_PTX_JIT_CASE, "solver": "laplacianFoam"},
+            observed={
+                "case_name": memcheck_result.get("case_name"),
+                "solver": memcheck_result.get("solver"),
+            },
+            evidence=resolved_paths["memcheck_result"].as_posix(),
+        ),
         "memcheck_passes": _gate_result(
             label="Compute Sanitizer memcheck passes on smallest case",
             passed=(
@@ -442,10 +492,9 @@ def build_phase1_acceptance_report(
         "status": status,
         "disposition": disposition,
         "reason": reason,
-        "reviewed_source_tuple_id": host_env.get("reviewed_source_tuple_id")
-        or manifest_refs.get("reviewed_source_tuple_id")
-        or bundle.pins.reviewed_source_tuple_id,
-        "runtime_base": host_env.get("runtime_base") or manifest_refs.get("runtime_base") or bundle.pins.runtime_base,
+        "reviewed_source_tuple_id": manifest_refs.get("reviewed_source_tuple_id")
+        or host_env.get("reviewed_source_tuple_id"),
+        "runtime_base": manifest_refs.get("runtime_base") or host_env.get("runtime_base"),
         "lane": toolkit.get("selected_lane"),
         "lane_value": toolkit.get("selected_lane_value"),
         "workstation": {
