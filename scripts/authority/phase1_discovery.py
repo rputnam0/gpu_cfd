@@ -533,8 +533,22 @@ def _validate_wsl_driver_stack(
         if _package_base_name(package) not in owner_package_bases
     ]
     package_suffix = ""
+    cleanup_targets: list[str] = []
     if owner_packages:
-        cleanup_targets = _expand_wsl_cleanup_targets(owner_packages)
+        cleanup_seed_targets = list(owner_packages)
+        manual_toolkit_anchor = _detect_manual_wsl_toolkit_anchor(
+            next(
+                (
+                    _package_base_name(package)
+                    for package in owner_packages
+                    if _package_base_name(package).startswith("libnvidia-compute-")
+                ),
+                "",
+            )
+        )
+        if manual_toolkit_anchor:
+            cleanup_seed_targets.append("nvidia-cuda-toolkit")
+        cleanup_targets = _expand_wsl_cleanup_targets(cleanup_seed_targets)
         package_suffix = " Installed Linux-side driver owner packages: " + ", ".join(
             owner_packages
         )
@@ -545,11 +559,20 @@ def _validate_wsl_driver_stack(
         cleanup_fallout = _simulate_wsl_cleanup_fallout(cleanup_targets)
         if cleanup_fallout:
             package_suffix += ". Simulated apt fallout: " + ", ".join(cleanup_fallout)
+        if manual_toolkit_anchor:
+            package_suffix += ". " + manual_toolkit_anchor
         package_suffix += (
             ". If you need to restore the CUDA toolkit in WSL afterward, use NVIDIA's "
             "WSL-Ubuntu installer path or the cuda-toolkit-12-x meta-package only; "
             "do not install cuda, cuda-12-x, or cuda-drivers under WSL"
         )
+    if related_packages:
+        cleanup_target_bases = {_package_base_name(package) for package in cleanup_targets}
+        related_packages = [
+            package
+            for package in related_packages
+            if _package_base_name(package) not in cleanup_target_bases
+        ]
     if related_packages:
         package_suffix += " Installed related CUDA toolkit packages: " + ", ".join(
             related_packages
@@ -631,6 +654,51 @@ def _expand_wsl_cleanup_targets(owner_packages: list[str]) -> list[str]:
                 seen.add(candidate)
                 cleanup_targets.append(candidate)
     return cleanup_targets
+
+
+def _detect_manual_wsl_toolkit_anchor(driver_owner: str) -> str | None:
+    if not driver_owner:
+        return None
+    apt_mark = shutil.which("apt-mark")
+    apt_cache = shutil.which("apt-cache")
+    if not apt_mark or not apt_cache:
+        return None
+    try:
+        manual_completed = subprocess.run(
+            [apt_mark, "showmanual"],
+            text=True,
+            capture_output=True,
+            check=False,
+        )
+    except OSError:
+        return None
+    if manual_completed.returncode != 0:
+        return None
+    manual_rows = {
+        line.strip() for line in manual_completed.stdout.splitlines() if line.strip()
+    }
+    if "nvidia-cuda-toolkit" not in manual_rows:
+        return None
+    try:
+        depends_completed = subprocess.run(
+            [apt_cache, "depends", "nvidia-cuda-toolkit", "nvidia-cuda-dev"],
+            text=True,
+            capture_output=True,
+            check=False,
+        )
+    except OSError:
+        return None
+    if depends_completed.returncode not in (0, 100):
+        return None
+    depends_output = depends_completed.stdout
+    if "Depends: nvidia-cuda-dev" not in depends_output:
+        return None
+    if f"Depends: {driver_owner}" not in depends_output:
+        return None
+    return (
+        "Manual toolkit package anchor: nvidia-cuda-toolkit -> "
+        f"nvidia-cuda-dev -> {driver_owner}"
+    )
 
 
 def _simulate_wsl_cleanup_fallout(cleanup_targets: list[str]) -> list[str]:

@@ -17,6 +17,7 @@ from scripts.authority import (
 )
 from scripts.authority.phase1_discovery import collect_host_observations, main
 from scripts.authority.phase1_discovery import (
+    _detect_manual_wsl_toolkit_anchor,
     _discover_conflicting_wsl_cuda_packages,
     _discover_conflicting_wsl_libcuda_owner_packages,
     _expand_wsl_cleanup_targets,
@@ -167,6 +168,59 @@ class Phase1DiscoveryTests(unittest.TestCase):
             ["nvidia-cuda-toolkit"],
         )
 
+    @mock.patch("scripts.authority.phase1_discovery.shutil.which")
+    @mock.patch("scripts.authority.phase1_discovery.subprocess.run")
+    def test_detect_manual_wsl_toolkit_anchor_reports_matching_driver_owner(
+        self,
+        run: mock.Mock,
+        which: mock.Mock,
+    ) -> None:
+        which.side_effect = lambda tool: f"/usr/bin/{tool}"
+        run.side_effect = [
+            subprocess.CompletedProcess(
+                args=[],
+                returncode=0,
+                stdout="nvidia-cuda-toolkit\n",
+                stderr="",
+            ),
+            subprocess.CompletedProcess(
+                args=[],
+                returncode=0,
+                stdout=(
+                    "nvidia-cuda-toolkit\n"
+                    "  Depends: nvidia-cuda-dev\n"
+                    "nvidia-cuda-dev\n"
+                    "  Depends: libnvidia-compute-535\n"
+                ),
+                stderr="",
+            ),
+        ]
+
+        anchor = _detect_manual_wsl_toolkit_anchor("libnvidia-compute-535")
+
+        self.assertEqual(
+            anchor,
+            "Manual toolkit package anchor: nvidia-cuda-toolkit -> "
+            "nvidia-cuda-dev -> libnvidia-compute-535",
+        )
+
+    @mock.patch("scripts.authority.phase1_discovery.shutil.which")
+    @mock.patch("scripts.authority.phase1_discovery.subprocess.run")
+    def test_detect_manual_wsl_toolkit_anchor_returns_none_without_manual_toolkit(
+        self,
+        run: mock.Mock,
+        which: mock.Mock,
+    ) -> None:
+        which.side_effect = lambda tool: f"/usr/bin/{tool}"
+        run.return_value = subprocess.CompletedProcess(
+            args=[],
+            returncode=0,
+            stdout="",
+            stderr="",
+        )
+
+        self.assertIsNone(_detect_manual_wsl_toolkit_anchor("libnvidia-compute-535"))
+
     @mock.patch("scripts.authority.phase1_discovery.shutil.which", return_value="/usr/bin/apt-get")
     @mock.patch("scripts.authority.phase1_discovery.subprocess.run")
     def test_simulate_wsl_cleanup_fallout_reports_dependent_packages_only(
@@ -204,7 +258,7 @@ class Phase1DiscoveryTests(unittest.TestCase):
 
     @mock.patch(
         "scripts.authority.phase1_discovery._simulate_wsl_cleanup_fallout",
-        return_value=["nvidia-cuda-toolkit", "nsight-systems"],
+        return_value=["nsight-systems"],
     )
     @mock.patch(
         "scripts.authority.phase1_discovery._discover_conflicting_wsl_cuda_packages",
@@ -218,10 +272,18 @@ class Phase1DiscoveryTests(unittest.TestCase):
         "scripts.authority.phase1_discovery._discover_conflicting_wsl_libcuda_owner_packages",
         return_value=["libnvidia-compute-535"],
     )
+    @mock.patch(
+        "scripts.authority.phase1_discovery._detect_manual_wsl_toolkit_anchor",
+        return_value=(
+            "Manual toolkit package anchor: nvidia-cuda-toolkit -> "
+            "nvidia-cuda-dev -> libnvidia-compute-535"
+        ),
+    )
     @mock.patch("scripts.authority.phase1_discovery._is_wsl_environment", return_value=True)
     def test_validate_wsl_driver_stack_reports_simulated_cleanup_fallout(
         self,
         _is_wsl_environment: mock.Mock,
+        _detect_manual_anchor: mock.Mock,
         _discover_owners: mock.Mock,
         _discover_packages: mock.Mock,
         _simulate_fallout: mock.Mock,
@@ -237,7 +299,11 @@ class Phase1DiscoveryTests(unittest.TestCase):
             (native_root / "libnvidia-ptxjitcompiler.so.1").write_text("", encoding="utf-8")
             (native_root / "libnvidia-ml.so.1").write_text("", encoding="utf-8")
 
-            with self.assertRaisesRegex(ValueError, "libnvidia-ptxjitcompiler.so.1"):
+            with self.assertRaisesRegex(
+                ValueError,
+                "libnvidia-ptxjitcompiler.so.1.*sudo apt remove --purge "
+                "libnvidia-compute-535 libnvidia-compute-535-server nvidia-cuda-toolkit",
+            ):
                 _validate_wsl_driver_stack(
                     wsl_lib_root=wsl_root,
                     native_libcuda_root=native_root,
@@ -480,8 +546,16 @@ class Phase1DiscoveryTests(unittest.TestCase):
     @mock.patch(
         "scripts.authority.phase1_discovery._discover_conflicting_wsl_libcuda_owner_packages"
     )
+    @mock.patch(
+        "scripts.authority.phase1_discovery._detect_manual_wsl_toolkit_anchor",
+        return_value=(
+            "Manual toolkit package anchor: nvidia-cuda-toolkit -> "
+            "nvidia-cuda-dev -> libnvidia-compute-535"
+        ),
+    )
     def test_collect_host_observations_rejects_linux_display_driver_libs_on_wsl(
         self,
+        detect_manual_toolkit_anchor: mock.Mock,
         discover_owner_packages: mock.Mock,
         discover_conflicting_packages: mock.Mock,
         which: mock.Mock,
@@ -524,7 +598,9 @@ class Phase1DiscoveryTests(unittest.TestCase):
 
             with self.assertRaisesRegex(
                 ValueError,
-                "sudo apt remove --purge libnvidia-compute-535:amd64 libnvidia-compute-535-server",
+                "sudo apt remove --purge "
+                "libnvidia-compute-535:amd64 libnvidia-compute-535-server "
+                "nvidia-cuda-toolkit",
             ):
                 collect_host_observations(
                     command_runner=runner,
