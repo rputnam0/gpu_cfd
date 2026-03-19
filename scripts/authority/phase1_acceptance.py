@@ -257,6 +257,28 @@ def build_phase1_acceptance_report(
 
     host_observations = _as_dict(host_env.get("host_observations"))
     toolkit = _as_dict(host_env.get("toolkit"))
+    profilers = _as_dict(host_env.get("profilers"))
+    required_host_observation_fields = (
+        "hostname",
+        "gpu_csv",
+        "nvcc_version",
+        "gcc_version",
+        "nsys_version",
+        "ncu_version",
+        "compute_sanitizer_version",
+        "os_release",
+        "kernel",
+    )
+    missing_host_observation_fields = [
+        field_name
+        for field_name in required_host_observation_fields
+        if not str(host_observations.get(field_name, "")).strip()
+    ]
+    missing_profiler_fields = [
+        field_name
+        for field_name in ("nsight_systems", "nsight_compute", "compute_sanitizer")
+        if not str(profilers.get(field_name, "")).strip()
+    ]
     expected_required_revalidation = list(pin_details.required_revalidation)
     basic_nsys = nsys_results.get("basic", {})
     um_fault_nsys = nsys_results.get("um_fault", {})
@@ -282,12 +304,23 @@ def build_phase1_acceptance_report(
                     bool(host_env.get("runtime_base")),
                     bool(toolkit.get("selected_lane")),
                     bool(toolkit.get("selected_lane_value")),
-                    bool(host_observations.get("hostname")),
-                    bool(host_observations.get("gpu_csv")),
+                    not missing_host_observation_fields,
+                    not missing_profiler_fields,
                 )
             ),
-            expected="Canonical host manifest with lane, tuple, and host observations",
-            observed=resolved_paths["host_env"].as_posix(),
+            expected={
+                "required_host_observation_fields": list(required_host_observation_fields),
+                "required_profiler_fields": [
+                    "nsight_systems",
+                    "nsight_compute",
+                    "compute_sanitizer",
+                ],
+            },
+            observed={
+                "path": resolved_paths["host_env"].as_posix(),
+                "missing_host_observation_fields": missing_host_observation_fields,
+                "missing_profiler_fields": missing_profiler_fields,
+            },
             evidence=resolved_paths["host_env"].as_posix(),
         ),
         "manifest_refs_traceable": _gate_result(

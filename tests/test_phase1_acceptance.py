@@ -43,10 +43,21 @@ def sample_host_env(bundle) -> dict[str, object]:
         },
         "gpu_target": pin_details.gpu_target,
         "instrumentation": pin_details.instrumentation,
+        "profilers": {
+            "nsight_systems": pin_details.nsight_systems,
+            "nsight_compute": pin_details.nsight_compute,
+            "compute_sanitizer": pin_details.compute_sanitizer,
+        },
         "host_observations": {
             "hostname": "phase1-test-host",
             "gpu_csv": "NVIDIA GeForce RTX 5080, 595.50.00, 16384 MiB",
             "nvcc_version": "Cuda compilation tools, release 12.9, V12.9.86",
+            "gcc_version": "gcc (Ubuntu 14.2.0) 14.2.0",
+            "nsys_version": "NVIDIA Nsight Systems version 2025.2.1.130-252135690618v0",
+            "ncu_version": "NVIDIA Nsight Compute version 2025.3.1.0",
+            "compute_sanitizer_version": "Compute Sanitizer version 2025.1.0.0",
+            "os_release": "Ubuntu 24.04.2 LTS",
+            "kernel": "6.8.0-60-generic",
         },
         "authority_revisions": bundle.authority_revisions,
         "repo": {"git_commit": "abc123def456"},
@@ -507,6 +518,81 @@ class Phase1AcceptanceTests(unittest.TestCase):
         self.assertEqual(payload["disposition"], "fail")
         self.assertIn("ptx_jit_succeeds", payload["failing_gate_ids"])
         self.assertIn("ptx_jit_succeeds", payload["reason"])
+
+    def test_build_phase1_acceptance_report_requires_complete_host_manifest_observations(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_root = pathlib.Path(temp_dir)
+            docs_path = temp_root / "docs" / "bringup" / "phase1_blackwell.md"
+            docs_path.parent.mkdir(parents=True, exist_ok=True)
+            docs_path.write_text("# Phase 1 Blackwell bring-up\n", encoding="utf-8")
+
+            host_env = sample_host_env(self.bundle)
+            for field_name in (
+                "nvcc_version",
+                "gcc_version",
+                "nsys_version",
+                "ncu_version",
+                "compute_sanitizer_version",
+                "os_release",
+                "kernel",
+            ):
+                host_env["host_observations"].pop(field_name, None)
+
+            host_env_path = write_json(temp_root / "host_env.json", host_env)
+            manifest_refs_path = write_json(
+                temp_root / "manifest_refs.json",
+                sample_manifest_refs(self.bundle),
+            )
+            cuda_probe_path = write_json(temp_root / "cuda_probe.json", sample_cuda_probe())
+            build_metadata_path = write_json(
+                temp_root / "build_metadata.json",
+                sample_build_metadata(self.bundle, build_log=(temp_root / "build.log").as_posix()),
+            )
+            fatbinary_report_path = write_json(temp_root / "fatbinary_report.json", sample_fatbinary_report())
+            smoke_result_paths = [
+                write_json(
+                    temp_root / "cubeLinear.json",
+                    sample_smoke_result("cubeLinear", "laplacianFoam"),
+                ),
+                write_json(
+                    temp_root / "channelSteady.json",
+                    sample_smoke_result("channelSteady", "simpleFoam"),
+                ),
+                write_json(
+                    temp_root / "channelTransient.json",
+                    sample_smoke_result("channelTransient", "pimpleFoam"),
+                ),
+            ]
+            memcheck_result_path = write_json(temp_root / "memcheck_result.json", sample_memcheck_result())
+            nsys_result_paths = [
+                write_json(temp_root / "basic.json", sample_nsys_result("basic")),
+                write_json(temp_root / "um_fault.json", sample_nsys_result("um_fault")),
+            ]
+            ptx_jit_result_path = write_json(
+                temp_root / PHASE1_PTX_JIT_RESULT_NAME,
+                sample_ptx_jit_result(self.bundle),
+            )
+
+            report = build_phase1_acceptance_report(
+                self.bundle,
+                output_dir=temp_root / "acceptance",
+                host_env_path=host_env_path,
+                manifest_refs_path=manifest_refs_path,
+                cuda_probe_path=cuda_probe_path,
+                build_metadata_path=build_metadata_path,
+                fatbinary_report_path=fatbinary_report_path,
+                smoke_result_paths=smoke_result_paths,
+                memcheck_result_path=memcheck_result_path,
+                nsys_result_paths=nsys_result_paths,
+                ptx_jit_result_path=ptx_jit_result_path,
+                bringup_doc_path=docs_path,
+            )
+            payload = json.loads(report.json_path.read_text(encoding="utf-8"))
+
+        self.assertEqual(report.status, "FAIL")
+        self.assertIn("host_manifest_complete", payload["failing_gate_ids"])
 
     def test_build_phase1_acceptance_report_accepts_normalized_pin_values_from_emitters(self) -> None:
         pin_details = load_pin_details(self.bundle)
