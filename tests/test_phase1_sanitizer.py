@@ -222,7 +222,7 @@ class Phase1SanitizerTests(unittest.TestCase):
 
         with tempfile.TemporaryDirectory() as temp_dir:
             artifact_root = pathlib.Path(temp_dir) / "artifacts"
-            stale_log = artifact_root / "cubeLinear" / "memcheck.log"
+            stale_log = artifact_root / "compute_sanitizer" / "cubeLinear" / "memcheck.log"
             stale_log.parent.mkdir(parents=True, exist_ok=True)
             stale_log.write_text("========= ERROR SUMMARY: 0 errors\n", encoding="utf-8")
 
@@ -236,6 +236,7 @@ class Phase1SanitizerTests(unittest.TestCase):
             result_payload = json.loads(result.result_json_path.read_text(encoding="utf-8"))
 
         self.assertEqual(result.status, "fail")
+        self.assertFalse(stale_log.exists())
         self.assertFalse(result_payload["memcheck"]["error_summary_found"])
         self.assertIn("memcheck_not_run", result_payload["failure_reasons"])
         self.assertIn("missing_error_summary", result_payload["failure_reasons"])

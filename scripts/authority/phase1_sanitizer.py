@@ -112,8 +112,6 @@ def parse_compute_sanitizer_memcheck_log(log_text: str) -> Phase1MemcheckParseRe
     actionable_errors = error_summary_count
     if error_summary_count == 0:
         classification = "clean"
-    elif actionable_errors == 0 and notes:
-        classification = "non_actionable_noise"
     elif not actionable_events and notes:
         actionable_errors = 0
         classification = "non_actionable_noise"
