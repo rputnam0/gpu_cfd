@@ -154,18 +154,24 @@ if [[ -e "${wsl_lib_dir}/libcuda.so.1" ]]; then
     echo "Remove the Linux display driver packages from WSL and rely on ${wsl_lib_dir}." >&2
     echo "Conflicting Linux-side driver libraries: ${conflicting_driver_paths[*]}" >&2
     if [[ -n "${owner_packages}" ]]; then
-      mapfile -t cleanup_targets < <(expand_cleanup_targets ${owner_packages//$'\n'/ })
+      cleanup_seed_targets=()
+      cleanup_targets=()
+      mapfile -t cleanup_seed_targets < <(printf '%s\n' "${owner_packages}" | awk 'NF')
+      manual_toolkit_anchor="$(
+        detect_manual_toolkit_anchor "$(
+          printf '%s\n' "${owner_packages}" | awk '/^libnvidia-compute-/ { print; exit }'
+        )"
+      )"
+      if [[ -n "${manual_toolkit_anchor}" ]]; then
+        cleanup_seed_targets+=("nvidia-cuda-toolkit")
+      fi
+      mapfile -t cleanup_targets < <(expand_cleanup_targets "${cleanup_seed_targets[@]}")
       echo "Installed Linux-side driver owner packages: ${owner_packages//$'\n'/, }" >&2
       echo "Example cleanup command: sudo apt remove --purge ${cleanup_targets[*]}" >&2
       cleanup_fallout="$(simulate_cleanup_fallout "${cleanup_targets[@]}")"
       if [[ -n "${cleanup_fallout}" ]]; then
         echo "Simulated apt fallout: ${cleanup_fallout//$'\n'/, }" >&2
       fi
-      manual_toolkit_anchor="$(
-        detect_manual_toolkit_anchor "$(
-          printf '%s\n' "${owner_packages}" | awk '/^libnvidia-compute-/ { print; exit }'
-        )"
-      )"
       if [[ -n "${manual_toolkit_anchor}" ]]; then
         echo "${manual_toolkit_anchor}" >&2
       fi
@@ -183,7 +189,7 @@ if [[ -e "${wsl_lib_dir}/libcuda.so.1" ]]; then
               print pkg
             }
           }
-        ' <(printf '%s\n' "${owner_packages}") - | awk 'NF' || true
+        ' <(printf '%s\n' "${cleanup_targets[@]}") - | awk 'NF' || true
       )"
       if [[ -n "${related_packages}" ]]; then
         echo "Installed related CUDA toolkit packages: ${related_packages//$'\n'/, }" >&2

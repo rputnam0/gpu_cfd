@@ -210,9 +210,13 @@ class Phase1ProbeAssetTests(unittest.TestCase):
         self.assertIn("Resolved nvcc version: Cuda compilation tools, release 12.9, V12.9.86", completed.stderr)
         self.assertIn("Resolved nvcc version: Build cuda_12.9.r12.9/compiler.36037853_0", completed.stderr)
         self.assertIn(str(fake_native / "libcuda.so.1"), completed.stderr)
-        self.assertIn("Example cleanup command: sudo apt remove --purge", completed.stderr)
+        self.assertIn(
+            "Example cleanup command: sudo apt remove --purge "
+            "libnvidia-compute-535 libnvidia-compute-535-server nvidia-cuda-toolkit",
+            completed.stderr,
+        )
         self.assertIn("libnvidia-compute-535-server", completed.stderr)
-        self.assertIn("Simulated apt fallout: nvidia-cuda-toolkit, nsight-systems", completed.stderr)
+        self.assertIn("Simulated apt fallout: nsight-systems", completed.stderr)
         self.assertIn(
             "Manual toolkit package anchor: nvidia-cuda-toolkit -> nvidia-cuda-dev -> libnvidia-compute-535",
             completed.stderr,
@@ -410,7 +414,12 @@ class Phase1ProbeAssetTests(unittest.TestCase):
             self.assertIn("output_dir=", log_body)
             self.assertIn("lane=primary", log_body)
             self.assertIn(
-                "Simulated apt fallout: nvidia-cuda-toolkit, nsight-systems",
+                "Example cleanup command: sudo apt remove --purge "
+                "libnvidia-compute-535 libnvidia-compute-535-server nvidia-cuda-toolkit",
+                log_body,
+            )
+            self.assertIn(
+                "Simulated apt fallout: nsight-systems",
                 log_body,
             )
             self.assertIn(

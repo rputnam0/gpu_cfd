@@ -111,6 +111,10 @@ Expected remediation:
   which native driver/toolkit packages are installed, which replacement candidate
   `apt` prefers, and whether toolkit packages were installed manually before making
   host cleanup or restore decisions
+- if the wrapper reports `Manual toolkit package anchor: nvidia-cuda-toolkit ->
+  nvidia-cuda-dev -> libnvidia-compute-*`, treat `nvidia-cuda-toolkit` as part
+  of the cleanup set; the example `apt remove --purge ...` command now includes
+  that manual anchor alongside the Linux display-driver owner packages
 
 NVIDIA's CUDA on WSL guide says the Windows display driver is the only driver
 needed, warns that the default CUDA installation can overwrite the WSL driver mapping,
