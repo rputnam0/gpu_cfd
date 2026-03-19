@@ -38,6 +38,7 @@ FATBINARY_CANDIDATE_DIR_NAMES = {"platforms", "bin", "lib"}
 FATBINARY_REPORT_NAME = "fatbinary_report.json"
 PTX_DUMP_NAME = "ptx.txt"
 SASS_DUMP_NAME = "sass.txt"
+WSL_DRIVER_LIB_DIR = "/usr/lib/wsl/lib"
 AUDIT_SOURCE_SUFFIXES = {
     ".c",
     ".cc",
@@ -263,7 +264,7 @@ def render_phase1_env_exports(plan: Phase1BuildPlan) -> str:
         lines.append(path_export)
     for key, value in sorted(plan.env_exports.items()):
         if key == "LD_LIBRARY_PATH":
-            lines.append('export LD_LIBRARY_PATH="$CUDA_HOME/lib64${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"')
+            lines.append(_render_ld_library_path_export())
             continue
         lines.append(f"export {key}={shlex.quote(value)}")
     if "SPUMA_EXTRA_CXX_FLAGS" in plan.env_exports:
@@ -615,7 +616,10 @@ def _build_env_exports(
         "NVARCH": str(nvarch),
         "CUDA_VISIBLE_DEVICES": cuda_visible_devices,
         "CUDA_HOME": cuda_home,
-        "LD_LIBRARY_PATH": _prepend_env_path("LD_LIBRARY_PATH", f"{cuda_home}/lib64"),
+        "LD_LIBRARY_PATH": _prepend_env_path(
+            "LD_LIBRARY_PATH",
+            f"{WSL_DRIVER_LIB_DIR}:{cuda_home}/lib64",
+        ),
         "SPUMA_ENABLE_NVTX": "1",
         "SPUMA_EXTRA_NVCC_FLAGS": nvcc_flags,
         "SPUMA_EXTRA_CXX_FLAGS": cxx_flags,
@@ -980,9 +984,7 @@ def _build_shell_preamble(plan: Phase1BuildPlan) -> list[str]:
     )
     for key, value in sorted(plan.env_exports.items()):
         if key == "LD_LIBRARY_PATH":
-            segments.append(
-                'export LD_LIBRARY_PATH="$CUDA_HOME/lib64${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"'
-            )
+            segments.append(_render_ld_library_path_export())
             continue
         segments.append(f"export {key}={shlex.quote(value)}")
     if "SPUMA_EXTRA_CXX_FLAGS" in plan.env_exports:
@@ -990,6 +992,16 @@ def _build_shell_preamble(plan: Phase1BuildPlan) -> list[str]:
             'export FOAM_EXTRA_CXXFLAGS="${FOAM_EXTRA_CXXFLAGS:+${FOAM_EXTRA_CXXFLAGS} }${SPUMA_EXTRA_CXX_FLAGS}"'
         )
     return segments
+
+
+def _render_ld_library_path_export() -> str:
+    return (
+        f'if [ -d "{WSL_DRIVER_LIB_DIR}" ]; then '
+        f'export LD_LIBRARY_PATH="{WSL_DRIVER_LIB_DIR}:$CUDA_HOME/lib64${{LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}}"; '
+        'else '
+        'export LD_LIBRARY_PATH="$CUDA_HOME/lib64${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"; '
+        "fi"
+    )
 
 
 @contextlib.contextmanager

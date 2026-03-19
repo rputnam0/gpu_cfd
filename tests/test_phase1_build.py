@@ -297,6 +297,11 @@ class Phase1BuildTests(unittest.TestCase):
         self.assertIn("export NVARCH=120", exports)
         self.assertIn("export CUDA_HOME=/opt/cuda", exports)
         self.assertIn("export SPUMA_ENABLE_NVTX=1", exports)
+        self.assertIn("/usr/lib/wsl/lib", exports)
+        self.assertIn(
+            'export LD_LIBRARY_PATH="/usr/lib/wsl/lib:$CUDA_HOME/lib64${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"',
+            exports,
+        )
         self.assertIn(
             'export FOAM_EXTRA_CXXFLAGS="${FOAM_EXTRA_CXXFLAGS:+${FOAM_EXTRA_CXXFLAGS} }${SPUMA_EXTRA_CXX_FLAGS}"',
             exports,

@@ -27,6 +27,14 @@ class Phase1ProbeAssetTests(unittest.TestCase):
         self.assertIn("compute_120", wrapper)
         self.assertIn("sm_120", wrapper)
 
+    def test_cuda_runtime_probe_wrapper_prefers_wsl_driver_libs(self) -> None:
+        wrapper = (
+            repo_root() / "tools" / "bringup" / "env" / "run_cuda_probe.sh"
+        ).read_text(encoding="utf-8")
+
+        self.assertIn("/usr/lib/wsl/lib", wrapper)
+        self.assertIn("LD_LIBRARY_PATH", wrapper)
+
     def test_cuda_runtime_probe_source_mentions_required_probe_fields(self) -> None:
         source = (
             repo_root() / "tools" / "bringup" / "src" / "validate_cuda_runtime.cu"
