@@ -50,12 +50,16 @@ artifact-parser problem.
 Expected remediation:
 
 - remove the Linux display-driver packages from the WSL distro
+- use the guard's `Installed Linux-side driver owner packages` and `Example cleanup
+  command` lines as the canonical cleanup set for the current workstation; the
+  conflicting owner may change over time even though this workstation currently
+  reports `libnvidia-compute-535`
 - if the host looks like this workstation, check for conflicting packages such as
-  `libnvidia-compute-525`, `libnvidia-compute-525-server`,
-  `libnvidia-compute-535`, `libnvidia-compute-535-server`, `libcudart12`,
+  `libnvidia-compute-*`, `libnvidia-compute-*-server`, `libcudart12`,
   `nvidia-cuda-dev`, and `nvidia-cuda-toolkit`
-- on Ubuntu 24.04, purging `libnvidia-compute-535` alone may cause `apt` to install
-  `libnvidia-compute-535-server` as a replacement, so include both in the purge command
+- on Ubuntu 24.04, purging `libnvidia-compute-*` alone may cause `apt` to install
+  the matching `libnvidia-compute-*-server` variant as a replacement, so include
+  both packages from the guard output in the purge command
 - on this workstation, simulating `apt-get -s remove --purge libnvidia-compute-535
   libnvidia-compute-535-server` confirms that naming both packages explicitly avoids
   that replacement loop; the remaining direct blast radius is the expected toolkit
@@ -125,8 +129,8 @@ Expected remediation:
   back into `/usr/lib/x86_64-linux-gnu`; use the snapshot's `realpath` section to
   confirm that they are the same native Linux bundle rather than a second bundle
 - use the snapshot's `apt-cache policy` and `apt-mark showmanual` sections to see
-  which native driver/toolkit packages are installed, which replacement candidate
-  `apt` prefers, and whether toolkit packages were installed manually before making
+  which native driver/toolkit packages are installed, which dynamically discovered
+  replacement candidate `apt` prefers, and whether toolkit packages were installed manually before making
   host cleanup or restore decisions
 - if the wrapper reports `Manual toolkit package anchor: nvidia-cuda-toolkit ->
   nvidia-cuda-dev -> libnvidia-compute-*`, treat `nvidia-cuda-toolkit` as part
