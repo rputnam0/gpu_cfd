@@ -92,9 +92,12 @@ fi
 mkdir -p "${output_dir}"
 
 raw_cuda_probe_json="${output_dir}/raw_cuda_probe.json"
+wrapper_log_path="${output_dir}/check_host_env.log"
 snapshot_path="${output_dir}/nvidia_runtime_snapshot.txt"
 
 trap 'write_runtime_snapshot' ERR
+
+exec > >(tee -a "${wrapper_log_path}") 2>&1
 
 "${script_dir}/run_cuda_probe.sh" "${raw_cuda_probe_json}"
 
