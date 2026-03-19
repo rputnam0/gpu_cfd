@@ -40,14 +40,15 @@ Use this skill when working a `gpu_cfd` Linear issue under Symphony orchestratio
 6. Implement with TDD where practical.
 7. Keep the workpad current as plan, progress, decisions, validation, review findings, and future-agent notes evolve.
 8. Run the smallest direct validation first, then broader checks required by the card.
-9. When implementation work is ready, commit and push the branch, then run `python3 "$GPU_CFD_CONTROL_REPO_ROOT/scripts/symphony/pr_handoff.py" --workspace "$PWD"`.
-10. If remediation pass 1 or 2 reports findings, stay in the same implementation worker, fix the valid findings, rerun targeted validation, and rerun handoff.
-11. The finite local-review cycle is 3 total passes: remediation pass 1, remediation pass 2, then one final local review pass.
-12. If the third pass still reports findings, the helper creates one child `Backlog` issue per residual finding, opens or updates the PR, enables auto-merge, moves the parent issue to `In Review`, and returns `stop_worker=true`.
-13. If the issue starts in `Rework`, pull the latest GitHub review comments and review state for the current PR head with `gh api`, record the actionable thread IDs and URLs in the workpad, fix the valid findings, rerun targeted validation, and rerun handoff.
-14. If the issue starts in `Refresh Required`, merge the latest `origin/main`, rerun the smallest relevant validation, and rerun handoff. If that merge conflicts, move the issue to `Rework` and record that manual conflict resolution is required.
-15. `Rework` is terminal with respect to local review. Do not reopen the local Codex review loop during `Rework`; after Devin findings are fixed, return directly to GitHub auto-merge.
-16. Do not return a PR to `In Review` until the branch contains the latest `origin/main`, and do not open or update a conflicted PR.
+9. If a fresh repro on the current branch head proves the issue is blocked by an external action outside worker authority or capability, and no repo-side critical-path change remains after targeted validation, record one canonical blocker packet in the workpad, move the issue to `Backlog`, and stop. Do not rerun the blocked command unless the branch head changed, the external host state changed, or a human explicitly requested another repro.
+10. When implementation work is ready, commit and push the branch, then run `python3 "$GPU_CFD_CONTROL_REPO_ROOT/scripts/symphony/pr_handoff.py" --workspace "$PWD"`.
+11. If remediation pass 1 or 2 reports findings, stay in the same implementation worker, fix the valid findings, rerun targeted validation, and rerun handoff.
+12. The finite local-review cycle is 3 total passes: remediation pass 1, remediation pass 2, then one final local review pass.
+13. If the third pass still reports findings, the helper creates one child `Backlog` issue per residual finding, opens or updates the PR, enables auto-merge, moves the parent issue to `In Review`, and returns `stop_worker=true`.
+14. If the issue starts in `Rework`, pull the latest GitHub review comments and review state for the current PR head with `gh api`, record the actionable thread IDs and URLs in the workpad, fix the valid findings, rerun targeted validation, and rerun handoff.
+15. If the issue starts in `Refresh Required`, merge the latest `origin/main`, rerun the smallest relevant validation, and rerun handoff. If that merge conflicts, move the issue to `Rework` and record that manual conflict resolution is required.
+16. `Rework` is terminal with respect to local review. Do not reopen the local Codex review loop during `Rework`; after Devin findings are fixed, return directly to GitHub auto-merge.
+17. Do not return a PR to `In Review` until the branch contains the latest `origin/main`, and do not open or update a conflicted PR.
 
 ## Handoff rules
 
