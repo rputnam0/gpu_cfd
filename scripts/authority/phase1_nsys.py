@@ -503,7 +503,7 @@ def _build_uvm_report(mode: str, stats_dir: pathlib.Path) -> UvmTriageReport:
     )
     if not evidence_present:
         classification = "missing_diagnostic_evidence"
-    elif cpu_um_faults or gpu_um_faults or _rows_contain_activity(um_sum_rows, um_total_rows):
+    elif cpu_um_faults or gpu_um_faults or _rows_contain_nonzero_activity(um_sum_rows, um_total_rows):
         classification = "documented_activity"
     else:
         classification = "clean"
@@ -516,12 +516,21 @@ def _build_uvm_report(mode: str, stats_dir: pathlib.Path) -> UvmTriageReport:
     )
 
 
-def _rows_contain_activity(*row_groups: list[dict[str, str]]) -> bool:
+def _rows_contain_nonzero_activity(*row_groups: list[dict[str, str]]) -> bool:
     activity_tokens = ("fault", "migration", "htod", "dtoh", "um")
     for rows in row_groups:
         for row in rows:
             lowered = " ".join(row.values()).lower()
-            if any(token in lowered for token in activity_tokens):
+            if any(token in lowered for token in activity_tokens) and _row_has_nonzero_numeric_value(row):
+                return True
+    return False
+
+
+def _row_has_nonzero_numeric_value(row: Mapping[str, str]) -> bool:
+    for value in row.values():
+        normalized = value.strip().replace(",", "")
+        if re.fullmatch(r"-?\d+(?:\.\d+)?", normalized):
+            if float(normalized) != 0:
                 return True
     return False
 
