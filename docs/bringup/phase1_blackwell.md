@@ -48,6 +48,15 @@ Expected remediation:
 - if the toolkit must be restored after cleanup, follow NVIDIA's WSL-specific
   toolkit path: use the WSL-Ubuntu installer or the `cuda-toolkit-12-x` meta-package
   only, and do not install `cuda`, `cuda-12-x`, or `cuda-drivers` inside WSL
+- if cleanup removes the native Linux bundle but the probe still fails, try one
+  last diagnostic pass with the WSL-side PTX JIT and NVML libraries forced ahead
+  of distro copies; on this workstation that experiment still ended at
+  `cudaFree(0): OS call failed or operation not supported on this OS`, which
+  means the remaining fault is deeper in the host CUDA/WSL runtime path
+- if the failure remains after cleanup, move to the Phase 1 spec's host-level
+  HMM/KASLR path: this workstation's `/proc/cmdline` does not currently include
+  `nokaslr`, the WSL-visible worker view does not expose `nvidia_uvm` tunables,
+  and `dmesg` shows repeated early `dxgkio_query_adapter_info` ioctl failures
 - keep using the Windows-side NVIDIA WSL driver and the `/usr/lib/wsl/lib` shim
 - rerun the canonical CUDA probe first
 
