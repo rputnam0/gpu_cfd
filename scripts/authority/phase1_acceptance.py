@@ -810,6 +810,24 @@ def build_phase1_acceptance_report(
             **{name: path.as_posix() for name, path in resolved_paths.items()},
             "build_log": build_metadata.get("build_log"),
             "fatbinary_artifacts": _fatbinary_artifacts(fatbinary_report),
+            "audit_reports": {
+                "ptx_jit": _sibling_artifact_path(resolved_paths["ptx_jit_result"], "smoke_audit.json"),
+                "memcheck": _sibling_artifact_path(resolved_paths["memcheck_result"], "smoke_audit.json"),
+                "smoke_cases": {
+                    str((_read_json(pathlib.Path(item)).get("case_name") or pathlib.Path(item).stem)): _sibling_artifact_path(
+                        pathlib.Path(item),
+                        "smoke_audit.json",
+                    )
+                    for item in smoke_result_paths
+                },
+                "nsys": {
+                    str((_read_json(pathlib.Path(item)).get("profile_mode") or pathlib.Path(item).stem)): _sibling_artifact_path(
+                        pathlib.Path(item),
+                        "smoke_audit.json",
+                    )
+                    for item in nsys_result_paths
+                },
+            },
             "memcheck_logs": _command_log_paths(memcheck_result),
             "ptx_jit_logs": _ptx_jit_log_paths(ptx_jit_result),
             "smoke_logs": {
@@ -872,6 +890,7 @@ def build_phase1_acceptance_report(
         "supporting_artifacts": {
             "build_log": payload["artifact_paths"]["build_log"],
             "fatbinary_artifacts": payload["artifact_paths"]["fatbinary_artifacts"],
+            "audit_reports": payload["artifact_paths"]["audit_reports"],
             "ptx_jit_logs": payload["artifact_paths"]["ptx_jit_logs"],
             "memcheck_logs": payload["artifact_paths"]["memcheck_logs"],
             "smoke_logs": payload["artifact_paths"]["smoke_logs"],
@@ -1270,6 +1289,21 @@ def _render_acceptance_markdown(payload: Mapping[str, Any]) -> str:
                 "",
             ]
         )
+    audit_reports = payload["artifact_paths"]["audit_reports"]
+    if audit_reports:
+        lines.extend(
+            [
+                "### Audit Reports",
+                "",
+                f"- `ptx_jit`: `{audit_reports.get('ptx_jit')}`",
+                f"- `memcheck`: `{audit_reports.get('memcheck')}`",
+            ]
+        )
+        for case_name, artifact_path in audit_reports.get("smoke_cases", {}).items():
+            lines.append(f"- `smoke` `{case_name}`: `{artifact_path}`")
+        for profile_mode, artifact_path in audit_reports.get("nsys", {}).items():
+            lines.append(f"- `nsys` `{profile_mode}`: `{artifact_path}`")
+        lines.append("")
     smoke_results = payload["artifact_paths"]["smoke_results"]
     if smoke_results:
         lines.extend(
@@ -1463,6 +1497,10 @@ def _nsys_supporting_artifacts(result_path: pathlib.Path) -> dict[str, str]:
         "summary": (parent / "nsys_profile_summary.txt").as_posix(),
         "nvtx_report": (parent / "nvtx_range_report.json").as_posix(),
     }
+
+
+def _sibling_artifact_path(result_path: pathlib.Path, filename: str) -> str:
+    return (result_path.parent / filename).as_posix()
 
 
 def _write_json(path: pathlib.Path | str, payload: Mapping[str, Any]) -> None:

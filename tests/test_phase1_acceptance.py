@@ -625,6 +625,18 @@ class Phase1AcceptanceTests(unittest.TestCase):
             nsys_result_paths[1].parent.joinpath("nvtx_range_report.json").as_posix(),
         )
         self.assertEqual(
+            payload["artifact_paths"]["audit_reports"]["ptx_jit"],
+            ptx_jit_result_path.parent.joinpath("smoke_audit.json").as_posix(),
+        )
+        self.assertEqual(
+            payload["artifact_paths"]["audit_reports"]["smoke_cases"]["cubeLinear"],
+            smoke_result_paths[0].parent.joinpath("smoke_audit.json").as_posix(),
+        )
+        self.assertEqual(
+            payload["artifact_paths"]["audit_reports"]["nsys"]["basic"],
+            nsys_result_paths[0].parent.joinpath("smoke_audit.json").as_posix(),
+        )
+        self.assertEqual(
             payload["artifact_paths"]["smoke_logs"]["cubeLinear"]["laplacianFoam"],
             "smoke/cubeLinear/02_laplacianFoam.log",
         )
@@ -669,6 +681,10 @@ class Phase1AcceptanceTests(unittest.TestCase):
             nsys_result_paths[0].parent.joinpath("nsys_profile_summary.txt").as_posix(),
         )
         self.assertEqual(
+            bundle_index["supporting_artifacts"]["audit_reports"]["memcheck"],
+            memcheck_result_path.parent.joinpath("smoke_audit.json").as_posix(),
+        )
+        self.assertEqual(
             bundle_index["supporting_artifacts"]["smoke_logs"]["channelSteady"]["simpleFoam"],
             "smoke/channelSteady/02_simpleFoam.log",
         )
@@ -709,6 +725,9 @@ class Phase1AcceptanceTests(unittest.TestCase):
         self.assertIn("nsight_systems/um_fault/channelTransient/trace.sqlite", markdown)
         self.assertIn(nsys_result_paths[0].parent.joinpath("nsys_profile_summary.txt").as_posix(), markdown)
         self.assertIn(nsys_result_paths[1].parent.joinpath("nvtx_range_report.json").as_posix(), markdown)
+        self.assertIn(ptx_jit_result_path.parent.joinpath("smoke_audit.json").as_posix(), markdown)
+        self.assertIn(memcheck_result_path.parent.joinpath("smoke_audit.json").as_posix(), markdown)
+        self.assertIn(smoke_result_paths[0].parent.joinpath("smoke_audit.json").as_posix(), markdown)
         self.assertIn("smoke/cubeLinear/02_laplacianFoam.log", markdown)
         self.assertIn("smoke/channelSteady/02_simpleFoam.log", markdown)
         self.assertIn("smoke/channelTransient/02_pimpleFoam.log", markdown)
