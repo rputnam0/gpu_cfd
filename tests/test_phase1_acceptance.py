@@ -900,6 +900,63 @@ class Phase1AcceptanceTests(unittest.TestCase):
         self.assertEqual(report.status, "FAIL")
         self.assertIn("host_manifest_complete", payload["failing_gate_ids"])
 
+    def test_build_phase1_acceptance_report_requires_primary_lane_toolchain(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_root = pathlib.Path(temp_dir)
+            inputs = create_phase1_acceptance_inputs(temp_root, self.bundle)
+
+            host_env = sample_host_env(self.bundle)
+            host_env["toolkit"]["selected_lane"] = "experimental"
+            host_env["toolkit"]["selected_lane_value"] = load_pin_details(self.bundle).experimental_toolkit_lane
+            write_json(pathlib.Path(inputs["host_env_path"]), host_env)
+
+            report = build_phase1_acceptance_report(
+                self.bundle,
+                output_dir=temp_root / "acceptance",
+                host_env_path=inputs["host_env_path"],
+                manifest_refs_path=inputs["manifest_refs_path"],
+                cuda_probe_path=inputs["cuda_probe_path"],
+                build_metadata_path=inputs["build_metadata_path"],
+                fatbinary_report_path=inputs["fatbinary_report_path"],
+                smoke_result_paths=inputs["smoke_result_paths"],
+                memcheck_result_path=inputs["memcheck_result_path"],
+                nsys_result_paths=inputs["nsys_result_paths"],
+                ptx_jit_result_path=inputs["ptx_jit_result_path"],
+                bringup_doc_path=inputs["docs_path"],
+            )
+            payload = json.loads(report.json_path.read_text(encoding="utf-8"))
+
+        self.assertEqual(payload["status"], "FAIL")
+        self.assertIn("primary_lane_toolchain", payload["failing_gate_ids"])
+
+    def test_build_phase1_acceptance_report_requires_driver_floor(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_root = pathlib.Path(temp_dir)
+            inputs = create_phase1_acceptance_inputs(temp_root, self.bundle)
+
+            host_env = sample_host_env(self.bundle)
+            host_env["host_observations"]["gpu_csv"] = "NVIDIA GeForce RTX 5080, 570.12.00, 16384 MiB"
+            write_json(pathlib.Path(inputs["host_env_path"]), host_env)
+
+            report = build_phase1_acceptance_report(
+                self.bundle,
+                output_dir=temp_root / "acceptance",
+                host_env_path=inputs["host_env_path"],
+                manifest_refs_path=inputs["manifest_refs_path"],
+                cuda_probe_path=inputs["cuda_probe_path"],
+                build_metadata_path=inputs["build_metadata_path"],
+                fatbinary_report_path=inputs["fatbinary_report_path"],
+                smoke_result_paths=inputs["smoke_result_paths"],
+                memcheck_result_path=inputs["memcheck_result_path"],
+                nsys_result_paths=inputs["nsys_result_paths"],
+                ptx_jit_result_path=inputs["ptx_jit_result_path"],
+                bringup_doc_path=inputs["docs_path"],
+            )
+            payload = json.loads(report.json_path.read_text(encoding="utf-8"))
+
+        self.assertEqual(payload["status"], "FAIL")
+        self.assertIn("driver_floor_satisfied", payload["failing_gate_ids"])
+
     def test_build_phase1_acceptance_report_accepts_normalized_pin_values_from_emitters(self) -> None:
         pin_details = load_pin_details(self.bundle)
 
