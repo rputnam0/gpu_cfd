@@ -1228,6 +1228,26 @@ def _render_acceptance_markdown(payload: Mapping[str, Any]) -> str:
             "",
         ]
     )
+    smoke_results = payload["artifact_paths"]["smoke_results"]
+    if smoke_results:
+        lines.extend(
+            [
+                "### Smoke Results",
+                "",
+                *[f"- `{case_name}`: `{artifact_path}`" for case_name, artifact_path in smoke_results.items()],
+                "",
+            ]
+        )
+    nsys_results = payload["artifact_paths"]["nsys_results"]
+    if nsys_results:
+        lines.extend(
+            [
+                "### Nsight Results",
+                "",
+                *[f"- `{profile_mode}`: `{artifact_path}`" for profile_mode, artifact_path in nsys_results.items()],
+                "",
+            ]
+        )
     if payload["failing_gate_ids"]:
         lines.extend(
             [

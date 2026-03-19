@@ -581,6 +581,11 @@ class Phase1AcceptanceTests(unittest.TestCase):
         self.assertIn("## Accepted Proposal", markdown)
         self.assertIn(load_pin_details(self.bundle).primary_toolkit_lane, markdown)
         self.assertIn(PHASE1_PTX_JIT_RESULT_NAME, markdown)
+        self.assertIn(smoke_result_paths[0].as_posix(), markdown)
+        self.assertIn(smoke_result_paths[1].as_posix(), markdown)
+        self.assertIn(smoke_result_paths[2].as_posix(), markdown)
+        self.assertIn(nsys_result_paths[0].as_posix(), markdown)
+        self.assertIn(nsys_result_paths[1].as_posix(), markdown)
 
     def test_build_phase1_acceptance_report_fails_when_a_required_gate_fails(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
