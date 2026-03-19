@@ -234,8 +234,10 @@ class Phase1DiscoveryTests(unittest.TestCase):
             native_root.mkdir()
             (wsl_root / "libcuda.so.1").write_text("", encoding="utf-8")
             (native_root / "libcuda.so.1").write_text("", encoding="utf-8")
+            (native_root / "libnvidia-ptxjitcompiler.so.1").write_text("", encoding="utf-8")
+            (native_root / "libnvidia-ml.so.1").write_text("", encoding="utf-8")
 
-            with self.assertRaisesRegex(ValueError, "cuda-toolkit-12-x"):
+            with self.assertRaisesRegex(ValueError, "libnvidia-ptxjitcompiler.so.1"):
                 _validate_wsl_driver_stack(
                     wsl_lib_root=wsl_root,
                     native_libcuda_root=native_root,

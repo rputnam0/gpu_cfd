@@ -25,6 +25,7 @@ binary_path="${build_dir}/validate_cuda_runtime"
 cuda_home="${CUDA_HOME:-$(cd "$(dirname "${nvcc_bin}")/.." && pwd)}"
 wsl_lib_dir="/usr/lib/wsl/lib"
 native_libcuda="/usr/lib/x86_64-linux-gnu/libcuda.so.1"
+native_driver_glob_root="/usr/lib/x86_64-linux-gnu"
 
 if [[ -e "${wsl_lib_dir}/libcuda.so.1" && -e "${native_libcuda}" ]]; then
   expand_cleanup_targets() {
@@ -80,11 +81,20 @@ if [[ -e "${wsl_lib_dir}/libcuda.so.1" && -e "${native_libcuda}" ]]; then
     '
   }
 
+  mapfile -t conflicting_driver_paths < <(
+    find "${native_driver_glob_root}" -maxdepth 1 \
+      \( -name 'libcuda.so' -o -name 'libcuda.so.1' -o -name 'libcuda.so.*' \
+         -o -name 'libnvidia-ml.so' -o -name 'libnvidia-ml.so.1' -o -name 'libnvidia-ml.so.*' \
+         -o -name 'libnvidia-ptxjitcompiler.so' -o -name 'libnvidia-ptxjitcompiler.so.1' -o -name 'libnvidia-ptxjitcompiler.so.*' \) \
+      -print 2>/dev/null | sort -u
+  )
   native_libcuda_real="$(readlink -f "${native_libcuda}" 2>/dev/null || printf '%s\n' "${native_libcuda}")"
   owner_packages="$(
     {
-      dpkg-query -S "${native_libcuda}" 2>/dev/null || true
-      dpkg-query -S "${native_libcuda_real}" 2>/dev/null || true
+      for conflicting_path in "${conflicting_driver_paths[@]}" "${native_libcuda_real}"; do
+        [[ -n "${conflicting_path}" ]] || continue
+        dpkg-query -S "${conflicting_path}" 2>/dev/null || true
+      done
     } | cut -d: -f1 | awk 'NF' | sort -u || true
   )"
   conflicting_packages="$(
@@ -96,6 +106,9 @@ if [[ -e "${wsl_lib_dir}/libcuda.so.1" && -e "${native_libcuda}" ]]; then
   )"
   echo "WSL host should not expose Linux display driver libraries at ${native_libcuda}." >&2
   echo "Remove the Linux display driver packages from WSL and rely on ${wsl_lib_dir}." >&2
+  if ((${#conflicting_driver_paths[@]} > 0)); then
+    echo "Conflicting Linux-side driver libraries: ${conflicting_driver_paths[*]}" >&2
+  fi
   if [[ -n "${owner_packages}" ]]; then
     mapfile -t cleanup_targets < <(expand_cleanup_targets ${owner_packages//$'\n'/ })
     echo "Installed Linux-side libcuda owner packages: ${owner_packages//$'\n'/, }" >&2

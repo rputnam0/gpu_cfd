@@ -20,6 +20,7 @@ CUDA probe runs. If `tools/bringup/env/run_cuda_probe.sh` prints a message like:
 ```text
 WSL host should not expose Linux display driver libraries at /usr/lib/x86_64-linux-gnu/libcuda.so.1.
 Remove the Linux display driver packages from WSL and rely on /usr/lib/wsl/lib.
+Conflicting Linux-side driver libraries: /usr/lib/x86_64-linux-gnu/libcuda.so /usr/lib/x86_64-linux-gnu/libcuda.so.1 /usr/lib/x86_64-linux-gnu/libcuda.so.535.288.01 /usr/lib/x86_64-linux-gnu/libnvidia-ml.so /usr/lib/x86_64-linux-gnu/libnvidia-ml.so.1 /usr/lib/x86_64-linux-gnu/libnvidia-ml.so.535.288.01 /usr/lib/x86_64-linux-gnu/libnvidia-ptxjitcompiler.so /usr/lib/x86_64-linux-gnu/libnvidia-ptxjitcompiler.so.1 /usr/lib/x86_64-linux-gnu/libnvidia-ptxjitcompiler.so.535.288.01
 Installed Linux-side libcuda owner packages: libnvidia-compute-535
 Example cleanup command: sudo apt remove --purge libnvidia-compute-535 libnvidia-compute-535-server
 Simulated apt fallout: libcuinj64-12.0, libnvidia-ml-dev, nsight-systems, nsight-systems-target, nvidia-cuda-dev, nvidia-cuda-toolkit, nvidia-profiler, nvidia-visual-profiler
@@ -28,8 +29,9 @@ Installed related CUDA toolkit packages: libcudart12:amd64, nvidia-cuda-dev:amd6
 ```
 
 then the distro is exposing native Linux NVIDIA driver libraries alongside the WSL
-driver shim. This is a host-configuration problem, not a Phase 1 artifact-parser
-problem.
+driver shim, including the PTX JIT compiler and NVML libraries that the `P1-07`
+acceptance lane depends on. This is a host-configuration problem, not a Phase 1
+artifact-parser problem.
 
 Expected remediation:
 

@@ -63,6 +63,17 @@ WSL_RELATED_PACKAGE_PATTERNS = (
     "nvidia-cuda-dev",
     "nvidia-cuda-toolkit",
 )
+WSL_NATIVE_DRIVER_LIBRARY_PATTERNS = (
+    "libcuda.so",
+    "libcuda.so.1",
+    "libcuda.so.*",
+    "libnvidia-ml.so",
+    "libnvidia-ml.so.1",
+    "libnvidia-ml.so.*",
+    "libnvidia-ptxjitcompiler.so",
+    "libnvidia-ptxjitcompiler.so.1",
+    "libnvidia-ptxjitcompiler.so.*",
+)
 
 
 @dataclass(frozen=True)
@@ -505,7 +516,7 @@ def _validate_wsl_driver_stack(
     conflicting_paths = sorted(
         {
             path.resolve().as_posix()
-            for pattern in ("libcuda.so", "libcuda.so.1", "libcuda.so.*")
+            for pattern in WSL_NATIVE_DRIVER_LIBRARY_PATTERNS
             for path in native_libcuda_root.glob(pattern)
             if path.is_file() or path.is_symlink()
         }
