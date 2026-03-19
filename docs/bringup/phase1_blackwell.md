@@ -112,6 +112,8 @@ tools/bringup/run/check_ptx_jit.sh \
 
 The wrapper forces `CUDA_FORCE_PTX_JIT=1`, reuses the audited `cubeLinear` smoke case,
 and writes `ptx_jit/` artifacts under the chosen artifact root.
+The emitted `ptx_jit_result.json` must stay traceable to the same reviewed tuple,
+runtime base, and primary toolkit lane as the canonical discovery manifests.
 
 ## Acceptance Bundle
 
@@ -153,6 +155,7 @@ Phase 1 acceptance is `PASS` only when all hard checks in the `P1-07` card succe
 - build metadata records `have_cuda=true` and `NVARCH=120`
 - fatbinary inspection proves native `sm_120` and retained PTX
 - the PTX-JIT run succeeds under `CUDA_FORCE_PTX_JIT=1`
+- `ptx_jit_result.json` is traceable to the same reviewed tuple, runtime base, and primary lane
 - all three Phase 1 smoke cases passed
 - Nsight Systems shows required NVTX ranges and GPU kernels
 - the UVM diagnostic trace is present and its activity is either clean or documented

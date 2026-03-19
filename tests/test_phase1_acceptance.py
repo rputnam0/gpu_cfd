@@ -199,6 +199,45 @@ def sample_nsys_result(mode: str) -> dict[str, object]:
     }
 
 
+def sample_ptx_jit_result(
+    bundle,
+    *,
+    case_name: str = "cubeLinear",
+    solver: str = "laplacianFoam",
+    status: str = "pass",
+    failure_reasons: list[str] | None = None,
+    success_criteria_overrides: dict[str, object] | None = None,
+) -> dict[str, object]:
+    pin_details = load_pin_details(bundle)
+    success_criteria = {
+        "audit_passed": True,
+        "fatbinary_smoke_gate_ready": True,
+        "required_outputs_present": True,
+        "no_nan_inf": True,
+    }
+    if success_criteria_overrides:
+        success_criteria.update(success_criteria_overrides)
+    return {
+        "schema_version": "1.0.0",
+        "canonical_name": PHASE1_PTX_JIT_RESULT_NAME,
+        "reviewed_source_tuple_id": pin_details.reviewed_source_tuple_id,
+        "runtime_base": pin_details.runtime_base,
+        "toolkit": {
+            "selected_lane": "primary",
+            "selected_lane_value": pin_details.primary_toolkit_lane,
+            "primary_lane": pin_details.primary_toolkit_lane,
+            "experimental_lane": pin_details.experimental_toolkit_lane,
+            "driver_floor": pin_details.driver_floor,
+        },
+        "case_name": case_name,
+        "solver": solver,
+        "status": status,
+        "failure_reasons": list(failure_reasons or []),
+        "environment": {"CUDA_FORCE_PTX_JIT": "1"},
+        "success_criteria": success_criteria,
+    }
+
+
 class Phase1AcceptanceTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls) -> None:
@@ -249,6 +288,9 @@ class Phase1AcceptanceTests(unittest.TestCase):
         self.assertEqual(result.result_json_path.name, PHASE1_PTX_JIT_RESULT_NAME)
         self.assertEqual(payload["status"], "pass")
         self.assertEqual(payload["environment"]["CUDA_FORCE_PTX_JIT"], "1")
+        self.assertEqual(payload["reviewed_source_tuple_id"], load_pin_details(self.bundle).reviewed_source_tuple_id)
+        self.assertEqual(payload["runtime_base"], load_pin_details(self.bundle).runtime_base)
+        self.assertEqual(payload["toolkit"]["selected_lane"], "primary")
         self.assertTrue(payload["success_criteria"]["fatbinary_smoke_gate_ready"])
         self.assertEqual([command[0][0] for command in commands], ["blockMesh", "laplacianFoam"])
         self.assertIn("/ptx_jit/cubeLinear/", result.result_json_path.as_posix())
@@ -307,21 +349,7 @@ class Phase1AcceptanceTests(unittest.TestCase):
             ]
             ptx_jit_result_path = write_json(
                 temp_root / "ptx_jit" / "cubeLinear" / PHASE1_PTX_JIT_RESULT_NAME,
-                {
-                    "schema_version": "1.0.0",
-                    "canonical_name": PHASE1_PTX_JIT_RESULT_NAME,
-                    "case_name": "cubeLinear",
-                    "solver": "laplacianFoam",
-                    "status": "pass",
-                    "failure_reasons": [],
-                    "environment": {"CUDA_FORCE_PTX_JIT": "1"},
-                    "success_criteria": {
-                        "audit_passed": True,
-                        "fatbinary_smoke_gate_ready": True,
-                        "required_outputs_present": True,
-                        "no_nan_inf": True,
-                    },
-                },
+                sample_ptx_jit_result(self.bundle),
             )
 
             report = build_phase1_acceptance_report(
@@ -395,21 +423,12 @@ class Phase1AcceptanceTests(unittest.TestCase):
             ]
             ptx_jit_result_path = write_json(
                 temp_root / PHASE1_PTX_JIT_RESULT_NAME,
-                {
-                    "schema_version": "1.0.0",
-                    "canonical_name": PHASE1_PTX_JIT_RESULT_NAME,
-                    "case_name": "cubeLinear",
-                    "solver": "laplacianFoam",
-                    "status": "fail",
-                    "failure_reasons": ["ptx_jit_command_failed"],
-                    "environment": {"CUDA_FORCE_PTX_JIT": "1"},
-                    "success_criteria": {
-                        "audit_passed": True,
-                        "fatbinary_smoke_gate_ready": True,
-                        "required_outputs_present": True,
-                        "no_nan_inf": False,
-                    },
-                },
+                sample_ptx_jit_result(
+                    self.bundle,
+                    status="fail",
+                    failure_reasons=["ptx_jit_command_failed"],
+                    success_criteria_overrides={"no_nan_inf": False},
+                ),
             )
 
             report = build_phase1_acceptance_report(
@@ -502,21 +521,7 @@ class Phase1AcceptanceTests(unittest.TestCase):
             ]
             ptx_jit_result_path = write_json(
                 temp_root / "ptx_jit" / "cubeLinear" / PHASE1_PTX_JIT_RESULT_NAME,
-                {
-                    "schema_version": "1.0.0",
-                    "canonical_name": PHASE1_PTX_JIT_RESULT_NAME,
-                    "case_name": "cubeLinear",
-                    "solver": "laplacianFoam",
-                    "status": "pass",
-                    "failure_reasons": [],
-                    "environment": {"CUDA_FORCE_PTX_JIT": "1"},
-                    "success_criteria": {
-                        "audit_passed": True,
-                        "fatbinary_smoke_gate_ready": True,
-                        "required_outputs_present": True,
-                        "no_nan_inf": True,
-                    },
-                },
+                sample_ptx_jit_result(self.bundle),
             )
 
             report = build_phase1_acceptance_report(
@@ -569,21 +574,7 @@ class Phase1AcceptanceTests(unittest.TestCase):
             ]
             ptx_jit_result_path = write_json(
                 temp_root / PHASE1_PTX_JIT_RESULT_NAME,
-                {
-                    "schema_version": "1.0.0",
-                    "canonical_name": PHASE1_PTX_JIT_RESULT_NAME,
-                    "case_name": "cubeLinear",
-                    "solver": "laplacianFoam",
-                    "status": "pass",
-                    "failure_reasons": [],
-                    "environment": {"CUDA_FORCE_PTX_JIT": "1"},
-                    "success_criteria": {
-                        "audit_passed": True,
-                        "fatbinary_smoke_gate_ready": True,
-                        "required_outputs_present": True,
-                        "no_nan_inf": True,
-                    },
-                },
+                sample_ptx_jit_result(self.bundle),
             )
 
             report = build_phase1_acceptance_report(
@@ -642,21 +633,7 @@ class Phase1AcceptanceTests(unittest.TestCase):
             ]
             ptx_jit_result_path = write_json(
                 temp_root / PHASE1_PTX_JIT_RESULT_NAME,
-                {
-                    "schema_version": "1.0.0",
-                    "canonical_name": PHASE1_PTX_JIT_RESULT_NAME,
-                    "case_name": "cubeLinear",
-                    "solver": "laplacianFoam",
-                    "status": "pass",
-                    "failure_reasons": [],
-                    "environment": {"CUDA_FORCE_PTX_JIT": "1"},
-                    "success_criteria": {
-                        "audit_passed": True,
-                        "fatbinary_smoke_gate_ready": True,
-                        "required_outputs_present": True,
-                        "no_nan_inf": True,
-                    },
-                },
+                sample_ptx_jit_result(self.bundle),
             )
 
             report = build_phase1_acceptance_report(
@@ -717,21 +694,7 @@ class Phase1AcceptanceTests(unittest.TestCase):
             ]
             ptx_jit_result_path = write_json(
                 temp_root / PHASE1_PTX_JIT_RESULT_NAME,
-                {
-                    "schema_version": "1.0.0",
-                    "canonical_name": PHASE1_PTX_JIT_RESULT_NAME,
-                    "case_name": "cubeLinear",
-                    "solver": "laplacianFoam",
-                    "status": "pass",
-                    "failure_reasons": [],
-                    "environment": {"CUDA_FORCE_PTX_JIT": "1"},
-                    "success_criteria": {
-                        "audit_passed": True,
-                        "fatbinary_smoke_gate_ready": True,
-                        "required_outputs_present": True,
-                        "no_nan_inf": True,
-                    },
-                },
+                sample_ptx_jit_result(self.bundle),
             )
 
             report = build_phase1_acceptance_report(
@@ -790,21 +753,7 @@ class Phase1AcceptanceTests(unittest.TestCase):
             ]
             ptx_jit_result_path = write_json(
                 temp_root / PHASE1_PTX_JIT_RESULT_NAME,
-                {
-                    "schema_version": "1.0.0",
-                    "canonical_name": PHASE1_PTX_JIT_RESULT_NAME,
-                    "case_name": "cubeLinear",
-                    "solver": "laplacianFoam",
-                    "status": "pass",
-                    "failure_reasons": [],
-                    "environment": {"CUDA_FORCE_PTX_JIT": "1"},
-                    "success_criteria": {
-                        "audit_passed": True,
-                        "fatbinary_smoke_gate_ready": True,
-                        "required_outputs_present": True,
-                        "no_nan_inf": True,
-                    },
-                },
+                sample_ptx_jit_result(self.bundle),
             )
 
             report = build_phase1_acceptance_report(
@@ -863,21 +812,7 @@ class Phase1AcceptanceTests(unittest.TestCase):
             ]
             ptx_jit_result_path = write_json(
                 temp_root / PHASE1_PTX_JIT_RESULT_NAME,
-                {
-                    "schema_version": "1.0.0",
-                    "canonical_name": PHASE1_PTX_JIT_RESULT_NAME,
-                    "case_name": "cubeLinear",
-                    "solver": "laplacianFoam",
-                    "status": "pass",
-                    "failure_reasons": [],
-                    "environment": {"CUDA_FORCE_PTX_JIT": "1"},
-                    "success_criteria": {
-                        "audit_passed": True,
-                        "fatbinary_smoke_gate_ready": True,
-                        "required_outputs_present": True,
-                        "no_nan_inf": True,
-                    },
-                },
+                sample_ptx_jit_result(self.bundle),
             )
 
             report = build_phase1_acceptance_report(
@@ -941,21 +876,7 @@ class Phase1AcceptanceTests(unittest.TestCase):
             ]
             ptx_jit_result_path = write_json(
                 temp_root / PHASE1_PTX_JIT_RESULT_NAME,
-                {
-                    "schema_version": "1.0.0",
-                    "canonical_name": PHASE1_PTX_JIT_RESULT_NAME,
-                    "case_name": "cubeLinear",
-                    "solver": "laplacianFoam",
-                    "status": "pass",
-                    "failure_reasons": [],
-                    "environment": {"CUDA_FORCE_PTX_JIT": "1"},
-                    "success_criteria": {
-                        "audit_passed": True,
-                        "fatbinary_smoke_gate_ready": True,
-                        "required_outputs_present": True,
-                        "no_nan_inf": True,
-                    },
-                },
+                sample_ptx_jit_result(self.bundle),
             )
 
             report = build_phase1_acceptance_report(
@@ -1013,21 +934,7 @@ class Phase1AcceptanceTests(unittest.TestCase):
             ]
             ptx_jit_result_path = write_json(
                 temp_root / PHASE1_PTX_JIT_RESULT_NAME,
-                {
-                    "schema_version": "1.0.0",
-                    "canonical_name": PHASE1_PTX_JIT_RESULT_NAME,
-                    "case_name": "cubeLinear",
-                    "solver": "laplacianFoam",
-                    "status": "pass",
-                    "failure_reasons": [],
-                    "environment": {"CUDA_FORCE_PTX_JIT": "1"},
-                    "success_criteria": {
-                        "audit_passed": True,
-                        "fatbinary_smoke_gate_ready": True,
-                        "required_outputs_present": True,
-                        "no_nan_inf": True,
-                    },
-                },
+                sample_ptx_jit_result(self.bundle),
             )
 
             report = build_phase1_acceptance_report(
@@ -1085,21 +992,7 @@ class Phase1AcceptanceTests(unittest.TestCase):
             ]
             ptx_jit_result_path = write_json(
                 temp_root / PHASE1_PTX_JIT_RESULT_NAME,
-                {
-                    "schema_version": "1.0.0",
-                    "canonical_name": PHASE1_PTX_JIT_RESULT_NAME,
-                    "case_name": "cubeLinear",
-                    "solver": "laplacianFoam",
-                    "status": "pass",
-                    "failure_reasons": [],
-                    "environment": {"CUDA_FORCE_PTX_JIT": "1"},
-                    "success_criteria": {
-                        "audit_passed": True,
-                        "fatbinary_smoke_gate_ready": True,
-                        "required_outputs_present": True,
-                        "no_nan_inf": True,
-                    },
-                },
+                sample_ptx_jit_result(self.bundle),
             )
 
             report = build_phase1_acceptance_report(
@@ -1154,21 +1047,7 @@ class Phase1AcceptanceTests(unittest.TestCase):
             ]
             ptx_jit_result_path = write_json(
                 temp_root / PHASE1_PTX_JIT_RESULT_NAME,
-                {
-                    "schema_version": "1.0.0",
-                    "canonical_name": PHASE1_PTX_JIT_RESULT_NAME,
-                    "case_name": "channelTransient",
-                    "solver": "pimpleFoam",
-                    "status": "pass",
-                    "failure_reasons": [],
-                    "environment": {"CUDA_FORCE_PTX_JIT": "1"},
-                    "success_criteria": {
-                        "audit_passed": True,
-                        "fatbinary_smoke_gate_ready": True,
-                        "required_outputs_present": True,
-                        "no_nan_inf": True,
-                    },
-                },
+                sample_ptx_jit_result(self.bundle, case_name="channelTransient", solver="pimpleFoam"),
             )
 
             report = build_phase1_acceptance_report(
@@ -1189,6 +1068,67 @@ class Phase1AcceptanceTests(unittest.TestCase):
 
         self.assertEqual(payload["status"], "FAIL")
         self.assertIn("ptx_jit_matches_required_case", payload["failing_gate_ids"])
+
+    def test_build_phase1_acceptance_report_requires_ptx_jit_to_match_primary_tuple(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_root = pathlib.Path(temp_dir)
+            docs_path = temp_root / "docs" / "bringup" / "phase1_blackwell.md"
+            docs_path.parent.mkdir(parents=True, exist_ok=True)
+            docs_path.write_text("# Phase 1 Blackwell bring-up\n", encoding="utf-8")
+
+            stale_ptx_jit = sample_ptx_jit_result(self.bundle)
+            stale_ptx_jit["reviewed_source_tuple_id"] = "STALE_TUPLE"
+            stale_ptx_jit["runtime_base"] = "stale/runtime"
+            stale_ptx_jit["toolkit"]["selected_lane"] = "experimental"
+            stale_ptx_jit["toolkit"]["selected_lane_value"] = load_pin_details(self.bundle).experimental_toolkit_lane
+
+            host_env_path = write_json(temp_root / "host_env.json", sample_host_env(self.bundle))
+            manifest_refs_path = write_json(
+                temp_root / "manifest_refs.json",
+                sample_manifest_refs(self.bundle),
+            )
+            cuda_probe_path = write_json(temp_root / "cuda_probe.json", sample_cuda_probe())
+            build_metadata_path = write_json(
+                temp_root / "build_metadata.json",
+                sample_build_metadata(self.bundle, build_log=(temp_root / "build.log").as_posix()),
+            )
+            fatbinary_report_path = write_json(temp_root / "fatbinary_report.json", sample_fatbinary_report())
+            smoke_result_paths = [
+                write_json(temp_root / "cubeLinear.json", sample_smoke_result("cubeLinear", "laplacianFoam")),
+                write_json(temp_root / "channelSteady.json", sample_smoke_result("channelSteady", "simpleFoam")),
+                write_json(
+                    temp_root / "channelTransient.json",
+                    sample_smoke_result("channelTransient", "pimpleFoam"),
+                ),
+            ]
+            memcheck_result_path = write_json(temp_root / "memcheck_result.json", sample_memcheck_result())
+            nsys_result_paths = [
+                write_json(temp_root / "basic.json", sample_nsys_result("basic")),
+                write_json(temp_root / "um_fault.json", sample_nsys_result("um_fault")),
+            ]
+            ptx_jit_result_path = write_json(
+                temp_root / PHASE1_PTX_JIT_RESULT_NAME,
+                stale_ptx_jit,
+            )
+
+            report = build_phase1_acceptance_report(
+                self.bundle,
+                output_dir=temp_root / "acceptance",
+                host_env_path=host_env_path,
+                manifest_refs_path=manifest_refs_path,
+                cuda_probe_path=cuda_probe_path,
+                build_metadata_path=build_metadata_path,
+                fatbinary_report_path=fatbinary_report_path,
+                smoke_result_paths=smoke_result_paths,
+                memcheck_result_path=memcheck_result_path,
+                nsys_result_paths=nsys_result_paths,
+                ptx_jit_result_path=ptx_jit_result_path,
+                bringup_doc_path=docs_path,
+            )
+            payload = json.loads(report.json_path.read_text(encoding="utf-8"))
+
+        self.assertEqual(payload["status"], "FAIL")
+        self.assertIn("ptx_jit_traceable", payload["failing_gate_ids"])
 
 
 if __name__ == "__main__":

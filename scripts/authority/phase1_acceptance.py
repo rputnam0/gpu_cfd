@@ -73,6 +73,7 @@ def run_phase1_ptx_jit(
     command_runner: Callable[..., int] | None = None,
 ) -> Phase1PtxJitRunResult:
     resolved_root = repo_root(pathlib.Path(root) if root is not None else None)
+    pin_details = load_pin_details(bundle)
     audit_report = scan_phase1_smoke_case(bundle, case_name=case_name, root=resolved_root)
     case_definition = _definition_by_name(case_name)
 
@@ -99,6 +100,7 @@ def run_phase1_ptx_jit(
         if not fatbinary_ready:
             failure_reasons.append("fatbinary_smoke_gate_not_ready")
         payload = _build_ptx_jit_payload(
+            pin_details=pin_details,
             case_name=case_name,
             solver=case_definition.solver,
             scratch_case_dir=scratch_case_dir,
@@ -178,6 +180,7 @@ def run_phase1_ptx_jit(
     )
     status = "pass" if not failure_reasons else "fail"
     payload = _build_ptx_jit_payload(
+        pin_details=pin_details,
         case_name=case_name,
         solver=case_definition.solver,
         scratch_case_dir=scratch_case_dir,
@@ -470,6 +473,30 @@ def build_phase1_acceptance_report(
             },
             evidence=resolved_paths["ptx_jit_result"].as_posix(),
         ),
+        "ptx_jit_traceable": _gate_result(
+            label="PTX-JIT evidence matches the reviewed tuple, runtime base, and primary lane",
+            passed=(
+                ptx_jit_result.get("reviewed_source_tuple_id") == manifest_refs.get("reviewed_source_tuple_id")
+                and ptx_jit_result.get("reviewed_source_tuple_id") == pin_details.reviewed_source_tuple_id
+                and ptx_jit_result.get("runtime_base") == manifest_refs.get("runtime_base")
+                and ptx_jit_result.get("runtime_base") == pin_details.runtime_base
+                and _nested_value(ptx_jit_result, "toolkit", "selected_lane") == "primary"
+                and _nested_value(ptx_jit_result, "toolkit", "selected_lane_value") == pin_details.primary_toolkit_lane
+            ),
+            expected={
+                "reviewed_source_tuple_id": pin_details.reviewed_source_tuple_id,
+                "runtime_base": pin_details.runtime_base,
+                "selected_lane": "primary",
+                "selected_lane_value": pin_details.primary_toolkit_lane,
+            },
+            observed={
+                "reviewed_source_tuple_id": ptx_jit_result.get("reviewed_source_tuple_id"),
+                "runtime_base": ptx_jit_result.get("runtime_base"),
+                "selected_lane": _nested_value(ptx_jit_result, "toolkit", "selected_lane"),
+                "selected_lane_value": _nested_value(ptx_jit_result, "toolkit", "selected_lane_value"),
+            },
+            evidence=resolved_paths["ptx_jit_result"].as_posix(),
+        ),
         "laplacian_smoke_passes": _smoke_gate(
             smoke_results.get("cubeLinear"),
             label="laplacianFoam smoke case passes",
@@ -738,6 +765,7 @@ def _build_ptx_jit_failure_reasons(
 
 def _build_ptx_jit_payload(
     *,
+    pin_details: Any,
     case_name: str,
     solver: str,
     scratch_case_dir: pathlib.Path,
@@ -757,6 +785,15 @@ def _build_ptx_jit_payload(
     return {
         "schema_version": MANIFEST_SCHEMA_VERSION,
         "canonical_name": PHASE1_PTX_JIT_RESULT_NAME,
+        "reviewed_source_tuple_id": pin_details.reviewed_source_tuple_id,
+        "runtime_base": pin_details.runtime_base,
+        "toolkit": {
+            "selected_lane": "primary",
+            "selected_lane_value": pin_details.primary_toolkit_lane,
+            "primary_lane": pin_details.primary_toolkit_lane,
+            "experimental_lane": pin_details.experimental_toolkit_lane,
+            "driver_floor": pin_details.driver_floor,
+        },
         "case_name": case_name,
         "solver": solver,
         "status": status,
