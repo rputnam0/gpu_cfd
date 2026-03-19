@@ -617,6 +617,14 @@ class Phase1AcceptanceTests(unittest.TestCase):
             "nsight_systems/um_fault/channelTransient/trace.sqlite",
         )
         self.assertEqual(
+            payload["artifact_paths"]["nsys_supporting_artifacts"]["basic"]["summary"],
+            nsys_result_paths[0].parent.joinpath("nsys_profile_summary.txt").as_posix(),
+        )
+        self.assertEqual(
+            payload["artifact_paths"]["nsys_supporting_artifacts"]["um_fault"]["nvtx_report"],
+            nsys_result_paths[1].parent.joinpath("nvtx_range_report.json").as_posix(),
+        )
+        self.assertEqual(
             payload["artifact_paths"]["smoke_logs"]["cubeLinear"]["laplacianFoam"],
             "smoke/cubeLinear/02_laplacianFoam.log",
         )
@@ -657,6 +665,10 @@ class Phase1AcceptanceTests(unittest.TestCase):
             "nsight_systems/basic/channelTransient/trace.nsys-rep",
         )
         self.assertEqual(
+            bundle_index["supporting_artifacts"]["nsys_supporting_artifacts"]["basic"]["summary"],
+            nsys_result_paths[0].parent.joinpath("nsys_profile_summary.txt").as_posix(),
+        )
+        self.assertEqual(
             bundle_index["supporting_artifacts"]["smoke_logs"]["channelSteady"]["simpleFoam"],
             "smoke/channelSteady/02_simpleFoam.log",
         )
@@ -695,6 +707,8 @@ class Phase1AcceptanceTests(unittest.TestCase):
         self.assertIn("compute_sanitizer/cubeLinear/memcheck.log", markdown)
         self.assertIn("nsight_systems/basic/channelTransient/trace.nsys-rep", markdown)
         self.assertIn("nsight_systems/um_fault/channelTransient/trace.sqlite", markdown)
+        self.assertIn(nsys_result_paths[0].parent.joinpath("nsys_profile_summary.txt").as_posix(), markdown)
+        self.assertIn(nsys_result_paths[1].parent.joinpath("nvtx_range_report.json").as_posix(), markdown)
         self.assertIn("smoke/cubeLinear/02_laplacianFoam.log", markdown)
         self.assertIn("smoke/channelSteady/02_simpleFoam.log", markdown)
         self.assertIn("smoke/channelTransient/02_pimpleFoam.log", markdown)

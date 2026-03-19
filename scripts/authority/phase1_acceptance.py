@@ -818,6 +818,12 @@ def build_phase1_acceptance_report(
                 )
                 for item in smoke_result_paths
             },
+            "nsys_supporting_artifacts": {
+                str((_read_json(pathlib.Path(item)).get("profile_mode") or pathlib.Path(item).stem)): _nsys_supporting_artifacts(
+                    pathlib.Path(item)
+                )
+                for item in nsys_result_paths
+            },
             "nsys_trace_artifacts": {
                 str((_read_json(pathlib.Path(item)).get("profile_mode") or pathlib.Path(item).stem)): _trace_artifacts(
                     _read_json(pathlib.Path(item))
@@ -869,6 +875,7 @@ def build_phase1_acceptance_report(
             "ptx_jit_logs": payload["artifact_paths"]["ptx_jit_logs"],
             "memcheck_logs": payload["artifact_paths"]["memcheck_logs"],
             "smoke_logs": payload["artifact_paths"]["smoke_logs"],
+            "nsys_supporting_artifacts": payload["artifact_paths"]["nsys_supporting_artifacts"],
             "nsys_trace_artifacts": payload["artifact_paths"]["nsys_trace_artifacts"],
         },
         "outputs": {
@@ -1295,6 +1302,18 @@ def _render_acceptance_markdown(payload: Mapping[str, Any]) -> str:
                 "",
             ]
         )
+    nsys_supporting_artifacts = payload["artifact_paths"]["nsys_supporting_artifacts"]
+    if nsys_supporting_artifacts:
+        lines.extend(
+            [
+                "### Nsight Supporting Artifacts",
+                "",
+            ]
+        )
+        for profile_mode, artifacts in nsys_supporting_artifacts.items():
+            lines.append(f"- `{profile_mode}` summary: `{artifacts.get('summary')}`")
+            lines.append(f"- `{profile_mode}` NVTX report: `{artifacts.get('nvtx_report')}`")
+        lines.append("")
     ptx_jit_logs = payload["artifact_paths"]["ptx_jit_logs"]
     if ptx_jit_logs:
         lines.extend(
@@ -1435,6 +1454,14 @@ def _fatbinary_artifacts(payload: Mapping[str, Any]) -> dict[str, str]:
         key: str(value)
         for key, value in artifacts.items()
         if key != "report" and value
+    }
+
+
+def _nsys_supporting_artifacts(result_path: pathlib.Path) -> dict[str, str]:
+    parent = result_path.parent
+    return {
+        "summary": (parent / "nsys_profile_summary.txt").as_posix(),
+        "nvtx_report": (parent / "nvtx_range_report.json").as_posix(),
     }
 
 
