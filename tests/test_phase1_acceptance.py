@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 import pathlib
 import subprocess
 import tempfile
@@ -305,6 +306,78 @@ def sample_ptx_jit_result(
         "failure_reasons": list(failure_reasons or []),
         "environment": {"CUDA_FORCE_PTX_JIT": "1"},
         "success_criteria": success_criteria,
+    }
+
+
+def create_phase1_acceptance_inputs(
+    temp_root: pathlib.Path,
+    bundle,
+) -> dict[str, object]:
+    docs_path = temp_root / "docs" / "bringup" / "phase1_blackwell.md"
+    docs_path.parent.mkdir(parents=True, exist_ok=True)
+    docs_path.write_text("# Phase 1 Blackwell bring-up\n", encoding="utf-8")
+
+    host_env_path = write_json(temp_root / "discovery" / "host_env.json", sample_host_env(bundle))
+    manifest_refs_path = write_json(
+        temp_root / "discovery" / "manifest_refs.json",
+        sample_manifest_refs(bundle),
+    )
+    cuda_probe_path = write_json(
+        temp_root / "discovery" / "cuda_probe.json",
+        sample_cuda_probe(bundle),
+    )
+    build_metadata_path = write_json(
+        temp_root / "build" / "build_metadata.json",
+        sample_build_metadata(bundle, build_log=(temp_root / "build" / "build.log").as_posix()),
+    )
+    fatbinary_report_path = write_json(
+        temp_root / "build" / "fatbinary_report.json",
+        sample_fatbinary_report(bundle),
+    )
+    smoke_result_paths = [
+        write_json(
+            temp_root / "smoke" / "cubeLinear.json",
+            sample_smoke_result("cubeLinear", "laplacianFoam", bundle),
+        ),
+        write_json(
+            temp_root / "smoke" / "channelSteady.json",
+            sample_smoke_result("channelSteady", "simpleFoam", bundle),
+        ),
+        write_json(
+            temp_root / "smoke" / "channelTransient.json",
+            sample_smoke_result("channelTransient", "pimpleFoam", bundle),
+        ),
+    ]
+    memcheck_result_path = write_json(
+        temp_root / "compute_sanitizer" / "memcheck_result.json",
+        sample_memcheck_result(bundle),
+    )
+    nsys_result_paths = [
+        write_json(
+            temp_root / "nsight_systems" / "basic.json",
+            sample_nsys_result("basic", bundle),
+        ),
+        write_json(
+            temp_root / "nsight_systems" / "um_fault.json",
+            sample_nsys_result("um_fault", bundle),
+        ),
+    ]
+    ptx_jit_result_path = write_json(
+        temp_root / "ptx_jit" / PHASE1_PTX_JIT_RESULT_NAME,
+        sample_ptx_jit_result(bundle),
+    )
+
+    return {
+        "docs_path": docs_path,
+        "host_env_path": host_env_path,
+        "manifest_refs_path": manifest_refs_path,
+        "cuda_probe_path": cuda_probe_path,
+        "build_metadata_path": build_metadata_path,
+        "fatbinary_report_path": fatbinary_report_path,
+        "smoke_result_paths": smoke_result_paths,
+        "memcheck_result_path": memcheck_result_path,
+        "nsys_result_paths": nsys_result_paths,
+        "ptx_jit_result_path": ptx_jit_result_path,
     }
 
 
@@ -2026,6 +2099,161 @@ class Phase1AcceptanceTests(unittest.TestCase):
 
         self.assertEqual(completed.returncode, 0, completed.stderr)
         self.assertIn("ptx-jit-result-json", completed.stdout)
+
+    def test_check_ptx_jit_wrapper_executes_real_ptx_jit_flow_with_fake_solver_binaries(self) -> None:
+        repo = repo_root()
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_root = pathlib.Path(temp_dir)
+            bin_dir = temp_root / "bin"
+            bin_dir.mkdir(parents=True, exist_ok=True)
+
+            block_mesh_path = bin_dir / "blockMesh"
+            block_mesh_path.write_text(
+                "#!/usr/bin/env bash\nset -euo pipefail\nmkdir -p constant/polyMesh\necho Created mesh\n",
+                encoding="utf-8",
+            )
+            block_mesh_path.chmod(0o755)
+
+            solver_path = bin_dir / "laplacianFoam"
+            solver_path.write_text(
+                "#!/usr/bin/env bash\nset -euo pipefail\nmkdir -p 0.1\nprintf '0\\n' > 0.1/T\necho PTX JIT run complete\n",
+                encoding="utf-8",
+            )
+            solver_path.chmod(0o755)
+
+            fatbinary_report_path = write_json(
+                temp_root / "build" / "fatbinary_report.json",
+                sample_fatbinary_report(self.bundle),
+            )
+            artifact_root = temp_root / "artifacts"
+            scratch_root = temp_root / "scratch"
+            env = dict(os.environ)
+            env["PATH"] = str(bin_dir) + os.pathsep + env["PATH"]
+
+            completed = subprocess.run(
+                [
+                    str(repo / "tools" / "bringup" / "run" / "check_ptx_jit.sh"),
+                    "--artifact-root",
+                    str(artifact_root),
+                    "--scratch-root",
+                    str(scratch_root),
+                    "--fatbinary-report",
+                    str(fatbinary_report_path),
+                ],
+                cwd=repo,
+                env=env,
+                text=True,
+                capture_output=True,
+                check=False,
+            )
+
+            result_path = artifact_root / "ptx_jit" / "cubeLinear" / PHASE1_PTX_JIT_RESULT_NAME
+            payload = json.loads(result_path.read_text(encoding="utf-8"))
+
+        self.assertEqual(completed.returncode, 0, completed.stderr)
+        self.assertEqual(pathlib.Path(completed.stdout.strip()), result_path)
+        self.assertEqual(payload["status"], "pass")
+        self.assertEqual(payload["environment"]["CUDA_FORCE_PTX_JIT"], "1")
+        self.assertEqual([command["command"][0] for command in payload["command_results"]], ["blockMesh", "laplacianFoam"])
+
+    def test_run_phase1_acceptance_wrapper_builds_bundle_from_synthetic_artifacts(self) -> None:
+        repo = repo_root()
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_root = pathlib.Path(temp_dir)
+            inputs = create_phase1_acceptance_inputs(temp_root, self.bundle)
+            output_dir = temp_root / "acceptance"
+            command = [
+                str(repo / "tools" / "bringup" / "run" / "run_phase1_acceptance.sh"),
+                "--output-dir",
+                str(output_dir),
+                "--host-env-json",
+                str(inputs["host_env_path"]),
+                "--manifest-refs-json",
+                str(inputs["manifest_refs_path"]),
+                "--cuda-probe-json",
+                str(inputs["cuda_probe_path"]),
+                "--build-metadata-json",
+                str(inputs["build_metadata_path"]),
+                "--fatbinary-report-json",
+                str(inputs["fatbinary_report_path"]),
+                "--memcheck-result-json",
+                str(inputs["memcheck_result_path"]),
+                "--ptx-jit-result-json",
+                str(inputs["ptx_jit_result_path"]),
+                "--bringup-doc",
+                str(inputs["docs_path"]),
+            ]
+            for path in inputs["smoke_result_paths"]:
+                command.extend(["--smoke-result", str(path)])
+            for path in inputs["nsys_result_paths"]:
+                command.extend(["--nsys-result", str(path)])
+
+            completed = subprocess.run(
+                command,
+                cwd=repo,
+                text=True,
+                capture_output=True,
+                check=False,
+            )
+
+            report_path = output_dir / PHASE1_ACCEPTANCE_REPORT_NAME
+            payload = json.loads(report_path.read_text(encoding="utf-8"))
+
+        self.assertEqual(completed.returncode, 0, completed.stderr)
+        self.assertEqual(pathlib.Path(completed.stdout.strip()), report_path)
+        self.assertEqual(payload["status"], "PASS")
+        self.assertEqual(payload["disposition"], "pass")
+
+    def test_legacy_acceptance_gate_shim_builds_bundle_from_synthetic_artifacts(self) -> None:
+        repo = repo_root()
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_root = pathlib.Path(temp_dir)
+            inputs = create_phase1_acceptance_inputs(temp_root, self.bundle)
+            output_dir = temp_root / "acceptance"
+            command = [
+                str(repo / "tools" / "bringup" / "python" / "acceptance_gate.py"),
+                "--output-dir",
+                str(output_dir),
+                "--host-env-json",
+                str(inputs["host_env_path"]),
+                "--manifest-refs-json",
+                str(inputs["manifest_refs_path"]),
+                "--cuda-probe-json",
+                str(inputs["cuda_probe_path"]),
+                "--build-metadata-json",
+                str(inputs["build_metadata_path"]),
+                "--fatbinary-report-json",
+                str(inputs["fatbinary_report_path"]),
+                "--memcheck-result-json",
+                str(inputs["memcheck_result_path"]),
+                "--ptx-jit-result-json",
+                str(inputs["ptx_jit_result_path"]),
+                "--bringup-doc",
+                str(inputs["docs_path"]),
+            ]
+            for path in inputs["smoke_result_paths"]:
+                command.extend(["--smoke-result", str(path)])
+            for path in inputs["nsys_result_paths"]:
+                command.extend(["--nsys-result", str(path)])
+
+            completed = subprocess.run(
+                command,
+                cwd=repo,
+                text=True,
+                capture_output=True,
+                check=False,
+            )
+
+            report_path = output_dir / PHASE1_ACCEPTANCE_REPORT_NAME
+            payload = json.loads(report_path.read_text(encoding="utf-8"))
+
+        self.assertEqual(completed.returncode, 0, completed.stderr)
+        self.assertEqual(pathlib.Path(completed.stdout.strip()), report_path)
+        self.assertEqual(payload["status"], "PASS")
+        self.assertEqual(payload["disposition"], "pass")
 
 
 if __name__ == "__main__":
