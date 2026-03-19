@@ -2157,6 +2157,45 @@ class Phase1AcceptanceTests(unittest.TestCase):
         self.assertEqual(payload["environment"]["CUDA_FORCE_PTX_JIT"], "1")
         self.assertEqual([command["command"][0] for command in payload["command_results"]], ["blockMesh", "laplacianFoam"])
 
+    def test_check_ptx_jit_wrapper_returns_non_zero_when_fatbinary_gate_is_not_ready(self) -> None:
+        repo = repo_root()
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_root = pathlib.Path(temp_dir)
+            fatbinary_report = sample_fatbinary_report(self.bundle)
+            fatbinary_report["smoke_gate_ready"] = False
+            fatbinary_report["ptx_present"] = False
+            fatbinary_report_path = write_json(
+                temp_root / "build" / "fatbinary_report.json",
+                fatbinary_report,
+            )
+            artifact_root = temp_root / "artifacts"
+            scratch_root = temp_root / "scratch"
+
+            completed = subprocess.run(
+                [
+                    str(repo / "tools" / "bringup" / "run" / "check_ptx_jit.sh"),
+                    "--artifact-root",
+                    str(artifact_root),
+                    "--scratch-root",
+                    str(scratch_root),
+                    "--fatbinary-report",
+                    str(fatbinary_report_path),
+                ],
+                cwd=repo,
+                text=True,
+                capture_output=True,
+                check=False,
+            )
+
+            result_path = artifact_root / "ptx_jit" / "cubeLinear" / PHASE1_PTX_JIT_RESULT_NAME
+            payload = json.loads(result_path.read_text(encoding="utf-8"))
+
+        self.assertEqual(completed.returncode, 1, completed.stderr)
+        self.assertEqual(pathlib.Path(completed.stdout.strip()), result_path)
+        self.assertEqual(payload["status"], "fail")
+        self.assertIn("fatbinary_smoke_gate_not_ready", payload["failure_reasons"])
+
     def test_run_phase1_acceptance_wrapper_builds_bundle_from_synthetic_artifacts(self) -> None:
         repo = repo_root()
 
@@ -2206,6 +2245,62 @@ class Phase1AcceptanceTests(unittest.TestCase):
         self.assertEqual(payload["status"], "PASS")
         self.assertEqual(payload["disposition"], "pass")
 
+    def test_run_phase1_acceptance_wrapper_returns_non_zero_for_failed_bundle(self) -> None:
+        repo = repo_root()
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_root = pathlib.Path(temp_dir)
+            inputs = create_phase1_acceptance_inputs(temp_root, self.bundle)
+            failing_ptx = sample_ptx_jit_result(
+                self.bundle,
+                status="fail",
+                failure_reasons=["ptx_jit_command_failed"],
+                success_criteria_overrides={"no_nan_inf": False},
+            )
+            write_json(pathlib.Path(inputs["ptx_jit_result_path"]), failing_ptx)
+            output_dir = temp_root / "acceptance"
+            command = [
+                str(repo / "tools" / "bringup" / "run" / "run_phase1_acceptance.sh"),
+                "--output-dir",
+                str(output_dir),
+                "--host-env-json",
+                str(inputs["host_env_path"]),
+                "--manifest-refs-json",
+                str(inputs["manifest_refs_path"]),
+                "--cuda-probe-json",
+                str(inputs["cuda_probe_path"]),
+                "--build-metadata-json",
+                str(inputs["build_metadata_path"]),
+                "--fatbinary-report-json",
+                str(inputs["fatbinary_report_path"]),
+                "--memcheck-result-json",
+                str(inputs["memcheck_result_path"]),
+                "--ptx-jit-result-json",
+                str(inputs["ptx_jit_result_path"]),
+                "--bringup-doc",
+                str(inputs["docs_path"]),
+            ]
+            for path in inputs["smoke_result_paths"]:
+                command.extend(["--smoke-result", str(path)])
+            for path in inputs["nsys_result_paths"]:
+                command.extend(["--nsys-result", str(path)])
+
+            completed = subprocess.run(
+                command,
+                cwd=repo,
+                text=True,
+                capture_output=True,
+                check=False,
+            )
+
+            report_path = output_dir / PHASE1_ACCEPTANCE_REPORT_NAME
+            payload = json.loads(report_path.read_text(encoding="utf-8"))
+
+        self.assertEqual(completed.returncode, 1, completed.stderr)
+        self.assertEqual(pathlib.Path(completed.stdout.strip()), report_path)
+        self.assertEqual(payload["status"], "FAIL")
+        self.assertIn("ptx_jit_succeeds", payload["failing_gate_ids"])
+
     def test_legacy_acceptance_gate_shim_builds_bundle_from_synthetic_artifacts(self) -> None:
         repo = repo_root()
 
@@ -2254,6 +2349,62 @@ class Phase1AcceptanceTests(unittest.TestCase):
         self.assertEqual(pathlib.Path(completed.stdout.strip()), report_path)
         self.assertEqual(payload["status"], "PASS")
         self.assertEqual(payload["disposition"], "pass")
+
+    def test_legacy_acceptance_gate_shim_returns_non_zero_for_failed_bundle(self) -> None:
+        repo = repo_root()
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_root = pathlib.Path(temp_dir)
+            inputs = create_phase1_acceptance_inputs(temp_root, self.bundle)
+            failing_ptx = sample_ptx_jit_result(
+                self.bundle,
+                status="fail",
+                failure_reasons=["ptx_jit_command_failed"],
+                success_criteria_overrides={"no_nan_inf": False},
+            )
+            write_json(pathlib.Path(inputs["ptx_jit_result_path"]), failing_ptx)
+            output_dir = temp_root / "acceptance"
+            command = [
+                str(repo / "tools" / "bringup" / "python" / "acceptance_gate.py"),
+                "--output-dir",
+                str(output_dir),
+                "--host-env-json",
+                str(inputs["host_env_path"]),
+                "--manifest-refs-json",
+                str(inputs["manifest_refs_path"]),
+                "--cuda-probe-json",
+                str(inputs["cuda_probe_path"]),
+                "--build-metadata-json",
+                str(inputs["build_metadata_path"]),
+                "--fatbinary-report-json",
+                str(inputs["fatbinary_report_path"]),
+                "--memcheck-result-json",
+                str(inputs["memcheck_result_path"]),
+                "--ptx-jit-result-json",
+                str(inputs["ptx_jit_result_path"]),
+                "--bringup-doc",
+                str(inputs["docs_path"]),
+            ]
+            for path in inputs["smoke_result_paths"]:
+                command.extend(["--smoke-result", str(path)])
+            for path in inputs["nsys_result_paths"]:
+                command.extend(["--nsys-result", str(path)])
+
+            completed = subprocess.run(
+                command,
+                cwd=repo,
+                text=True,
+                capture_output=True,
+                check=False,
+            )
+
+            report_path = output_dir / PHASE1_ACCEPTANCE_REPORT_NAME
+            payload = json.loads(report_path.read_text(encoding="utf-8"))
+
+        self.assertEqual(completed.returncode, 1, completed.stderr)
+        self.assertEqual(pathlib.Path(completed.stdout.strip()), report_path)
+        self.assertEqual(payload["status"], "FAIL")
+        self.assertIn("ptx_jit_succeeds", payload["failing_gate_ids"])
 
 
 if __name__ == "__main__":
