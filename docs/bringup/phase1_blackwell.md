@@ -84,9 +84,10 @@ Expected remediation:
 - rerun the canonical host discovery entrypoint first:
   `tools/bringup/env/check_host_env.sh <discovery-dir>`
 - if that wrapper fails, inspect the emitted `nvidia_runtime_snapshot.txt`; it now
-  includes `command -v nvcc`, the full `nvcc --version` block, `ldconfig -p`
-  CUDA-driver resolution, native-vs-WSL driver library paths, canonical
-  native-driver `realpath` output, `dpkg -S` owner lookups, installed
+  includes `command -v nvcc`, the full `nvcc --version` block, a compact
+  environment section with `CUDA_HOME`, `LD_LIBRARY_PATH`, and `PATH`,
+  `ldconfig -p` CUDA-driver resolution, native-vs-WSL driver library paths,
+  canonical native-driver `realpath` output, `dpkg -S` owner lookups, installed
   NVIDIA/CUDA package rows, relevant `apt-cache policy` output, relevant
   `apt-mark showmanual` rows, `nvidia-smi` state, `/proc/cmdline`, and the
   recent `dxg` kernel messages in one place
