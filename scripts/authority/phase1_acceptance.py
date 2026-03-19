@@ -505,15 +505,18 @@ def build_phase1_acceptance_report(
             label="CUDA_FORCE_PTX_JIT=1 run succeeds",
             passed=(
                 str(ptx_jit_result.get("status", "")).lower() == "pass"
+                and _nested_value(ptx_jit_result, "environment", "CUDA_FORCE_PTX_JIT") == "1"
                 and _nested_bool(ptx_jit_result, "success_criteria", "fatbinary_smoke_gate_ready")
                 and _nested_bool(ptx_jit_result, "success_criteria", "required_outputs_present")
                 and _nested_bool(ptx_jit_result, "success_criteria", "no_nan_inf")
+                and _nested_bool(ptx_jit_result, "success_criteria", "solver_exit_zero")
             ),
-            expected={"status": "pass", "CUDA_FORCE_PTX_JIT": "1"},
+            expected={"status": "pass", "CUDA_FORCE_PTX_JIT": "1", "solver_exit_zero": True},
             observed={
                 "status": ptx_jit_result.get("status"),
                 "failure_reasons": ptx_jit_result.get("failure_reasons"),
                 "environment": ptx_jit_result.get("environment"),
+                "solver_exit_zero": _nested_value(ptx_jit_result, "success_criteria", "solver_exit_zero"),
             },
             evidence=resolved_paths["ptx_jit_result"].as_posix(),
         ),
