@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import pathlib
+import subprocess
 import tempfile
 import unittest
 
@@ -1664,6 +1665,36 @@ class Phase1AcceptanceTests(unittest.TestCase):
         self.assertIn("scripts.authority.phase1_acceptance", shim)
         self.assertIn('"report"', shim)
         self.assertIn("main(", shim)
+
+    def test_phase1_acceptance_wrappers_and_shim_render_help(self) -> None:
+        repo = repo_root()
+        commands = (
+            (
+                [str(repo / "tools" / "bringup" / "run" / "check_ptx_jit.sh"), "--help"],
+                "fatbinary-report",
+            ),
+            (
+                [str(repo / "tools" / "bringup" / "run" / "run_phase1_acceptance.sh"), "--help"],
+                "ptx-jit-result-json",
+            ),
+            (
+                ["uv", "run", "python", str(repo / "tools" / "bringup" / "python" / "acceptance_gate.py"), "--help"],
+                "ptx-jit-result-json",
+            ),
+        )
+
+        for command, expected_flag in commands:
+            with self.subTest(command=command[0]):
+                completed = subprocess.run(
+                    command,
+                    cwd=repo,
+                    text=True,
+                    capture_output=True,
+                    check=False,
+                )
+
+                self.assertEqual(completed.returncode, 0, completed.stderr)
+                self.assertIn(expected_flag, completed.stdout)
 
 
 if __name__ == "__main__":
