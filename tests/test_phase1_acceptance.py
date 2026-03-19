@@ -179,6 +179,18 @@ def sample_smoke_result(case_name: str, solver: str, bundle=None) -> dict[str, o
         "solver": solver,
         "status": "pass",
         "failure_reasons": [],
+        "command_results": [
+            {
+                "command": ["blockMesh"],
+                "log_path": f"smoke/{case_name}/01_blockMesh.log",
+                "returncode": 0,
+            },
+            {
+                "command": [solver],
+                "log_path": f"smoke/{case_name}/02_{solver}.log",
+                "returncode": 0,
+            },
+        ],
         "success_criteria": {
             "audit_passed": True,
             "required_outputs_present": True,
@@ -600,6 +612,14 @@ class Phase1AcceptanceTests(unittest.TestCase):
             "nsight_systems/um_fault/channelTransient/trace.sqlite",
         )
         self.assertEqual(
+            payload["artifact_paths"]["smoke_logs"]["cubeLinear"]["laplacianFoam"],
+            "smoke/cubeLinear/02_laplacianFoam.log",
+        )
+        self.assertEqual(
+            payload["artifact_paths"]["smoke_logs"]["channelTransient"]["pimpleFoam"],
+            "smoke/channelTransient/02_pimpleFoam.log",
+        )
+        self.assertEqual(
             bundle_index["reviewed_source_tuple_id"],
             load_pin_details(self.bundle).reviewed_source_tuple_id,
         )
@@ -622,6 +642,10 @@ class Phase1AcceptanceTests(unittest.TestCase):
         self.assertEqual(
             bundle_index["supporting_artifacts"]["nsys_trace_artifacts"]["basic"]["trace"],
             "nsight_systems/basic/channelTransient/trace.nsys-rep",
+        )
+        self.assertEqual(
+            bundle_index["supporting_artifacts"]["smoke_logs"]["channelSteady"]["simpleFoam"],
+            "smoke/channelSteady/02_simpleFoam.log",
         )
         self.assertEqual(
             bundle_index["workstation_manifests"]["manifest_refs"],
@@ -654,6 +678,9 @@ class Phase1AcceptanceTests(unittest.TestCase):
         self.assertIn("compute_sanitizer/cubeLinear/memcheck.log", markdown)
         self.assertIn("nsight_systems/basic/channelTransient/trace.nsys-rep", markdown)
         self.assertIn("nsight_systems/um_fault/channelTransient/trace.sqlite", markdown)
+        self.assertIn("smoke/cubeLinear/02_laplacianFoam.log", markdown)
+        self.assertIn("smoke/channelSteady/02_simpleFoam.log", markdown)
+        self.assertIn("smoke/channelTransient/02_pimpleFoam.log", markdown)
         self.assertIn(smoke_result_paths[0].as_posix(), markdown)
         self.assertIn(smoke_result_paths[1].as_posix(), markdown)
         self.assertIn(smoke_result_paths[2].as_posix(), markdown)

@@ -811,6 +811,12 @@ def build_phase1_acceptance_report(
             "build_log": build_metadata.get("build_log"),
             "memcheck_logs": _command_log_paths(memcheck_result),
             "ptx_jit_logs": _ptx_jit_log_paths(ptx_jit_result),
+            "smoke_logs": {
+                str((_read_json(pathlib.Path(item)).get("case_name") or pathlib.Path(item).stem)): _command_log_paths(
+                    _read_json(pathlib.Path(item))
+                )
+                for item in smoke_result_paths
+            },
             "nsys_trace_artifacts": {
                 str((_read_json(pathlib.Path(item)).get("profile_mode") or pathlib.Path(item).stem)): _trace_artifacts(
                     _read_json(pathlib.Path(item))
@@ -860,6 +866,7 @@ def build_phase1_acceptance_report(
             "build_log": payload["artifact_paths"]["build_log"],
             "ptx_jit_logs": payload["artifact_paths"]["ptx_jit_logs"],
             "memcheck_logs": payload["artifact_paths"]["memcheck_logs"],
+            "smoke_logs": payload["artifact_paths"]["smoke_logs"],
             "nsys_trace_artifacts": payload["artifact_paths"]["nsys_trace_artifacts"],
         },
         "outputs": {
@@ -1254,6 +1261,18 @@ def _render_acceptance_markdown(payload: Mapping[str, Any]) -> str:
                 "",
             ]
         )
+    smoke_logs = payload["artifact_paths"]["smoke_logs"]
+    if smoke_logs:
+        lines.extend(
+            [
+                "### Smoke Logs",
+                "",
+            ]
+        )
+        for case_name, logs in smoke_logs.items():
+            for command_name, artifact_path in logs.items():
+                lines.append(f"- `{case_name}` `{command_name}`: `{artifact_path}`")
+        lines.append("")
     nsys_results = payload["artifact_paths"]["nsys_results"]
     if nsys_results:
         lines.extend(
