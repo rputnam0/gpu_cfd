@@ -836,6 +836,12 @@ def build_phase1_acceptance_report(
                 )
                 for item in smoke_result_paths
             },
+            "nsys_logs": {
+                str((_read_json(pathlib.Path(item)).get("profile_mode") or pathlib.Path(item).stem)): _command_log_paths(
+                    _read_json(pathlib.Path(item))
+                )
+                for item in nsys_result_paths
+            },
             "nsys_supporting_artifacts": {
                 str((_read_json(pathlib.Path(item)).get("profile_mode") or pathlib.Path(item).stem)): _nsys_supporting_artifacts(
                     pathlib.Path(item)
@@ -894,6 +900,7 @@ def build_phase1_acceptance_report(
             "ptx_jit_logs": payload["artifact_paths"]["ptx_jit_logs"],
             "memcheck_logs": payload["artifact_paths"]["memcheck_logs"],
             "smoke_logs": payload["artifact_paths"]["smoke_logs"],
+            "nsys_logs": payload["artifact_paths"]["nsys_logs"],
             "nsys_supporting_artifacts": payload["artifact_paths"]["nsys_supporting_artifacts"],
             "nsys_trace_artifacts": payload["artifact_paths"]["nsys_trace_artifacts"],
         },
@@ -1336,6 +1343,18 @@ def _render_acceptance_markdown(payload: Mapping[str, Any]) -> str:
                 "",
             ]
         )
+    nsys_logs = payload["artifact_paths"]["nsys_logs"]
+    if nsys_logs:
+        lines.extend(
+            [
+                "### Nsight Logs",
+                "",
+            ]
+        )
+        for profile_mode, logs in nsys_logs.items():
+            for command_name, artifact_path in logs.items():
+                lines.append(f"- `{profile_mode}` `{command_name}`: `{artifact_path}`")
+        lines.append("")
     nsys_supporting_artifacts = payload["artifact_paths"]["nsys_supporting_artifacts"]
     if nsys_supporting_artifacts:
         lines.extend(

@@ -276,6 +276,23 @@ def sample_nsys_result(mode: str, bundle=None) -> dict[str, object]:
         "timing_baseline_eligible": not diagnostic_only,
         "status": "pass",
         "failure_reasons": [],
+        "command_results": [
+            {
+                "command": ["blockMesh"],
+                "log_path": f"nsight_systems/{mode}/channelTransient/01_blockMesh.log",
+                "returncode": 0,
+            },
+            {
+                "command": ["nsys", "profile"],
+                "log_path": f"nsight_systems/{mode}/channelTransient/02_nsys_profile.log",
+                "returncode": 0,
+            },
+            {
+                "command": ["nsys", "export"],
+                "log_path": f"nsight_systems/{mode}/channelTransient/03_nsys_export.log",
+                "returncode": 0,
+            },
+        ],
         "trace_artifacts": {
             "trace": f"nsight_systems/{mode}/channelTransient/trace.nsys-rep",
             "sqlite": f"nsight_systems/{mode}/channelTransient/trace.sqlite",
@@ -625,6 +642,14 @@ class Phase1AcceptanceTests(unittest.TestCase):
             nsys_result_paths[1].parent.joinpath("nvtx_range_report.json").as_posix(),
         )
         self.assertEqual(
+            payload["artifact_paths"]["nsys_logs"]["basic"]["nsys"],
+            "nsight_systems/basic/channelTransient/02_nsys_profile.log",
+        )
+        self.assertEqual(
+            payload["artifact_paths"]["nsys_logs"]["um_fault"]["3_nsys"],
+            "nsight_systems/um_fault/channelTransient/03_nsys_export.log",
+        )
+        self.assertEqual(
             payload["artifact_paths"]["audit_reports"]["ptx_jit"],
             ptx_jit_result_path.parent.joinpath("smoke_audit.json").as_posix(),
         )
@@ -681,6 +706,10 @@ class Phase1AcceptanceTests(unittest.TestCase):
             nsys_result_paths[0].parent.joinpath("nsys_profile_summary.txt").as_posix(),
         )
         self.assertEqual(
+            bundle_index["supporting_artifacts"]["nsys_logs"]["basic"]["blockMesh"],
+            "nsight_systems/basic/channelTransient/01_blockMesh.log",
+        )
+        self.assertEqual(
             bundle_index["supporting_artifacts"]["audit_reports"]["memcheck"],
             memcheck_result_path.parent.joinpath("smoke_audit.json").as_posix(),
         )
@@ -725,6 +754,8 @@ class Phase1AcceptanceTests(unittest.TestCase):
         self.assertIn("nsight_systems/um_fault/channelTransient/trace.sqlite", markdown)
         self.assertIn(nsys_result_paths[0].parent.joinpath("nsys_profile_summary.txt").as_posix(), markdown)
         self.assertIn(nsys_result_paths[1].parent.joinpath("nvtx_range_report.json").as_posix(), markdown)
+        self.assertIn("nsight_systems/basic/channelTransient/02_nsys_profile.log", markdown)
+        self.assertIn("nsight_systems/um_fault/channelTransient/03_nsys_export.log", markdown)
         self.assertIn(ptx_jit_result_path.parent.joinpath("smoke_audit.json").as_posix(), markdown)
         self.assertIn(memcheck_result_path.parent.joinpath("smoke_audit.json").as_posix(), markdown)
         self.assertIn(smoke_result_paths[0].parent.joinpath("smoke_audit.json").as_posix(), markdown)
