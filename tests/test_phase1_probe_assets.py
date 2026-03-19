@@ -72,6 +72,9 @@ class Phase1ProbeAssetTests(unittest.TestCase):
         self.assertIn("libnvidia-ptxjitcompiler", wrapper)
         self.assertIn("dpkg -S", wrapper)
         self.assertIn("dpkg-query -W", wrapper)
+        self.assertIn("realpath", wrapper)
+        self.assertIn("/lib/x86_64-linux-gnu", wrapper)
+        self.assertIn("/usr/lib/x86_64-linux-gnu", wrapper)
         self.assertIn("--output-dir", wrapper)
 
     def test_cuda_runtime_probe_source_mentions_required_probe_fields(self) -> None:

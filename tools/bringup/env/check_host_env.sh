@@ -35,6 +35,16 @@ write_runtime_snapshot() {
       \( -name 'libcuda.so*' -o -name 'libnvidia-ml.so*' -o -name 'libnvidia-ptxjitcompiler.so*' \) \
       -print 2>/dev/null | sort || true
     echo
+    echo "# canonical native driver realpaths"
+    realpath \
+      /lib/x86_64-linux-gnu/libcuda.so.1 \
+      /lib/x86_64-linux-gnu/libnvidia-ml.so.1 \
+      /lib/x86_64-linux-gnu/libnvidia-ptxjitcompiler.so.1 \
+      /usr/lib/x86_64-linux-gnu/libcuda.so.1 \
+      /usr/lib/x86_64-linux-gnu/libnvidia-ml.so.1 \
+      /usr/lib/x86_64-linux-gnu/libnvidia-ptxjitcompiler.so.1 \
+      2>/dev/null || true
+    echo
     echo "# WSL shim library paths"
     find /usr/lib/wsl/lib \
       -maxdepth 1 \
