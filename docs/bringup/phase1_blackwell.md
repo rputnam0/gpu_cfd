@@ -22,6 +22,7 @@ WSL host should not expose Linux display driver libraries at /usr/lib/x86_64-lin
 Remove the Linux display driver packages from WSL and rely on /usr/lib/wsl/lib.
 Installed Linux-side libcuda owner packages: libnvidia-compute-535
 Example cleanup command: sudo apt remove --purge libnvidia-compute-535 libnvidia-compute-535-server
+Simulated apt fallout: libcuinj64-12.0, libnvidia-ml-dev, nsight-systems, nsight-systems-target, nvidia-cuda-dev, nvidia-cuda-toolkit, nvidia-profiler, nvidia-visual-profiler
 Installed related CUDA toolkit packages: libcudart12:amd64, nvidia-cuda-dev:amd64, nvidia-cuda-toolkit
 ```
 
@@ -39,11 +40,8 @@ Expected remediation:
 - on Ubuntu 24.04, purging `libnvidia-compute-535` alone may cause `apt` to install
   `libnvidia-compute-535-server` as a replacement, so include both in the purge command
 - expect `apt` to propose removing dependent toolkit packages when the native
-  `libcuda` owner package is purged; re-verify the required toolchain after host cleanup
-- on this workstation, `apt-get -s remove --purge libnvidia-compute-535 libnvidia-compute-535-server`
-  would also remove `nvidia-cuda-toolkit`, `nvidia-cuda-dev`, `nvidia-profiler`,
-  `nvidia-visual-profiler`, `nsight-systems`, `nsight-systems-target`,
-  `libcuinj64-12.0`, and `libnvidia-ml-dev`
+  `libcuda` owner package is purged; the guard now prints a `Simulated apt fallout`
+  line so the operator can review that blast radius before making host changes
 - keep using the Windows-side NVIDIA WSL driver and the `/usr/lib/wsl/lib` shim
 - rerun the canonical CUDA probe first
 

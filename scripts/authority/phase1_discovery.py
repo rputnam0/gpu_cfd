@@ -531,6 +531,9 @@ def _validate_wsl_driver_stack(
             ". Example cleanup command: sudo apt remove --purge "
             + " ".join(cleanup_targets)
         )
+        cleanup_fallout = _simulate_wsl_cleanup_fallout(cleanup_targets)
+        if cleanup_fallout:
+            package_suffix += ". Simulated apt fallout: " + ", ".join(cleanup_fallout)
     if related_packages:
         package_suffix += " Installed related CUDA toolkit packages: " + ", ".join(
             related_packages
@@ -612,6 +615,42 @@ def _expand_wsl_cleanup_targets(owner_packages: list[str]) -> list[str]:
                 seen.add(candidate)
                 cleanup_targets.append(candidate)
     return cleanup_targets
+
+
+def _simulate_wsl_cleanup_fallout(cleanup_targets: list[str]) -> list[str]:
+    if not cleanup_targets:
+        return []
+    apt_get = shutil.which("apt-get")
+    if not apt_get:
+        return []
+    try:
+        completed = subprocess.run(
+            [apt_get, "-s", "remove", "--purge", *cleanup_targets],
+            text=True,
+            capture_output=True,
+            check=False,
+        )
+    except OSError:
+        return []
+    if completed.returncode != 0:
+        return []
+    match = re.search(
+        r"The following packages will be REMOVED:\n(?P<body>.*?)(?:\n\d+ upgraded,|\Z)",
+        completed.stdout,
+        flags=re.DOTALL,
+    )
+    if not match:
+        return []
+    cleanup_target_bases = {_package_base_name(package) for package in cleanup_targets}
+    fallout_packages: set[str] = set()
+    for package_name in re.findall(r"[A-Za-z0-9][A-Za-z0-9+_.:-]*\*?", match.group("body")):
+        normalized_name = package_name.rstrip("*")
+        if not normalized_name:
+            continue
+        if _package_base_name(normalized_name) in cleanup_target_bases:
+            continue
+        fallout_packages.add(normalized_name)
+    return sorted(fallout_packages)
 
 
 def _server_variant_cleanup_targets(package_name: str) -> tuple[str, ...]:

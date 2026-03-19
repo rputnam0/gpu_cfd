@@ -42,6 +42,44 @@ if [[ -e "${wsl_lib_dir}/libcuda.so.1" && -e "${native_libcuda}" ]]; then
     printf '%s\n' "${expanded[@]}" | awk 'NF && !seen[$0]++'
   }
 
+  simulate_cleanup_fallout() {
+    command -v apt-get >/dev/null 2>&1 || return 0
+    (($# > 0)) || return 0
+    local apt_output
+    apt_output="$(apt-get -s remove --purge "$@" 2>/dev/null || true)"
+    [[ -n "${apt_output}" ]] || return 0
+    printf '%s\n' "${apt_output}" | awk -v cleanup_targets="$(printf '%s\n' "$@")" '
+      BEGIN {
+        count = split(cleanup_targets, cleanup_lines, "\n")
+        for (i = 1; i <= count; ++i) {
+          target = cleanup_lines[i]
+          sub(/:.*/, "", target)
+          if (target != "") {
+            cleanup[target] = 1
+          }
+        }
+      }
+      /^The following packages will be REMOVED:/ {
+        collect = 1
+        next
+      }
+      collect && /^[0-9]+ upgraded,/ {
+        exit
+      }
+      collect {
+        for (i = 1; i <= NF; ++i) {
+          pkg = $i
+          sub(/\*$/, "", pkg)
+          base = pkg
+          sub(/:.*/, "", base)
+          if (pkg != "" && !(base in cleanup) && !seen[pkg]++) {
+            print pkg
+          }
+        }
+      }
+    '
+  }
+
   native_libcuda_real="$(readlink -f "${native_libcuda}" 2>/dev/null || printf '%s\n' "${native_libcuda}")"
   owner_packages="$(
     {
@@ -59,9 +97,13 @@ if [[ -e "${wsl_lib_dir}/libcuda.so.1" && -e "${native_libcuda}" ]]; then
   echo "WSL host should not expose Linux display driver libraries at ${native_libcuda}." >&2
   echo "Remove the Linux display driver packages from WSL and rely on ${wsl_lib_dir}." >&2
   if [[ -n "${owner_packages}" ]]; then
-    cleanup_targets="$(expand_cleanup_targets ${owner_packages//$'\n'/ })"
+    mapfile -t cleanup_targets < <(expand_cleanup_targets ${owner_packages//$'\n'/ })
     echo "Installed Linux-side libcuda owner packages: ${owner_packages//$'\n'/, }" >&2
-    echo "Example cleanup command: sudo apt remove --purge ${cleanup_targets//$'\n'/ }" >&2
+    echo "Example cleanup command: sudo apt remove --purge ${cleanup_targets[*]}" >&2
+    cleanup_fallout="$(simulate_cleanup_fallout "${cleanup_targets[@]}")"
+    if [[ -n "${cleanup_fallout}" ]]; then
+      echo "Simulated apt fallout: ${cleanup_fallout//$'\n'/, }" >&2
+    fi
   fi
   if [[ -n "${conflicting_packages}" ]]; then
     related_packages="$(

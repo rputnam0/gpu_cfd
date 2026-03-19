@@ -21,6 +21,8 @@ from scripts.authority.phase1_discovery import (
     _discover_conflicting_wsl_libcuda_owner_packages,
     _expand_wsl_cleanup_targets,
     _package_base_name,
+    _simulate_wsl_cleanup_fallout,
+    _validate_wsl_driver_stack,
 )
 
 
@@ -164,6 +166,80 @@ class Phase1DiscoveryTests(unittest.TestCase):
             _expand_wsl_cleanup_targets(["nvidia-cuda-toolkit"]),
             ["nvidia-cuda-toolkit"],
         )
+
+    @mock.patch("scripts.authority.phase1_discovery.shutil.which", return_value="/usr/bin/apt-get")
+    @mock.patch("scripts.authority.phase1_discovery.subprocess.run")
+    def test_simulate_wsl_cleanup_fallout_reports_dependent_packages_only(
+        self,
+        run: mock.Mock,
+        _which: mock.Mock,
+    ) -> None:
+        run.return_value = subprocess.CompletedProcess(
+            args=[],
+            returncode=0,
+            stdout=(
+                "The following packages will be REMOVED:\n"
+                "  libnvidia-compute-535* libnvidia-compute-535-server* libcuinj64-12.0*\n"
+                "  nvidia-cuda-dev* nvidia-cuda-toolkit* nsight-systems*\n"
+                "  nsight-systems-target*\n"
+                "0 upgraded, 0 newly installed, 7 to remove and 0 not upgraded.\n"
+            ),
+            stderr="",
+        )
+
+        fallout = _simulate_wsl_cleanup_fallout(
+            ["libnvidia-compute-535", "libnvidia-compute-535-server"]
+        )
+
+        self.assertEqual(
+            fallout,
+            [
+                "libcuinj64-12.0",
+                "nsight-systems",
+                "nsight-systems-target",
+                "nvidia-cuda-dev",
+                "nvidia-cuda-toolkit",
+            ],
+        )
+
+    @mock.patch(
+        "scripts.authority.phase1_discovery._simulate_wsl_cleanup_fallout",
+        return_value=["nvidia-cuda-toolkit", "nsight-systems"],
+    )
+    @mock.patch(
+        "scripts.authority.phase1_discovery._discover_conflicting_wsl_cuda_packages",
+        return_value=[
+            "libcudart12:amd64",
+            "libnvidia-compute-535:amd64",
+            "nvidia-cuda-toolkit",
+        ],
+    )
+    @mock.patch(
+        "scripts.authority.phase1_discovery._discover_conflicting_wsl_libcuda_owner_packages",
+        return_value=["libnvidia-compute-535"],
+    )
+    @mock.patch("scripts.authority.phase1_discovery._is_wsl_environment", return_value=True)
+    def test_validate_wsl_driver_stack_reports_simulated_cleanup_fallout(
+        self,
+        _is_wsl_environment: mock.Mock,
+        _discover_owners: mock.Mock,
+        _discover_packages: mock.Mock,
+        _simulate_fallout: mock.Mock,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_path = pathlib.Path(temp_dir)
+            wsl_root = temp_path / "wsl"
+            native_root = temp_path / "native"
+            wsl_root.mkdir()
+            native_root.mkdir()
+            (wsl_root / "libcuda.so.1").write_text("", encoding="utf-8")
+            (native_root / "libcuda.so.1").write_text("", encoding="utf-8")
+
+            with self.assertRaisesRegex(ValueError, "Simulated apt fallout"):
+                _validate_wsl_driver_stack(
+                    wsl_lib_root=wsl_root,
+                    native_libcuda_root=native_root,
+                )
 
     def test_emit_phase1_discovery_artifacts_emits_canonical_host_and_cuda_probe_json(
         self,

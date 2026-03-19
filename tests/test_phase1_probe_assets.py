@@ -42,6 +42,8 @@ class Phase1ProbeAssetTests(unittest.TestCase):
         self.assertIn("sudo apt remove --purge", wrapper)
         self.assertIn("libcuda owner packages", wrapper)
         self.assertIn("-server", wrapper)
+        self.assertIn("apt-get", wrapper)
+        self.assertIn("Simulated apt fallout", wrapper)
 
     def test_cuda_runtime_probe_source_mentions_required_probe_fields(self) -> None:
         source = (
