@@ -713,6 +713,23 @@ def build_phase1_acceptance_report(
         if not failing_gate_ids
         else "Hard gate failures: " + ", ".join(failing_gate_ids) + "."
     )
+    accepted_phase1_proposal = {
+        "reviewed_source_tuple_id": pin_details.reviewed_source_tuple_id,
+        "runtime_base": pin_details.runtime_base,
+        "toolkit": {
+            "primary_lane": pin_details.primary_toolkit_lane,
+            "experimental_lane": pin_details.experimental_toolkit_lane,
+            "driver_floor": pin_details.driver_floor,
+        },
+        "gpu_target": pin_details.gpu_target,
+        "workstation_target": pin_details.workstation_target,
+        "instrumentation": pin_details.instrumentation,
+        "profilers": {
+            "nsight_systems": pin_details.nsight_systems,
+            "nsight_compute": pin_details.nsight_compute,
+            "compute_sanitizer": pin_details.compute_sanitizer,
+        },
+    }
 
     payload = {
         "schema_version": MANIFEST_SCHEMA_VERSION,
@@ -733,6 +750,7 @@ def build_phase1_acceptance_report(
             "device_name": cuda_probe.get("device_name"),
             "compute_capability": f"{cuda_probe.get('cc_major')}.{cuda_probe.get('cc_minor')}",
         },
+        "accepted_phase1_proposal": accepted_phase1_proposal,
         "authority_revisions": host_env.get("authority_revisions")
         or manifest_refs.get("authority_revisions")
         or bundle.authority_revisions,
@@ -1056,6 +1074,9 @@ def _driver_floor_satisfied(observed_gpu_csv: Any, driver_floor: str) -> bool:
 
 def _render_acceptance_markdown(payload: Mapping[str, Any]) -> str:
     workstation = payload["workstation"]
+    proposal = payload["accepted_phase1_proposal"]
+    proposal_toolkit = proposal["toolkit"]
+    proposal_profilers = proposal["profilers"]
     lines = [
         "# Phase 1 Acceptance Report",
         "",
@@ -1073,6 +1094,20 @@ def _render_acceptance_markdown(payload: Mapping[str, Any]) -> str:
         f"- Host: `{workstation['hostname']}`",
         f"- GPU: `{workstation['device_name']}`",
         f"- GPU observation: `{workstation['gpu_csv']}`",
+        "",
+        "## Accepted Proposal",
+        "",
+        f"- Reviewed source tuple: `{proposal['reviewed_source_tuple_id']}`",
+        f"- Runtime base: `{proposal['runtime_base']}`",
+        f"- Primary toolkit lane: `{proposal_toolkit['primary_lane']}`",
+        f"- Experimental toolkit lane: `{proposal_toolkit['experimental_lane']}`",
+        f"- Driver floor: `{proposal_toolkit['driver_floor']}`",
+        f"- GPU target: `{proposal['gpu_target']}`",
+        f"- Workstation target: `{proposal['workstation_target']}`",
+        f"- Instrumentation: `{proposal['instrumentation']}`",
+        f"- Nsight Systems: `{proposal_profilers['nsight_systems']}`",
+        f"- Nsight Compute: `{proposal_profilers['nsight_compute']}`",
+        f"- Compute Sanitizer: `{proposal_profilers['compute_sanitizer']}`",
         "",
         "## Checklist",
         "",

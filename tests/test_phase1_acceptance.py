@@ -445,10 +445,32 @@ class Phase1AcceptanceTests(unittest.TestCase):
             payload["reviewed_source_tuple_id"],
             load_pin_details(self.bundle).reviewed_source_tuple_id,
         )
+        self.assertEqual(
+            payload["accepted_phase1_proposal"],
+            {
+                "reviewed_source_tuple_id": load_pin_details(self.bundle).reviewed_source_tuple_id,
+                "runtime_base": load_pin_details(self.bundle).runtime_base,
+                "toolkit": {
+                    "primary_lane": load_pin_details(self.bundle).primary_toolkit_lane,
+                    "experimental_lane": load_pin_details(self.bundle).experimental_toolkit_lane,
+                    "driver_floor": load_pin_details(self.bundle).driver_floor,
+                },
+                "gpu_target": load_pin_details(self.bundle).gpu_target,
+                "workstation_target": load_pin_details(self.bundle).workstation_target,
+                "instrumentation": load_pin_details(self.bundle).instrumentation,
+                "profilers": {
+                    "nsight_systems": load_pin_details(self.bundle).nsight_systems,
+                    "nsight_compute": load_pin_details(self.bundle).nsight_compute,
+                    "compute_sanitizer": load_pin_details(self.bundle).compute_sanitizer,
+                },
+            },
+        )
         self.assertTrue(payload["gate_results"]["hard"]["ptx_jit_succeeds"]["passed"])
         self.assertTrue(payload["gate_results"]["hard"]["uvm_trace_captured"]["passed"])
         self.assertEqual(payload["failing_gate_ids"], [])
         self.assertIn("Status: PASS", markdown)
+        self.assertIn("## Accepted Proposal", markdown)
+        self.assertIn(load_pin_details(self.bundle).primary_toolkit_lane, markdown)
         self.assertIn(PHASE1_PTX_JIT_RESULT_NAME, markdown)
 
     def test_build_phase1_acceptance_report_fails_when_a_required_gate_fails(self) -> None:
