@@ -63,12 +63,17 @@ Expected remediation:
 - if that wrapper fails, inspect the emitted `nvidia_runtime_snapshot.txt`; it now
   includes `ldconfig -p` CUDA-driver resolution, native-vs-WSL driver library paths,
   canonical native-driver `realpath` output, `dpkg -S` owner lookups, installed
-  NVIDIA/CUDA package rows, `nvidia-smi` state, `/proc/cmdline`, and the recent
+  NVIDIA/CUDA package rows, relevant `apt-cache policy` output, relevant
+  `apt-mark showmanual` rows, `nvidia-smi` state, `/proc/cmdline`, and the recent
   `dxg` kernel messages in one place
 - on Ubuntu/WSL usrmerged systems, `ldconfig -p` may show the conflicting native
   libraries under `/lib/x86_64-linux-gnu` even though the canonical paths resolve
   back into `/usr/lib/x86_64-linux-gnu`; use the snapshot's `realpath` section to
   confirm that they are the same native Linux bundle rather than a second bundle
+- use the snapshot's `apt-cache policy` and `apt-mark showmanual` sections to see
+  which native driver/toolkit packages are installed, which replacement candidate
+  `apt` prefers, and whether toolkit packages were installed manually before making
+  host cleanup or restore decisions
 
 NVIDIA's CUDA on WSL guide says the Windows display driver is the only driver
 needed, warns that the default CUDA installation can overwrite the WSL driver mapping,

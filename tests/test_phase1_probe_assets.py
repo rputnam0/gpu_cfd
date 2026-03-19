@@ -72,6 +72,8 @@ class Phase1ProbeAssetTests(unittest.TestCase):
         self.assertIn("libnvidia-ptxjitcompiler", wrapper)
         self.assertIn("dpkg -S", wrapper)
         self.assertIn("dpkg-query -W", wrapper)
+        self.assertIn("apt-cache policy", wrapper)
+        self.assertIn("apt-mark showmanual", wrapper)
         self.assertIn("realpath", wrapper)
         self.assertIn("/lib/x86_64-linux-gnu", wrapper)
         self.assertIn("/usr/lib/x86_64-linux-gnu", wrapper)

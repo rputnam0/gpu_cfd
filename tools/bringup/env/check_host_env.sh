@@ -66,6 +66,17 @@ write_runtime_snapshot() {
       'nvidia-cuda-toolkit' \
       2>/dev/null | rg '^ii ' || true
     echo
+    echo "# apt-cache policy (driver/toolkit packages)"
+    apt-cache policy \
+      libnvidia-compute-535 \
+      libnvidia-compute-535-server \
+      nvidia-cuda-toolkit \
+      nvidia-cuda-dev \
+      2>/dev/null || true
+    echo
+    echo "# apt-mark showmanual (relevant packages)"
+    apt-mark showmanual 2>/dev/null | rg 'libnvidia-compute-535|nvidia-cuda-toolkit|nvidia-cuda-dev' || true
+    echo
     echo "# dmesg dxg tail"
     dmesg 2>/dev/null | rg -i 'dxgkio_query_adapter_info|dxgkio_is_feature_enabled|uvm|hmm|kaslr' | tail -n 40 || true
   } > "${snapshot_path}" 2>/dev/null || true
