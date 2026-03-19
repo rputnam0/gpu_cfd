@@ -856,6 +856,12 @@ def build_phase1_acceptance_report(
             "manifest_refs": resolved_paths["manifest_refs"].as_posix(),
             "cuda_probe": resolved_paths["cuda_probe"].as_posix(),
         },
+        "supporting_artifacts": {
+            "build_log": payload["artifact_paths"]["build_log"],
+            "ptx_jit_logs": payload["artifact_paths"]["ptx_jit_logs"],
+            "memcheck_logs": payload["artifact_paths"]["memcheck_logs"],
+            "nsys_trace_artifacts": payload["artifact_paths"]["nsys_trace_artifacts"],
+        },
         "outputs": {
             "phase1_acceptance_report_json": json_path.as_posix(),
             "phase1_acceptance_report_markdown": markdown_path.as_posix(),

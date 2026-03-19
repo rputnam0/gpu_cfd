@@ -608,6 +608,22 @@ class Phase1AcceptanceTests(unittest.TestCase):
         self.assertEqual(bundle_index["workstation"]["device_name"], "NVIDIA GeForce RTX 5080")
         self.assertEqual(bundle_index["workstation_manifests"]["host_env"], host_env_path.as_posix())
         self.assertEqual(
+            bundle_index["supporting_artifacts"]["build_log"],
+            (temp_root / "build" / "build.log").as_posix(),
+        )
+        self.assertEqual(
+            bundle_index["supporting_artifacts"]["ptx_jit_logs"]["laplacianFoam"],
+            "ptx_jit/cubeLinear/02_ptx_jit.log",
+        )
+        self.assertEqual(
+            bundle_index["supporting_artifacts"]["memcheck_logs"]["compute-sanitizer"],
+            "compute_sanitizer/cubeLinear/memcheck.log",
+        )
+        self.assertEqual(
+            bundle_index["supporting_artifacts"]["nsys_trace_artifacts"]["basic"]["trace"],
+            "nsight_systems/basic/channelTransient/trace.nsys-rep",
+        )
+        self.assertEqual(
             bundle_index["workstation_manifests"]["manifest_refs"],
             manifest_refs_path.as_posix(),
         )

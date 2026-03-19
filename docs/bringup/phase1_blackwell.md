@@ -176,8 +176,9 @@ Nsight-result JSON inputs used by the hard gates. The bundle index is the archiv
 directory of the final reports plus the supporting artifact inputs used to build them.
 It explicitly records the reviewed tuple, selected lane, workstation summary, and the
 canonical workstation-manifest paths (`host_env.json`, `manifest_refs.json`,
-`cuda_probe.json`) so downstream consumers can trace the acceptance packet back to the
-same frozen Phase 1 host evidence without reparsing the full report body.
+`cuda_probe.json`) plus the supporting build/PTX-JIT/memcheck/Nsight trace artifacts, so
+downstream consumers can trace the acceptance packet back to the same frozen Phase 1 host
+evidence without reparsing the full report body.
 
 ## PASS Criteria
 
