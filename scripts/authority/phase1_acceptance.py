@@ -251,6 +251,21 @@ def build_phase1_acceptance_report(
 
     host_observations = _as_dict(host_env.get("host_observations"))
     toolkit = _as_dict(host_env.get("toolkit"))
+    expected_required_revalidation = list(bundle.pins.required_revalidation)
+    basic_nsys = nsys_results.get("basic", {})
+    um_fault_nsys = nsys_results.get("um_fault", {})
+    basic_nsys_pass = (
+        str(basic_nsys.get("status", "")).lower() == "pass"
+        and _nested_bool(basic_nsys, "success_criteria", "trace_generated")
+        and _nested_bool(basic_nsys, "success_criteria", "required_outputs_present")
+        and _nested_bool(basic_nsys, "success_criteria", "no_nan_inf")
+    )
+    um_fault_nsys_pass = (
+        str(um_fault_nsys.get("status", "")).lower() == "pass"
+        and _nested_bool(um_fault_nsys, "success_criteria", "trace_generated")
+        and _nested_bool(um_fault_nsys, "success_criteria", "required_outputs_present")
+        and _nested_bool(um_fault_nsys, "success_criteria", "no_nan_inf")
+    )
     gate_results = {
         "host_manifest_complete": _gate_result(
             label="Host manifest exists and is complete",
@@ -276,15 +291,17 @@ def build_phase1_acceptance_report(
                     bool(manifest_refs),
                     bool(manifest_refs.get("reviewed_source_tuple_id")),
                     bool(manifest_refs.get("runtime_base")),
-                    bool(manifest_refs.get("required_revalidation")),
+                    manifest_refs.get("required_revalidation") == expected_required_revalidation,
                     manifest_refs.get("reviewed_source_tuple_id") == host_env.get("reviewed_source_tuple_id"),
                     manifest_refs.get("runtime_base") == host_env.get("runtime_base"),
+                    manifest_refs.get("reviewed_source_tuple_id") == bundle.pins.reviewed_source_tuple_id,
+                    manifest_refs.get("runtime_base") == bundle.pins.runtime_base,
                 )
             ),
             expected={
-                "reviewed_source_tuple_id": host_env.get("reviewed_source_tuple_id"),
-                "runtime_base": host_env.get("runtime_base"),
-                "required_revalidation_present": True,
+                "reviewed_source_tuple_id": bundle.pins.reviewed_source_tuple_id,
+                "runtime_base": bundle.pins.runtime_base,
+                "required_revalidation": expected_required_revalidation,
             },
             observed={
                 "reviewed_source_tuple_id": manifest_refs.get("reviewed_source_tuple_id"),
@@ -351,6 +368,16 @@ def build_phase1_acceptance_report(
             },
             evidence=resolved_paths["build_metadata"].as_posix(),
         ),
+        "build_metadata_matches_reviewed_tuple": _gate_result(
+            label="Build metadata matches the reviewed source tuple",
+            passed=(
+                build_metadata.get("reviewed_source_tuple_id") == manifest_refs.get("reviewed_source_tuple_id")
+                and build_metadata.get("reviewed_source_tuple_id") == bundle.pins.reviewed_source_tuple_id
+            ),
+            expected={"reviewed_source_tuple_id": bundle.pins.reviewed_source_tuple_id},
+            observed={"reviewed_source_tuple_id": build_metadata.get("reviewed_source_tuple_id")},
+            evidence=resolved_paths["build_metadata"].as_posix(),
+        ),
         "build_succeeded": _gate_result(
             label="SPUMA builds in required lane",
             passed=bool(build_metadata.get("succeeded")) and int(build_metadata.get("returncode", 1)) == 0,
@@ -392,6 +419,19 @@ def build_phase1_acceptance_report(
             },
             evidence=resolved_paths["ptx_jit_result"].as_posix(),
         ),
+        "ptx_jit_matches_required_case": _gate_result(
+            label="PTX-JIT evidence comes from the required cubeLinear lane",
+            passed=(
+                ptx_jit_result.get("case_name") == DEFAULT_PHASE1_PTX_JIT_CASE
+                and ptx_jit_result.get("solver") == "laplacianFoam"
+            ),
+            expected={"case_name": DEFAULT_PHASE1_PTX_JIT_CASE, "solver": "laplacianFoam"},
+            observed={
+                "case_name": ptx_jit_result.get("case_name"),
+                "solver": ptx_jit_result.get("solver"),
+            },
+            evidence=resolved_paths["ptx_jit_result"].as_posix(),
+        ),
         "laplacian_smoke_passes": _smoke_gate(
             smoke_results.get("cubeLinear"),
             label="laplacianFoam smoke case passes",
@@ -409,16 +449,27 @@ def build_phase1_acceptance_report(
         ),
         "nvtx_visible_in_nsys": _gate_result(
             label="NVTX3 ranges visible in Nsight Systems",
-            passed=_nested_bool(nsys_results.get("basic", {}), "success_criteria", "phase1_required_ranges_present"),
+            passed=basic_nsys_pass and _nested_bool(basic_nsys, "success_criteria", "phase1_required_ranges_present"),
             expected=True,
-            observed=_nested_value(nsys_results.get("basic", {}), "nvtx", "missing_phase1_ranges"),
+            observed=_nested_value(basic_nsys, "nvtx", "missing_phase1_ranges"),
             evidence=_nsys_evidence_path(nsys_result_paths, "basic"),
         ),
         "gpu_kernels_visible_in_nsys": _gate_result(
             label="GPU kernels visible in Nsight Systems",
-            passed=_nested_bool(nsys_results.get("basic", {}), "success_criteria", "gpu_kernels_present"),
+            passed=basic_nsys_pass and _nested_bool(basic_nsys, "success_criteria", "gpu_kernels_present"),
             expected=True,
-            observed=_nested_value(nsys_results.get("basic", {}), "success_criteria", "gpu_kernels_present"),
+            observed=_nested_value(basic_nsys, "success_criteria", "gpu_kernels_present"),
+            evidence=_nsys_evidence_path(nsys_result_paths, "basic"),
+        ),
+        "nsys_basic_artifact_passes": _gate_result(
+            label="Baseline Nsight artifact completed successfully",
+            passed=basic_nsys_pass,
+            expected={"status": "pass", "trace_generated": True, "required_outputs_present": True, "no_nan_inf": True},
+            observed={
+                "status": basic_nsys.get("status"),
+                "failure_reasons": basic_nsys.get("failure_reasons"),
+                "success_criteria": _nested_value(basic_nsys, "success_criteria"),
+            },
             evidence=_nsys_evidence_path(nsys_result_paths, "basic"),
         ),
         "memcheck_matches_required_case": _gate_result(
@@ -450,19 +501,30 @@ def build_phase1_acceptance_report(
         ),
         "uvm_trace_captured": _gate_result(
             label="UVM-fault trace captured on one case",
-            passed=_nested_bool(nsys_results.get("um_fault", {}), "success_criteria", "uvm_evidence_present"),
+            passed=um_fault_nsys_pass and _nested_bool(um_fault_nsys, "success_criteria", "uvm_evidence_present"),
             expected=True,
-            observed=_nested_value(nsys_results.get("um_fault", {}), "uvm", "classification"),
+            observed=_nested_value(um_fault_nsys, "uvm", "classification"),
             evidence=_nsys_evidence_path(nsys_result_paths, "um_fault"),
         ),
         "no_unexplained_recurring_page_migrations": _gate_result(
             label="No unexplained recurring page migrations remain",
-            passed=str(_nested_value(nsys_results.get("um_fault", {}), "uvm", "classification")) in {
+            passed=um_fault_nsys_pass and str(_nested_value(um_fault_nsys, "uvm", "classification")) in {
                 "clean",
                 "documented_activity",
             },
             expected=["clean", "documented_activity"],
-            observed=_nested_value(nsys_results.get("um_fault", {}), "uvm", "classification"),
+            observed=_nested_value(um_fault_nsys, "uvm", "classification"),
+            evidence=_nsys_evidence_path(nsys_result_paths, "um_fault"),
+        ),
+        "nsys_um_fault_artifact_passes": _gate_result(
+            label="UVM diagnostic Nsight artifact completed successfully",
+            passed=um_fault_nsys_pass,
+            expected={"status": "pass", "trace_generated": True, "required_outputs_present": True, "no_nan_inf": True},
+            observed={
+                "status": um_fault_nsys.get("status"),
+                "failure_reasons": um_fault_nsys.get("failure_reasons"),
+                "success_criteria": _nested_value(um_fault_nsys, "success_criteria"),
+            },
             evidence=_nsys_evidence_path(nsys_result_paths, "um_fault"),
         ),
         "bringup_doc_present": _gate_result(
