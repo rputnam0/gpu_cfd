@@ -1840,6 +1840,36 @@ class Phase1AcceptanceTests(unittest.TestCase):
         )
         self.assertIn(duplicate_nsys_path.as_posix(), markdown)
 
+    def test_build_phase1_acceptance_report_canonicalizes_inventory_order(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_root = pathlib.Path(temp_dir)
+            inputs = create_phase1_acceptance_inputs(temp_root, self.bundle)
+
+            report = build_phase1_acceptance_report(
+                self.bundle,
+                output_dir=temp_root / "acceptance",
+                host_env_path=inputs["host_env_path"],
+                manifest_refs_path=inputs["manifest_refs_path"],
+                cuda_probe_path=inputs["cuda_probe_path"],
+                build_metadata_path=inputs["build_metadata_path"],
+                fatbinary_report_path=inputs["fatbinary_report_path"],
+                smoke_result_paths=list(reversed(inputs["smoke_result_paths"])),
+                memcheck_result_path=inputs["memcheck_result_path"],
+                nsys_result_paths=list(reversed(inputs["nsys_result_paths"])),
+                ptx_jit_result_path=inputs["ptx_jit_result_path"],
+                bringup_doc_path=inputs["docs_path"],
+            )
+            payload = json.loads(report.json_path.read_text(encoding="utf-8"))
+
+        self.assertEqual(
+            [item["name"] for item in payload["input_inventory"]["smoke_results"]["provided"]],
+            ["cubeLinear", "channelSteady", "channelTransient"],
+        )
+        self.assertEqual(
+            [item["name"] for item in payload["input_inventory"]["nsys_results"]["provided"]],
+            ["basic", "um_fault"],
+        )
+
     def test_build_phase1_acceptance_report_requires_nsys_visibility_and_uvm_classification(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             temp_root = pathlib.Path(temp_dir)

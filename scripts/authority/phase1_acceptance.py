@@ -1239,16 +1239,31 @@ def _collect_named_result_inputs(
 ) -> tuple[dict[str, dict[str, Any]], dict[str, Any]]:
     payloads: dict[str, dict[str, Any]] = {}
     names_to_paths: dict[str, list[str]] = {}
-    provided: list[dict[str, str]] = []
+    payload_entries: dict[str, dict[str, Any]] = {}
     for item in paths:
         path = pathlib.Path(item)
         payload = _read_json(path)
         name = str(payload.get(key) or path.stem)
-        payloads.setdefault(name, payload)
-        names_to_paths.setdefault(name, []).append(path.as_posix())
-        provided.append({"name": name, "path": path.as_posix()})
+        path_text = path.as_posix()
+        names_to_paths.setdefault(name, []).append(path_text)
+        previous = payload_entries.get(name)
+        if previous is None or path_text < previous["path"]:
+            payload_entries[name] = {"path": path_text, "payload": payload}
+    for required_name in required_names:
+        if required_name in payload_entries:
+            payloads[required_name] = payload_entries[required_name]["payload"]
+    for name in sorted(payload_entries):
+        if name not in payloads:
+            payloads[name] = payload_entries[name]["payload"]
+    provided: list[dict[str, str]] = []
+    for required_name in required_names:
+        for path_text in sorted(names_to_paths.get(required_name, [])):
+            provided.append({"name": required_name, "path": path_text})
+    for name in sorted(name for name in names_to_paths if name not in required_names):
+        for path_text in sorted(names_to_paths[name]):
+            provided.append({"name": name, "path": path_text})
     duplicates = {
-        name: artifact_paths
+        name: sorted(artifact_paths)
         for name, artifact_paths in names_to_paths.items()
         if len(artifact_paths) > 1
     }
