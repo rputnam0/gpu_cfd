@@ -561,6 +561,52 @@ class Phase1BuildTests(unittest.TestCase):
         self.assertEqual(run_subprocess.call_count, 4)
 
     @mock.patch("scripts.authority.phase1_build.subprocess.run")
+    def test_run_phase1_build_allows_noop_rebuild_when_current_binary_already_exists(
+        self,
+        run_subprocess: mock.Mock,
+    ) -> None:
+        bundle = load_authority_bundle(repo_root())
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_root = pathlib.Path(temp_dir)
+            tool_root = temp_root / "toolchain"
+            emitted = emit_phase1_discovery_artifacts(
+                bundle,
+                output_dir=temp_root / "discovery",
+                lane="primary",
+                host_observations=sample_host_observations(tool_root=tool_root),
+                cuda_probe=sample_cuda_probe_payload(),
+                local_mirror_refs=sample_local_mirror_refs(),
+                repo_commit="abc123def456",
+            )
+            source_root = temp_root / "spuma"
+            source_root.mkdir()
+            materialize_sample_build_artifact(source_root)
+            allwmake = source_root / "Allwmake"
+            allwmake.write_text("#!/usr/bin/env bash\nexit 0\n", encoding="utf-8")
+            allwmake.chmod(0o755)
+            run_subprocess.side_effect = phase1_build_subprocess_side_effect(
+                build_stdout="Allwmake up to date\n",
+                tool_root=tool_root,
+                source_root=None,
+            )
+
+            plan = plan_phase1_build(
+                bundle,
+                source_root=source_root,
+                output_dir=temp_root / "build",
+                discovery_host_env_path=emitted.host_env_path,
+                discovery_manifest_refs_path=emitted.manifest_refs_path,
+                cuda_probe_path=emitted.cuda_probe_path,
+            )
+            result = run_phase1_build(plan)
+            report = json.loads(plan.fatbinary_report_path.read_text(encoding="utf-8"))
+
+        self.assertTrue(result.succeeded)
+        self.assertTrue(report["smoke_gate_ready"])
+        self.assertEqual(report["inspected_binary_count"], 1)
+
+    @mock.patch("scripts.authority.phase1_build.subprocess.run")
     def test_run_phase1_build_temporarily_wires_extra_nvcc_flags_into_cuda_rules(
         self,
         run_subprocess: mock.Mock,

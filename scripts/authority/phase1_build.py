@@ -34,7 +34,6 @@ BUILD_METADATA_SCHEMA_VERSION = "1.0.0"
 FATBINARY_REPORT_SCHEMA_VERSION = "1.0.0"
 SUPPORTED_BUILD_MODES = {"debug", "relwithdebinfo"}
 SKIP_AUDIT_DIR_NAMES = {".git", "__pycache__", ".venv", "build", "artifacts"}
-FATBINARY_CANDIDATE_SUFFIXES = {".so", ".a", ".o"}
 FATBINARY_CANDIDATE_DIR_NAMES = {"platforms", "bin", "lib"}
 FATBINARY_REPORT_NAME = "fatbinary_report.json"
 PTX_DUMP_NAME = "ptx.txt"
@@ -803,15 +802,18 @@ def _discover_fatbinary_targets(
     *,
     previous_snapshot: dict[str, tuple[int, int]] | None,
 ) -> tuple[pathlib.Path, ...]:
-    targets: list[pathlib.Path] = []
     current_snapshot = _capture_fatbinary_candidate_snapshot(source_root)
+    current_targets = tuple(sorted(source_root / path for path in current_snapshot))
     if previous_snapshot is None:
-        return tuple(sorted(source_root / path for path in current_snapshot))
+        return current_targets
+    targets: list[pathlib.Path] = []
     for relative_path, fingerprint in current_snapshot.items():
         if previous_snapshot.get(relative_path) == fingerprint:
             continue
         targets.append(source_root / relative_path)
-    return tuple(sorted(targets))
+    if targets:
+        return tuple(sorted(targets))
+    return current_targets
 
 
 def _candidate_fatbinary_paths(source_root: pathlib.Path) -> tuple[pathlib.Path, ...]:
@@ -824,7 +826,7 @@ def _candidate_fatbinary_paths(source_root: pathlib.Path) -> tuple[pathlib.Path,
             continue
         if not any(part in FATBINARY_CANDIDATE_DIR_NAMES for part in relative_parts):
             continue
-        if not os.access(path, os.X_OK) and path.suffix.lower() not in FATBINARY_CANDIDATE_SUFFIXES:
+        if not os.access(path, os.X_OK):
             continue
         targets.append(path)
     return tuple(sorted(targets))

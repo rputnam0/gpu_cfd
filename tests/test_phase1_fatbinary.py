@@ -291,6 +291,47 @@ class Phase1FatbinaryTests(unittest.TestCase):
         self.assertFalse(report["smoke_gate_ready"])
         self.assertEqual(report["smoke_gate_targets"], [])
 
+    @mock.patch("scripts.authority.phase1_build.subprocess.run")
+    def test_inspection_ignores_non_executable_archives_for_smoke_gating(
+        self,
+        run_subprocess: mock.Mock,
+    ) -> None:
+        bundle = load_authority_bundle(repo_root())
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_root = pathlib.Path(temp_dir)
+            emitted = emit_phase1_discovery_artifacts(
+                bundle,
+                output_dir=temp_root / "discovery",
+                lane="primary",
+                host_observations=sample_host_observations(tool_root=temp_root / "toolchain"),
+                cuda_probe=sample_cuda_probe_payload(),
+                local_mirror_refs=sample_local_mirror_refs(),
+                repo_commit="abc123def456",
+            )
+            source_root = temp_root / "spuma"
+            source_root.mkdir()
+            allwmake = source_root / "Allwmake"
+            allwmake.write_text("#!/usr/bin/env bash\nexit 0\n", encoding="utf-8")
+            allwmake.chmod(0o755)
+
+            plan = plan_phase1_build(
+                bundle,
+                source_root=source_root,
+                output_dir=temp_root / "inspection",
+                discovery_host_env_path=emitted.host_env_path,
+                discovery_manifest_refs_path=emitted.manifest_refs_path,
+                cuda_probe_path=emitted.cuda_probe_path,
+            )
+            archive = source_root / "platforms" / "linux64GccDPInt32Opt" / "lib" / "libsolver.a"
+            archive.parent.mkdir(parents=True, exist_ok=True)
+            archive.write_text("archive", encoding="utf-8")
+
+            with self.assertRaisesRegex(Phase1BuildError, "no candidate built binaries"):
+                inspect_phase1_build_fatbinaries(plan)
+
+        self.assertEqual(run_subprocess.call_count, 0)
+
     def test_inspect_fatbinary_wrapper_exists_and_invokes_phase1_build_module(self) -> None:
         wrapper_path = repo_root() / "tools" / "bringup" / "build" / "inspect_fatbinary.sh"
 
