@@ -32,9 +32,35 @@ script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 repo_root="$(cd "${script_dir}/../../.." && pwd)"
 snapshot_path=""
 
+snapshot_policy_targets() {
+  local package_name
+  local base_name
+  local -a policy_targets=()
+  mapfile -t policy_targets < <(
+    dpkg-query -W -f='${db:Status-Abbrev} ${binary:Package}\n' \
+      'libcudart*' \
+      'libnvidia-compute-*' \
+      'nvidia-cuda-dev' \
+      'nvidia-cuda-toolkit' 2>/dev/null | awk '
+        $1 == "ii" {
+          package_name = $2
+          sub(/:.*/, "", package_name)
+          if (package_name != "") {
+            print package_name
+            if (package_name ~ /^libnvidia-compute-/ && package_name !~ /-server$/) {
+              print package_name "-server"
+            }
+          }
+        }
+      ' | awk 'NF && !seen[$0]++'
+  )
+  printf '%s\n' "${policy_targets[@]}"
+}
+
 write_runtime_snapshot() {
   [[ -n "${snapshot_path}" ]] || return 0
   {
+    local -a policy_targets=()
     echo "# /dev/dxg"
     ls -l /dev/dxg 2>/dev/null || true
     echo
@@ -102,15 +128,13 @@ write_runtime_snapshot() {
       2>/dev/null | rg '^ii ' || true
     echo
     echo "# apt-cache policy (driver/toolkit packages)"
-    apt-cache policy \
-      libnvidia-compute-535 \
-      libnvidia-compute-535-server \
-      nvidia-cuda-toolkit \
-      nvidia-cuda-dev \
-      2>/dev/null || true
+    mapfile -t policy_targets < <(snapshot_policy_targets)
+    if ((${#policy_targets[@]} > 0)); then
+      apt-cache policy "${policy_targets[@]}" 2>/dev/null || true
+    fi
     echo
     echo "# apt-mark showmanual (relevant packages)"
-    apt-mark showmanual 2>/dev/null | rg 'libnvidia-compute-535|nvidia-cuda-toolkit|nvidia-cuda-dev' || true
+    apt-mark showmanual 2>/dev/null | rg 'libnvidia-compute-|nvidia-cuda-toolkit|nvidia-cuda-dev' || true
     echo
     echo "# apt-cache depends (toolkit anchor)"
     apt-cache depends nvidia-cuda-toolkit nvidia-cuda-dev 2>/dev/null | rg '^(nvidia-cuda-toolkit|nvidia-cuda-dev)|Depends: nvidia-cuda-dev|Depends: libnvidia-compute-' || true

@@ -443,6 +443,135 @@ class Phase1ProbeAssetTests(unittest.TestCase):
             self.assertIn("Depends: nvidia-cuda-dev", snapshot_body)
             self.assertIn("Depends: libnvidia-compute-535", snapshot_body)
 
+    def test_host_env_wrapper_snapshot_policy_tracks_discovered_driver_owner(self) -> None:
+        wrapper_path = repo_root() / "tools" / "bringup" / "env" / "check_host_env.sh"
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_root = pathlib.Path(temp_dir)
+            fake_bin = temp_root / "bin"
+            fake_bin.mkdir()
+            fake_wsl = temp_root / "wsl"
+            fake_wsl.mkdir()
+            fake_native = temp_root / "native"
+            fake_native.mkdir()
+            (fake_wsl / "libcuda.so.1").write_text("", encoding="utf-8")
+            for library_name in (
+                "libcuda.so.1",
+                "libnvidia-ml.so.1",
+                "libnvidia-ptxjitcompiler.so.1",
+            ):
+                (fake_native / library_name).write_text("", encoding="utf-8")
+
+            for tool_name in ("nvcc", "g++", "g++-12"):
+                tool_path = fake_bin / tool_name
+                if tool_name == "nvcc":
+                    tool_path.write_text(
+                        "#!/usr/bin/env bash\n"
+                        "if [[ \"${1:-}\" == \"--version\" ]]; then\n"
+                        "  echo \"Cuda compilation tools, release 12.9, V12.9.86\"\n"
+                        "  exit 0\n"
+                        "fi\n"
+                        "exit 0\n",
+                        encoding="utf-8",
+                    )
+                else:
+                    tool_path.write_text(
+                        "#!/usr/bin/env bash\nexit 0\n", encoding="utf-8"
+                    )
+                tool_path.chmod(0o755)
+
+            dpkg_query_path = fake_bin / "dpkg-query"
+            dpkg_query_path.write_text(
+                "#!/usr/bin/env bash\n"
+                "if [[ \"$1\" == \"-S\" ]]; then\n"
+                "  shift\n"
+                "  for arg in \"$@\"; do\n"
+                "    echo \"libnvidia-compute-550:amd64: ${arg}\"\n"
+                "  done\n"
+                "  exit 0\n"
+                "fi\n"
+                "if [[ \"$1\" == \"-W\" ]]; then\n"
+                "  cat <<'EOF'\n"
+                "ii libcudart12:amd64\n"
+                "ii libnvidia-compute-550:amd64\n"
+                "ii nvidia-cuda-toolkit\n"
+                "EOF\n"
+                "  exit 0\n"
+                "fi\n"
+                "exit 0\n",
+                encoding="utf-8",
+            )
+            dpkg_query_path.chmod(0o755)
+
+            apt_get_path = fake_bin / "apt-get"
+            apt_get_path.write_text(
+                "#!/usr/bin/env bash\n"
+                "cat <<'EOF'\n"
+                "The following packages will be REMOVED:\n"
+                "  libnvidia-compute-550* nvidia-cuda-toolkit nsight-systems\n"
+                "0 upgraded, 0 newly installed, 3 to remove and 0 not upgraded.\n"
+                "EOF\n",
+                encoding="utf-8",
+            )
+            apt_get_path.chmod(0o755)
+
+            apt_mark_path = fake_bin / "apt-mark"
+            apt_mark_path.write_text(
+                "#!/usr/bin/env bash\n"
+                "echo \"nvidia-cuda-toolkit\"\n",
+                encoding="utf-8",
+            )
+            apt_mark_path.chmod(0o755)
+
+            apt_cache_path = fake_bin / "apt-cache"
+            apt_cache_path.write_text(
+                "#!/usr/bin/env bash\n"
+                "if [[ \"$1\" == \"depends\" ]]; then\n"
+                "  cat <<'EOF'\n"
+                "nvidia-cuda-toolkit\n"
+                "  Depends: nvidia-cuda-dev\n"
+                "nvidia-cuda-dev\n"
+                "  Depends: libnvidia-compute-550\n"
+                "EOF\n"
+                "  exit 0\n"
+                "fi\n"
+                "if [[ \"$1\" == \"policy\" ]]; then\n"
+                "  shift\n"
+                "  printf 'policy-targets=%s\\n' \"$*\"\n"
+                "  exit 0\n"
+                "fi\n"
+                "exit 0\n",
+                encoding="utf-8",
+            )
+            apt_cache_path.chmod(0o755)
+
+            output_dir = temp_root / "discovery"
+            snapshot_path = output_dir / "nvidia_runtime_snapshot.txt"
+
+            env = dict(os.environ)
+            env["PATH"] = f"{fake_bin}:{env['PATH']}"
+            env["GPU_CFD_WSL_LIB_DIR"] = str(fake_wsl)
+            env["GPU_CFD_NATIVE_DRIVER_ROOT"] = str(fake_native)
+            env["GPU_CFD_NATIVE_LIBCUDA"] = str(fake_native / "libcuda.so.1")
+
+            completed = subprocess.run(
+                [str(wrapper_path), str(output_dir), "primary"],
+                cwd=temp_root,
+                check=False,
+                capture_output=True,
+                text=True,
+                env=env,
+            )
+
+            self.assertEqual(completed.returncode, 1)
+            self.assertTrue(snapshot_path.is_file())
+            snapshot_body = snapshot_path.read_text(encoding="utf-8")
+            self.assertIn(
+                "policy-targets=libcudart12 libnvidia-compute-550 "
+                "libnvidia-compute-550-server nvidia-cuda-toolkit",
+                snapshot_body,
+            )
+            self.assertNotIn("libnvidia-compute-535", snapshot_body)
+
     def test_cuda_runtime_probe_source_mentions_required_probe_fields(self) -> None:
         source = (
             repo_root() / "tools" / "bringup" / "src" / "validate_cuda_runtime.cu"
