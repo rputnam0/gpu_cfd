@@ -1741,6 +1741,84 @@ class Phase1AcceptanceTests(unittest.TestCase):
         self.assertIn("simple_smoke_passes", payload["failing_gate_ids"])
         self.assertIn("pimple_smoke_passes", payload["failing_gate_ids"])
 
+    def test_build_phase1_acceptance_report_flags_duplicate_smoke_inputs(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_root = pathlib.Path(temp_dir)
+            inputs = create_phase1_acceptance_inputs(temp_root, self.bundle)
+            duplicate_smoke_path = write_json(
+                temp_root / "smoke" / "cubeLinear_duplicate.json",
+                sample_smoke_result("cubeLinear", "laplacianFoam", self.bundle),
+            )
+
+            report = build_phase1_acceptance_report(
+                self.bundle,
+                output_dir=temp_root / "acceptance",
+                host_env_path=inputs["host_env_path"],
+                manifest_refs_path=inputs["manifest_refs_path"],
+                cuda_probe_path=inputs["cuda_probe_path"],
+                build_metadata_path=inputs["build_metadata_path"],
+                fatbinary_report_path=inputs["fatbinary_report_path"],
+                smoke_result_paths=[*inputs["smoke_result_paths"], duplicate_smoke_path],
+                memcheck_result_path=inputs["memcheck_result_path"],
+                nsys_result_paths=inputs["nsys_result_paths"],
+                ptx_jit_result_path=inputs["ptx_jit_result_path"],
+                bringup_doc_path=inputs["docs_path"],
+            )
+            payload = json.loads(report.json_path.read_text(encoding="utf-8"))
+            markdown = report.markdown_path.read_text(encoding="utf-8")
+
+        self.assertEqual(payload["status"], "FAIL")
+        self.assertIn("smoke_result_inventory_complete", payload["failing_gate_ids"])
+        inventory = payload["input_inventory"]["smoke_results"]
+        self.assertEqual(len(inventory["provided"]), 4)
+        self.assertEqual(
+            inventory["duplicates"]["cubeLinear"],
+            [
+                pathlib.Path(inputs["smoke_result_paths"][0]).as_posix(),
+                duplicate_smoke_path.as_posix(),
+            ],
+        )
+        self.assertIn(duplicate_smoke_path.as_posix(), markdown)
+
+    def test_build_phase1_acceptance_report_flags_duplicate_nsys_inputs(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_root = pathlib.Path(temp_dir)
+            inputs = create_phase1_acceptance_inputs(temp_root, self.bundle)
+            duplicate_nsys_path = write_json(
+                temp_root / "nsight_systems" / "basic_duplicate.json",
+                sample_nsys_result("basic", self.bundle),
+            )
+
+            report = build_phase1_acceptance_report(
+                self.bundle,
+                output_dir=temp_root / "acceptance",
+                host_env_path=inputs["host_env_path"],
+                manifest_refs_path=inputs["manifest_refs_path"],
+                cuda_probe_path=inputs["cuda_probe_path"],
+                build_metadata_path=inputs["build_metadata_path"],
+                fatbinary_report_path=inputs["fatbinary_report_path"],
+                smoke_result_paths=inputs["smoke_result_paths"],
+                memcheck_result_path=inputs["memcheck_result_path"],
+                nsys_result_paths=[*inputs["nsys_result_paths"], duplicate_nsys_path],
+                ptx_jit_result_path=inputs["ptx_jit_result_path"],
+                bringup_doc_path=inputs["docs_path"],
+            )
+            payload = json.loads(report.json_path.read_text(encoding="utf-8"))
+            markdown = report.markdown_path.read_text(encoding="utf-8")
+
+        self.assertEqual(payload["status"], "FAIL")
+        self.assertIn("nsys_result_inventory_complete", payload["failing_gate_ids"])
+        inventory = payload["input_inventory"]["nsys_results"]
+        self.assertEqual(len(inventory["provided"]), 3)
+        self.assertEqual(
+            inventory["duplicates"]["basic"],
+            [
+                pathlib.Path(inputs["nsys_result_paths"][0]).as_posix(),
+                duplicate_nsys_path.as_posix(),
+            ],
+        )
+        self.assertIn(duplicate_nsys_path.as_posix(), markdown)
+
     def test_build_phase1_acceptance_report_requires_nsys_visibility_and_uvm_classification(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             temp_root = pathlib.Path(temp_dir)

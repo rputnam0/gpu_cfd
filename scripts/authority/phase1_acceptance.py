@@ -43,6 +43,8 @@ PHASE1_PTX_JIT_RESULT_NAME = "ptx_jit_result.json"
 PHASE1_ACCEPTANCE_REPORT_NAME = "phase1_acceptance_report.json"
 PHASE1_ACCEPTANCE_MARKDOWN_NAME = "phase1_acceptance_report.md"
 PHASE1_ACCEPTANCE_BUNDLE_INDEX_NAME = "phase1_acceptance_bundle_index.json"
+REQUIRED_PHASE1_SMOKE_CASES = ("cubeLinear", "channelSteady", "channelTransient")
+REQUIRED_PHASE1_NSYS_MODES = ("basic", "um_fault")
 LOG_NAN_INF_PATTERN = re.compile(r"(^|[^A-Za-z])(nan|inf)([^A-Za-z]|$)", flags=re.IGNORECASE)
 VERSION_PATTERN = re.compile(r"(\d+)\.(\d+)\.(\d+)")
 
@@ -246,16 +248,16 @@ def build_phase1_acceptance_report(
     memcheck_result = _read_json(resolved_paths["memcheck_result"])
     ptx_jit_result = _read_json(resolved_paths["ptx_jit_result"])
 
-    smoke_results = {
-        str(payload.get("case_name") or path.stem): payload
-        for path in (pathlib.Path(item) for item in smoke_result_paths)
-        for payload in (_read_json(path),)
-    }
-    nsys_results = {
-        str(payload.get("profile_mode") or path.stem): payload
-        for path in (pathlib.Path(item) for item in nsys_result_paths)
-        for payload in (_read_json(path),)
-    }
+    smoke_results, smoke_input_inventory = _collect_named_result_inputs(
+        smoke_result_paths,
+        key="case_name",
+        required_names=REQUIRED_PHASE1_SMOKE_CASES,
+    )
+    nsys_results, nsys_input_inventory = _collect_named_result_inputs(
+        nsys_result_paths,
+        key="profile_mode",
+        required_names=REQUIRED_PHASE1_NSYS_MODES,
+    )
 
     host_observations = _as_dict(host_env.get("host_observations"))
     toolkit = _as_dict(host_env.get("toolkit"))
@@ -587,6 +589,18 @@ def build_phase1_acceptance_report(
             expected_solver="pimpleFoam",
             evidence=_smoke_evidence_path(smoke_result_paths, "channelTransient"),
         ),
+        "smoke_result_inventory_complete": _gate_result(
+            label="Smoke result inputs cover the required cases exactly once",
+            passed=bool(smoke_input_inventory["complete"]),
+            expected={
+                "required": list(REQUIRED_PHASE1_SMOKE_CASES),
+                "missing": [],
+                "unexpected": [],
+                "duplicates": {},
+            },
+            observed=smoke_input_inventory,
+            evidence=",".join(item["path"] for item in smoke_input_inventory["provided"]),
+        ),
         "smoke_results_traceable": _gate_result(
             label="Smoke results match the reviewed tuple, runtime base, and primary lane",
             passed=all(
@@ -729,6 +743,18 @@ def build_phase1_acceptance_report(
             },
             evidence=_nsys_evidence_path(nsys_result_paths, "um_fault"),
         ),
+        "nsys_result_inventory_complete": _gate_result(
+            label="Nsight result inputs cover the required modes exactly once",
+            passed=bool(nsys_input_inventory["complete"]),
+            expected={
+                "required": list(REQUIRED_PHASE1_NSYS_MODES),
+                "missing": [],
+                "unexpected": [],
+                "duplicates": {},
+            },
+            observed=nsys_input_inventory,
+            evidence=",".join(item["path"] for item in nsys_input_inventory["provided"]),
+        ),
         "nsys_results_traceable": _gate_result(
             label="Nsight artifacts match the reviewed tuple, runtime base, and primary lane",
             passed=all(
@@ -806,10 +832,16 @@ def build_phase1_acceptance_report(
         or manifest_refs.get("authority_revisions")
         or bundle.authority_revisions,
         "required_revalidation": manifest_refs.get("required_revalidation", []),
+        "input_inventory": {
+            "smoke_results": smoke_input_inventory,
+            "nsys_results": nsys_input_inventory,
+        },
         "artifact_paths": {
             **{name: path.as_posix() for name, path in resolved_paths.items()},
             "build_log": build_metadata.get("build_log"),
             "fatbinary_artifacts": _fatbinary_artifacts(fatbinary_report),
+            "smoke_result_inputs": list(smoke_input_inventory["provided"]),
+            "nsys_result_inputs": list(nsys_input_inventory["provided"]),
             "audit_reports": {
                 "ptx_jit": _sibling_artifact_path(resolved_paths["ptx_jit_result"], "smoke_audit.json"),
                 "memcheck": _sibling_artifact_path(resolved_paths["memcheck_result"], "smoke_audit.json"),
@@ -895,6 +927,7 @@ def build_phase1_acceptance_report(
         "accepted_phase1_proposal": payload["accepted_phase1_proposal"],
         "accepted_tuple_id": payload["accepted_tuple_id"],
         "tuple_admission": payload["tuple_admission"],
+        "input_inventory": payload["input_inventory"],
         "workstation": dict(payload["workstation"]),
         "workstation_manifests": {
             "host_env": resolved_paths["host_env"].as_posix(),
@@ -1198,6 +1231,40 @@ def _nsys_evidence_path(
     return mode
 
 
+def _collect_named_result_inputs(
+    paths: list[pathlib.Path | str] | tuple[pathlib.Path | str, ...],
+    *,
+    key: str,
+    required_names: tuple[str, ...],
+) -> tuple[dict[str, dict[str, Any]], dict[str, Any]]:
+    payloads: dict[str, dict[str, Any]] = {}
+    names_to_paths: dict[str, list[str]] = {}
+    provided: list[dict[str, str]] = []
+    for item in paths:
+        path = pathlib.Path(item)
+        payload = _read_json(path)
+        name = str(payload.get(key) or path.stem)
+        payloads.setdefault(name, payload)
+        names_to_paths.setdefault(name, []).append(path.as_posix())
+        provided.append({"name": name, "path": path.as_posix()})
+    duplicates = {
+        name: artifact_paths
+        for name, artifact_paths in names_to_paths.items()
+        if len(artifact_paths) > 1
+    }
+    missing = [name for name in required_names if name not in names_to_paths]
+    unexpected = sorted(name for name in names_to_paths if name not in required_names)
+    inventory = {
+        "required": list(required_names),
+        "provided": provided,
+        "missing": missing,
+        "unexpected": unexpected,
+        "duplicates": duplicates,
+        "complete": not missing and not unexpected and not duplicates,
+    }
+    return payloads, inventory
+
+
 def _read_json(path: pathlib.Path) -> dict[str, Any]:
     try:
         return json.loads(path.read_text(encoding="utf-8"))
@@ -1230,6 +1297,34 @@ def _driver_floor_satisfied(observed_gpu_csv: Any, driver_floor: str) -> bool:
     observed = tuple(int(group) for group in observed_match.groups())
     required = tuple(int(group) for group in required_match.groups())
     return observed >= required
+
+
+def _append_input_inventory_markdown(
+    lines: list[str],
+    title: str,
+    inventory: Mapping[str, Any],
+) -> None:
+    lines.extend(
+        [
+            f"### {title}",
+            "",
+        ]
+    )
+    for entry in inventory.get("provided", []):
+        if isinstance(entry, Mapping):
+            lines.append(f"- `{entry.get('name')}`: `{entry.get('path')}`")
+    missing = inventory.get("missing", [])
+    unexpected = inventory.get("unexpected", [])
+    duplicates = inventory.get("duplicates", {})
+    if missing:
+        lines.append(f"- Missing: `{', '.join(str(name) for name in missing)}`")
+    if unexpected:
+        lines.append(f"- Unexpected: `{', '.join(str(name) for name in unexpected)}`")
+    if isinstance(duplicates, Mapping):
+        for name, artifact_paths in duplicates.items():
+            joined_paths = ", ".join(f"`{artifact_path}`" for artifact_path in artifact_paths)
+            lines.append(f"- Duplicate `{name}` inputs: {joined_paths}")
+    lines.append("")
 
 
 def _render_acceptance_markdown(payload: Mapping[str, Any]) -> str:
@@ -1343,6 +1438,9 @@ def _render_acceptance_markdown(payload: Mapping[str, Any]) -> str:
                 "",
             ]
         )
+    smoke_input_inventory = _as_dict(_nested_value(payload, "input_inventory", "smoke_results"))
+    if smoke_input_inventory:
+        _append_input_inventory_markdown(lines, "Smoke Input Inventory", smoke_input_inventory)
     smoke_logs = payload["artifact_paths"]["smoke_logs"]
     if smoke_logs:
         lines.extend(
@@ -1365,6 +1463,9 @@ def _render_acceptance_markdown(payload: Mapping[str, Any]) -> str:
                 "",
             ]
         )
+    nsys_input_inventory = _as_dict(_nested_value(payload, "input_inventory", "nsys_results"))
+    if nsys_input_inventory:
+        _append_input_inventory_markdown(lines, "Nsight Input Inventory", nsys_input_inventory)
     nsys_logs = payload["artifact_paths"]["nsys_logs"]
     if nsys_logs:
         lines.extend(
