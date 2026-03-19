@@ -40,6 +40,7 @@ class Phase1ProbeAssetTests(unittest.TestCase):
         self.assertIn("nvidia-cuda-toolkit", wrapper)
         self.assertIn("libnvidia-compute-", wrapper)
         self.assertIn("sudo apt remove --purge", wrapper)
+        self.assertIn("libcuda owner packages", wrapper)
 
     def test_cuda_runtime_probe_source_mentions_required_probe_fields(self) -> None:
         source = (

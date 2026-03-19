@@ -312,15 +312,20 @@ class Phase1DiscoveryTests(unittest.TestCase):
     @mock.patch(
         "scripts.authority.phase1_discovery._discover_conflicting_wsl_cuda_packages"
     )
+    @mock.patch(
+        "scripts.authority.phase1_discovery._discover_conflicting_wsl_libcuda_owner_packages"
+    )
     def test_collect_host_observations_rejects_linux_display_driver_libs_on_wsl(
         self,
+        discover_owner_packages: mock.Mock,
         discover_conflicting_packages: mock.Mock,
         which: mock.Mock,
         _is_wsl: mock.Mock,
     ) -> None:
         which.side_effect = lambda tool: f"/mock/bin/{tool}"
+        discover_owner_packages.return_value = ["libnvidia-compute-535:amd64"]
         discover_conflicting_packages.return_value = [
-            "libnvidia-compute-535",
+            "libcudart12:amd64",
             "nvidia-cuda-toolkit",
         ]
         responses = {
@@ -354,7 +359,7 @@ class Phase1DiscoveryTests(unittest.TestCase):
 
             with self.assertRaisesRegex(
                 ValueError,
-                "sudo apt remove --purge libnvidia-compute-535 nvidia-cuda-toolkit",
+                "sudo apt remove --purge libnvidia-compute-535:amd64",
             ):
                 collect_host_observations(
                     command_runner=runner,

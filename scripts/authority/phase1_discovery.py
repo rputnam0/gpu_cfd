@@ -57,7 +57,7 @@ SUPPORTED_COLLECTION_MODES = {"live_host", "imported_observations"}
 WSL_NVIDIA_SMI_PATH = pathlib.Path("/usr/lib/wsl/lib/nvidia-smi")
 WSL_LIBCUDA_PATH = pathlib.Path("/usr/lib/wsl/lib/libcuda.so.1")
 NATIVE_LIBCUDA_ROOT = pathlib.Path("/usr/lib/x86_64-linux-gnu")
-WSL_CONFLICT_PACKAGE_PATTERNS = (
+WSL_RELATED_PACKAGE_PATTERNS = (
     "libnvidia-compute-*",
     "libcudart*",
     "nvidia-cuda-dev",
@@ -513,15 +513,26 @@ def _validate_wsl_driver_stack(
     if not conflicting_paths:
         return
 
+    owner_packages = _discover_conflicting_wsl_libcuda_owner_packages(conflicting_paths)
     conflicting_packages = _discover_conflicting_wsl_cuda_packages()
+    owner_package_bases = {_package_base_name(package) for package in owner_packages}
+    related_packages = [
+        package
+        for package in conflicting_packages
+        if _package_base_name(package) not in owner_package_bases
+    ]
     package_suffix = ""
-    if conflicting_packages:
-        package_suffix = " Installed Linux-side CUDA/NVIDIA packages: " + ", ".join(
-            conflicting_packages
+    if owner_packages:
+        package_suffix = " Installed Linux-side libcuda owner packages: " + ", ".join(
+            owner_packages
         )
         package_suffix += (
             ". Example cleanup command: sudo apt remove --purge "
-            + " ".join(conflicting_packages)
+            + " ".join(owner_packages)
+        )
+    if related_packages:
+        package_suffix += " Installed related CUDA toolkit packages: " + ", ".join(
+            related_packages
         )
 
     raise ValueError(
@@ -542,8 +553,8 @@ def _discover_conflicting_wsl_cuda_packages() -> list[str]:
         [
             dpkg_query,
             "-W",
-            "-f=${binary:Package}\n",
-            *WSL_CONFLICT_PACKAGE_PATTERNS,
+            "-f=${db:Status-Abbrev} ${binary:Package}\n",
+            *WSL_RELATED_PACKAGE_PATTERNS,
         ],
         text=True,
         capture_output=True,
@@ -553,12 +564,39 @@ def _discover_conflicting_wsl_cuda_packages() -> list[str]:
         return []
     packages = sorted(
         {
-            line.strip()
+            line.partition(" ")[2].strip()
             for line in completed.stdout.splitlines()
-            if line.strip()
+            if line.startswith("ii ")
         }
     )
     return packages
+
+
+def _discover_conflicting_wsl_libcuda_owner_packages(
+    conflicting_paths: list[str],
+) -> list[str]:
+    dpkg_query = shutil.which("dpkg-query")
+    if not dpkg_query:
+        return []
+    packages: set[str] = set()
+    for conflicting_path in conflicting_paths:
+        completed = subprocess.run(
+            [dpkg_query, "-S", conflicting_path],
+            text=True,
+            capture_output=True,
+            check=False,
+        )
+        if completed.returncode != 0:
+            continue
+        for line in completed.stdout.splitlines():
+            owner, separator, _ = line.partition(":")
+            if separator and owner.strip():
+                packages.add(owner.strip())
+    return sorted(packages)
+
+
+def _package_base_name(package_name: str) -> str:
+    return package_name.partition(":")[0].strip()
 
 
 def _is_wsl_environment() -> bool:

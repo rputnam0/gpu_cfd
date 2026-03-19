@@ -27,18 +27,43 @@ wsl_lib_dir="/usr/lib/wsl/lib"
 native_libcuda="/usr/lib/x86_64-linux-gnu/libcuda.so.1"
 
 if [[ -e "${wsl_lib_dir}/libcuda.so.1" && -e "${native_libcuda}" ]]; then
+  native_libcuda_real="$(readlink -f "${native_libcuda}" 2>/dev/null || printf '%s\n' "${native_libcuda}")"
+  owner_packages="$(
+    {
+      dpkg-query -S "${native_libcuda}" 2>/dev/null || true
+      dpkg-query -S "${native_libcuda_real}" 2>/dev/null || true
+    } | cut -d: -f1 | awk 'NF' | sort -u || true
+  )"
   conflicting_packages="$(
-    dpkg-query -W -f='${binary:Package}\n' \
+    dpkg-query -W -f='${db:Status-Abbrev} ${binary:Package}\n' \
       'libnvidia-compute-*' \
       'libcudart*' \
       'nvidia-cuda-dev' \
-      'nvidia-cuda-toolkit' 2>/dev/null | sort -u || true
+      'nvidia-cuda-toolkit' 2>/dev/null | awk '$1 == "ii" { print $2 }' | sort -u || true
   )"
   echo "WSL host should not expose Linux display driver libraries at ${native_libcuda}." >&2
   echo "Remove the Linux display driver packages from WSL and rely on ${wsl_lib_dir}." >&2
+  if [[ -n "${owner_packages}" ]]; then
+    echo "Installed Linux-side libcuda owner packages: ${owner_packages//$'\n'/, }" >&2
+    echo "Example cleanup command: sudo apt remove --purge ${owner_packages//$'\n'/ }" >&2
+  fi
   if [[ -n "${conflicting_packages}" ]]; then
-    echo "Installed Linux-side CUDA/NVIDIA packages: ${conflicting_packages//$'\n'/, }" >&2
-    echo "Example cleanup command: sudo apt remove --purge ${conflicting_packages//$'\n'/ }" >&2
+    related_packages="$(
+      printf '%s\n' "${conflicting_packages}" | awk '
+        NR == FNR { owners[$1] = 1; next }
+        {
+          pkg = $1
+          base = pkg
+          sub(/:.*/, "", base)
+          if (!owners[base]) {
+            print pkg
+          }
+        }
+      ' <(printf '%s\n' "${owner_packages}") - | awk 'NF' || true
+    )"
+    if [[ -n "${related_packages}" ]]; then
+      echo "Installed related CUDA toolkit packages: ${related_packages//$'\n'/, }" >&2
+    fi
   fi
   exit 1
 fi
