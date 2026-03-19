@@ -569,16 +569,22 @@ def build_phase1_acceptance_report(
         "laplacian_smoke_passes": _smoke_gate(
             smoke_results.get("cubeLinear"),
             label="laplacianFoam smoke case passes",
+            expected_case_name="cubeLinear",
+            expected_solver="laplacianFoam",
             evidence=_smoke_evidence_path(smoke_result_paths, "cubeLinear"),
         ),
         "simple_smoke_passes": _smoke_gate(
             smoke_results.get("channelSteady"),
             label="simpleFoam smoke case passes",
+            expected_case_name="channelSteady",
+            expected_solver="simpleFoam",
             evidence=_smoke_evidence_path(smoke_result_paths, "channelSteady"),
         ),
         "pimple_smoke_passes": _smoke_gate(
             smoke_results.get("channelTransient"),
             label="pimpleFoam smoke case passes",
+            expected_case_name="channelTransient",
+            expected_solver="pimpleFoam",
             evidence=_smoke_evidence_path(smoke_result_paths, "channelTransient"),
         ),
         "smoke_results_traceable": _gate_result(
@@ -1016,19 +1022,32 @@ def _smoke_gate(
     payload: Mapping[str, Any] | None,
     *,
     label: str,
+    expected_case_name: str,
+    expected_solver: str,
     evidence: str,
 ) -> dict[str, Any]:
     payload = dict(payload or {})
     return _gate_result(
         label=label,
         passed=(
-            str(payload.get("status", "")).lower() == "pass"
+            str(payload.get("case_name", "")) == expected_case_name
+            and str(payload.get("solver", "")) == expected_solver
+            and str(payload.get("status", "")).lower() == "pass"
             and _nested_bool(payload, "success_criteria", "audit_passed")
             and _nested_bool(payload, "success_criteria", "required_outputs_present")
             and _nested_bool(payload, "success_criteria", "no_nan_inf")
         ),
-        expected={"status": "pass"},
-        observed={"status": payload.get("status"), "failure_reasons": payload.get("failure_reasons")},
+        expected={
+            "case_name": expected_case_name,
+            "solver": expected_solver,
+            "status": "pass",
+        },
+        observed={
+            "case_name": payload.get("case_name"),
+            "solver": payload.get("solver"),
+            "status": payload.get("status"),
+            "failure_reasons": payload.get("failure_reasons"),
+        },
         evidence=evidence,
     )
 
