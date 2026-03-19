@@ -7,6 +7,8 @@ Phase 1 acceptance report can be treated as reviewable.
 ## Required Inputs
 
 - Canonical discovery artifacts from `P1-01`: `host_env.json`, `manifest_refs.json`, `cuda_probe.json`
+- Discovery must have passed the runtime-health checks recorded in `cuda_probe.json`:
+  `native_kernel_ok=true` and `managed_memory_probe_ok=true`
 - Primary-lane build metadata and fatbinary evidence from `P1-02` and `P1-03`
 - Smoke-case results for `cubeLinear`, `channelSteady`, and `channelTransient` from `P1-04`
 - Compute Sanitizer memcheck result from `P1-05`
@@ -144,6 +146,7 @@ summary that points back to each artifact path.
 Phase 1 acceptance is `PASS` only when all hard checks in the `P1-07` card succeed:
 
 - frozen workstation/toolchain identity is present in the canonical manifests
+- `cuda_probe.json` confirms native-kernel and managed-memory readiness
 - build metadata records `have_cuda=true` and `NVARCH=120`
 - fatbinary inspection proves native `sm_120` and retained PTX
 - the PTX-JIT run succeeds under `CUDA_FORCE_PTX_JIT=1`

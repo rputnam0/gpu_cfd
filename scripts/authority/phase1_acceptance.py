@@ -328,6 +328,17 @@ def build_phase1_acceptance_report(
             },
             evidence=resolved_paths["cuda_probe"].as_posix(),
         ),
+        "cuda_probe_runtime_ready": _gate_result(
+            label="CUDA probe confirms native kernel and managed-memory readiness",
+            passed=bool(cuda_probe.get("native_kernel_ok")) and bool(cuda_probe.get("managed_memory_probe_ok")),
+            expected={"native_kernel_ok": True, "managed_memory_probe_ok": True},
+            observed={
+                "native_kernel_ok": cuda_probe.get("native_kernel_ok"),
+                "managed_memory_probe_ok": cuda_probe.get("managed_memory_probe_ok"),
+                "managed_memory_failure_reason": cuda_probe.get("managed_memory_failure_reason"),
+            },
+            evidence=resolved_paths["cuda_probe"].as_posix(),
+        ),
         "primary_lane_toolchain": _gate_result(
             label="Primary lane toolchain is CUDA 12.9.1",
             passed=(

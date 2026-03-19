@@ -593,6 +593,79 @@ class Phase1AcceptanceTests(unittest.TestCase):
         self.assertEqual(payload["status"], "FAIL")
         self.assertIn("manifest_refs_traceable", payload["failing_gate_ids"])
 
+    def test_build_phase1_acceptance_report_requires_cuda_probe_runtime_readiness(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_root = pathlib.Path(temp_dir)
+            docs_path = temp_root / "docs" / "bringup" / "phase1_blackwell.md"
+            docs_path.parent.mkdir(parents=True, exist_ok=True)
+            docs_path.write_text("# Phase 1 Blackwell bring-up\n", encoding="utf-8")
+
+            failed_probe = sample_cuda_probe()
+            failed_probe["managed_memory_probe_ok"] = False
+            failed_probe["managed_memory_failure_reason"] = "nvidia-uvm HMM init failed"
+
+            host_env_path = write_json(temp_root / "host_env.json", sample_host_env(self.bundle))
+            manifest_refs_path = write_json(
+                temp_root / "manifest_refs.json",
+                sample_manifest_refs(self.bundle),
+            )
+            cuda_probe_path = write_json(temp_root / "cuda_probe.json", failed_probe)
+            build_metadata_path = write_json(
+                temp_root / "build_metadata.json",
+                sample_build_metadata(self.bundle, build_log=(temp_root / "build.log").as_posix()),
+            )
+            fatbinary_report_path = write_json(temp_root / "fatbinary_report.json", sample_fatbinary_report())
+            smoke_result_paths = [
+                write_json(temp_root / "cubeLinear.json", sample_smoke_result("cubeLinear", "laplacianFoam")),
+                write_json(temp_root / "channelSteady.json", sample_smoke_result("channelSteady", "simpleFoam")),
+                write_json(
+                    temp_root / "channelTransient.json",
+                    sample_smoke_result("channelTransient", "pimpleFoam"),
+                ),
+            ]
+            memcheck_result_path = write_json(temp_root / "memcheck_result.json", sample_memcheck_result())
+            nsys_result_paths = [
+                write_json(temp_root / "basic.json", sample_nsys_result("basic")),
+                write_json(temp_root / "um_fault.json", sample_nsys_result("um_fault")),
+            ]
+            ptx_jit_result_path = write_json(
+                temp_root / PHASE1_PTX_JIT_RESULT_NAME,
+                {
+                    "schema_version": "1.0.0",
+                    "canonical_name": PHASE1_PTX_JIT_RESULT_NAME,
+                    "case_name": "cubeLinear",
+                    "solver": "laplacianFoam",
+                    "status": "pass",
+                    "failure_reasons": [],
+                    "environment": {"CUDA_FORCE_PTX_JIT": "1"},
+                    "success_criteria": {
+                        "audit_passed": True,
+                        "fatbinary_smoke_gate_ready": True,
+                        "required_outputs_present": True,
+                        "no_nan_inf": True,
+                    },
+                },
+            )
+
+            report = build_phase1_acceptance_report(
+                self.bundle,
+                output_dir=temp_root / "acceptance",
+                host_env_path=host_env_path,
+                manifest_refs_path=manifest_refs_path,
+                cuda_probe_path=cuda_probe_path,
+                build_metadata_path=build_metadata_path,
+                fatbinary_report_path=fatbinary_report_path,
+                smoke_result_paths=smoke_result_paths,
+                memcheck_result_path=memcheck_result_path,
+                nsys_result_paths=nsys_result_paths,
+                ptx_jit_result_path=ptx_jit_result_path,
+                bringup_doc_path=docs_path,
+            )
+            payload = json.loads(report.json_path.read_text(encoding="utf-8"))
+
+        self.assertEqual(payload["status"], "FAIL")
+        self.assertIn("cuda_probe_runtime_ready", payload["failing_gate_ids"])
+
     def test_build_phase1_acceptance_report_rejects_experimental_build_metadata(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             temp_root = pathlib.Path(temp_dir)
