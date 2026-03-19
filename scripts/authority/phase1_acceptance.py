@@ -1252,6 +1252,19 @@ def _render_acceptance_markdown(payload: Mapping[str, Any]) -> str:
         f"- GPU: `{workstation['device_name']}`",
         f"- GPU observation: `{workstation['gpu_csv']}`",
         "",
+        "## Contract Traceability",
+        "",
+        f"- Acceptance manifest revision: `{payload['acceptance_manifest_revision']}`",
+        f"- Required revalidation: `{', '.join(payload['required_revalidation'])}`",
+        "",
+        "### Authority Revisions",
+        "",
+    ]
+    for authority_name, revision in payload["authority_revisions"].items():
+        lines.append(f"- `{authority_name}`: `{revision.get('sha256')}`")
+    lines.extend(
+        [
+            "",
         "## Accepted Proposal",
         "",
         f"- Reviewed source tuple: `{proposal['reviewed_source_tuple_id']}`",
@@ -1268,7 +1281,8 @@ def _render_acceptance_markdown(payload: Mapping[str, Any]) -> str:
         "",
         "## Checklist",
         "",
-    ]
+        ]
+    )
     for gate_id in payload["checklist_order"]:
         gate = payload["gate_results"]["hard"][gate_id]
         marker = "x" if gate["passed"] else " "

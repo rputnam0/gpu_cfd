@@ -173,9 +173,10 @@ The JSON report is the deterministic gate source. The Markdown report is the rev
 summary that points back to each artifact path, including the build log, PTX-JIT command
 logs, raw fatbinary `ptx` / `sass` dumps, Compute Sanitizer memcheck log, raw Nsight trace
 artifacts, Nsight command logs and summary/NVTX report files, smoke-audit reports, and the
-smoke-result and smoke-log / Nsight-result JSON inputs used by the hard gates. The bundle
-index is the archive-facing directory of the final reports plus the supporting artifact
-inputs used to build them.
+smoke-result and smoke-log / Nsight-result JSON inputs used by the hard gates. It also
+includes a compact contract-traceability section with the acceptance manifest revision,
+authority revisions, and required revalidation rows. The bundle index is the archive-facing
+directory of the final reports plus the supporting artifact inputs used to build them.
 It explicitly records the reviewed tuple, selected lane, workstation summary, and the
 canonical workstation-manifest paths (`host_env.json`, `manifest_refs.json`,
 `cuda_probe.json`) plus the supporting smoke/build/fatbinary/PTX-JIT/memcheck/Nsight
