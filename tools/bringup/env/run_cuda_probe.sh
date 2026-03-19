@@ -42,9 +42,9 @@ mkdir -p "${build_dir}" "$(dirname "${output_json}")"
 
 binary_path="${build_dir}/validate_cuda_runtime"
 cuda_home="${CUDA_HOME:-$(cd "$(dirname "${nvcc_bin}")/.." && pwd)}"
-wsl_lib_dir="/usr/lib/wsl/lib"
-native_libcuda="/usr/lib/x86_64-linux-gnu/libcuda.so.1"
-native_driver_glob_root="/usr/lib/x86_64-linux-gnu"
+wsl_lib_dir="${GPU_CFD_WSL_LIB_DIR:-/usr/lib/wsl/lib}"
+native_driver_glob_root="${GPU_CFD_NATIVE_DRIVER_ROOT:-/usr/lib/x86_64-linux-gnu}"
+native_libcuda="${GPU_CFD_NATIVE_LIBCUDA:-${native_driver_glob_root}/libcuda.so.1}"
 
 if [[ -e "${wsl_lib_dir}/libcuda.so.1" ]]; then
   expand_cleanup_targets() {
