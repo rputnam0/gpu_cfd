@@ -258,6 +258,8 @@ def build_phase1_acceptance_report(
         key="profile_mode",
         required_names=REQUIRED_PHASE1_NSYS_MODES,
     )
+    selected_smoke_paths = _selected_named_paths(smoke_input_inventory, REQUIRED_PHASE1_SMOKE_CASES)
+    selected_nsys_paths = _selected_named_paths(nsys_input_inventory, REQUIRED_PHASE1_NSYS_MODES)
 
     host_observations = _as_dict(host_env.get("host_observations"))
     toolkit = _as_dict(host_env.get("toolkit"))
@@ -845,55 +847,35 @@ def build_phase1_acceptance_report(
             "audit_reports": {
                 "ptx_jit": _sibling_artifact_path(resolved_paths["ptx_jit_result"], "smoke_audit.json"),
                 "memcheck": _sibling_artifact_path(resolved_paths["memcheck_result"], "smoke_audit.json"),
-                "smoke_cases": {
-                    str((_read_json(pathlib.Path(item)).get("case_name") or pathlib.Path(item).stem)): _sibling_artifact_path(
-                        pathlib.Path(item),
-                        "smoke_audit.json",
-                    )
-                    for item in smoke_result_paths
-                },
-                "nsys": {
-                    str((_read_json(pathlib.Path(item)).get("profile_mode") or pathlib.Path(item).stem)): _sibling_artifact_path(
-                        pathlib.Path(item),
-                        "smoke_audit.json",
-                    )
-                    for item in nsys_result_paths
-                },
+                "smoke_cases": _build_named_artifact_map(
+                    selected_smoke_paths,
+                    transform=lambda path: _sibling_artifact_path(path, "smoke_audit.json"),
+                ),
+                "nsys": _build_named_artifact_map(
+                    selected_nsys_paths,
+                    transform=lambda path: _sibling_artifact_path(path, "smoke_audit.json"),
+                ),
             },
             "memcheck_logs": _command_log_paths(memcheck_result),
             "ptx_jit_logs": _ptx_jit_log_paths(ptx_jit_result),
-            "smoke_logs": {
-                str((_read_json(pathlib.Path(item)).get("case_name") or pathlib.Path(item).stem)): _command_log_paths(
-                    _read_json(pathlib.Path(item))
-                )
-                for item in smoke_result_paths
-            },
-            "nsys_logs": {
-                str((_read_json(pathlib.Path(item)).get("profile_mode") or pathlib.Path(item).stem)): _command_log_paths(
-                    _read_json(pathlib.Path(item))
-                )
-                for item in nsys_result_paths
-            },
-            "nsys_supporting_artifacts": {
-                str((_read_json(pathlib.Path(item)).get("profile_mode") or pathlib.Path(item).stem)): _nsys_supporting_artifacts(
-                    pathlib.Path(item)
-                )
-                for item in nsys_result_paths
-            },
-            "nsys_trace_artifacts": {
-                str((_read_json(pathlib.Path(item)).get("profile_mode") or pathlib.Path(item).stem)): _trace_artifacts(
-                    _read_json(pathlib.Path(item))
-                )
-                for item in nsys_result_paths
-            },
-            "smoke_results": {
-                str((_read_json(pathlib.Path(item)).get("case_name") or pathlib.Path(item).stem)): pathlib.Path(item).as_posix()
-                for item in smoke_result_paths
-            },
-            "nsys_results": {
-                str((_read_json(pathlib.Path(item)).get("profile_mode") or pathlib.Path(item).stem)): pathlib.Path(item).as_posix()
-                for item in nsys_result_paths
-            },
+            "smoke_logs": _build_named_artifact_map(
+                selected_smoke_paths,
+                transform=lambda path: _command_log_paths(_read_json(path)),
+            ),
+            "nsys_logs": _build_named_artifact_map(
+                selected_nsys_paths,
+                transform=lambda path: _command_log_paths(_read_json(path)),
+            ),
+            "nsys_supporting_artifacts": _build_named_artifact_map(
+                selected_nsys_paths,
+                transform=_nsys_supporting_artifacts,
+            ),
+            "nsys_trace_artifacts": _build_named_artifact_map(
+                selected_nsys_paths,
+                transform=lambda path: _trace_artifacts(_read_json(path)),
+            ),
+            "smoke_results": dict(selected_smoke_paths),
+            "nsys_results": dict(selected_nsys_paths),
         },
         "gate_results": {
             "hard": gate_results,
@@ -1249,6 +1231,7 @@ def _collect_named_result_inputs(
         previous = payload_entries.get(name)
         if previous is None or path_text < previous["path"]:
             payload_entries[name] = {"path": path_text, "payload": payload}
+    ordered_names = _canonical_input_names(names_to_paths, required_names)
     for required_name in required_names:
         if required_name in payload_entries:
             payloads[required_name] = payload_entries[required_name]["payload"]
@@ -1272,12 +1255,56 @@ def _collect_named_result_inputs(
     inventory = {
         "required": list(required_names),
         "provided": provided,
+        "selected": {
+            name: payload_entries[name]["path"]
+            for name in ordered_names
+            if name in payload_entries
+        },
         "missing": missing,
         "unexpected": unexpected,
         "duplicates": duplicates,
         "complete": not missing and not unexpected and not duplicates,
     }
     return payloads, inventory
+
+
+def _canonical_input_names(
+    names_to_paths: Mapping[str, list[str]],
+    required_names: tuple[str, ...],
+) -> list[str]:
+    return [
+        *[name for name in required_names if name in names_to_paths],
+        *sorted(name for name in names_to_paths if name not in required_names),
+    ]
+
+
+def _selected_named_paths(
+    inventory: Mapping[str, Any],
+    required_names: tuple[str, ...],
+) -> dict[str, str]:
+    selected = inventory.get("selected", {})
+    if not isinstance(selected, Mapping):
+        return {}
+    ordered_names = _canonical_input_names(
+        {str(name): [] for name in selected},
+        required_names,
+    )
+    return {
+        name: str(selected[name])
+        for name in ordered_names
+        if name in selected
+    }
+
+
+def _build_named_artifact_map(
+    selected_paths: Mapping[str, str],
+    *,
+    transform: Callable[[pathlib.Path], Any],
+) -> dict[str, Any]:
+    return {
+        name: transform(pathlib.Path(path_text))
+        for name, path_text in selected_paths.items()
+    }
 
 
 def _read_json(path: pathlib.Path) -> dict[str, Any]:
