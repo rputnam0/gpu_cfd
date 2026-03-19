@@ -64,6 +64,10 @@ class Phase1ProbeAssetTests(unittest.TestCase):
         self.assertIn("manifest_refs.json", wrapper)
         self.assertIn("cuda_probe.json", wrapper)
         self.assertIn("raw_cuda_probe.json", wrapper)
+        self.assertIn("nvidia_runtime_snapshot.txt", wrapper)
+        self.assertIn("nvidia-smi -L", wrapper)
+        self.assertIn("/proc/cmdline", wrapper)
+        self.assertIn("/dev/dxg", wrapper)
         self.assertIn("--output-dir", wrapper)
 
     def test_cuda_runtime_probe_source_mentions_required_probe_fields(self) -> None:
