@@ -7,6 +7,7 @@ import unittest
 from unittest import mock
 
 from scripts.authority import load_authority_bundle, repo_root
+from scripts.authority.pins import load_pin_details
 from scripts.authority.phase1_sanitizer import (
     Phase1MemcheckRunResult,
     main,
@@ -102,6 +103,9 @@ class Phase1SanitizerTests(unittest.TestCase):
         self.assertEqual([command[0][0] for command in commands], ["blockMesh", "compute-sanitizer"])
         self.assertEqual(result.status, "pass")
         self.assertEqual(result_payload["status"], "pass")
+        self.assertEqual(result_payload["reviewed_source_tuple_id"], load_pin_details(self.bundle).reviewed_source_tuple_id)
+        self.assertEqual(result_payload["runtime_base"], load_pin_details(self.bundle).runtime_base)
+        self.assertEqual(result_payload["toolkit"]["selected_lane"], "primary")
         self.assertEqual(result_payload["case_name"], "cubeLinear")
         self.assertEqual(result_payload["memcheck"]["actionable_errors"], 0)
         self.assertEqual(result_payload["command_results"][1]["log_path"].split("/")[-1], "memcheck.log")

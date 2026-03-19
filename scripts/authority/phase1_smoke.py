@@ -13,6 +13,7 @@ from typing import Any, Callable, Mapping
 
 try:
     from .bundle import AuthorityBundle, load_authority_bundle, repo_root
+    from .pins import load_pin_details
     from .support_scanner import (
         SupportBoundaryCondition,
         SupportFunctionObject,
@@ -24,6 +25,7 @@ except ImportError:  # pragma: no cover - script execution fallback
 
     sys.path.append(str(pathlib.Path(__file__).resolve().parents[2]))
     from scripts.authority.bundle import AuthorityBundle, load_authority_bundle, repo_root  # type: ignore
+    from scripts.authority.pins import load_pin_details  # type: ignore
     from scripts.authority.support_scanner import (  # type: ignore
         SupportBoundaryCondition,
         SupportFunctionObject,
@@ -368,6 +370,7 @@ def run_phase1_smoke_case(
     execution_mode: str = "production",
     command_runner: Callable[..., int] | None = None,
 ) -> Phase1SmokeRunResult:
+    pin_details = load_pin_details(bundle)
     audit_report = scan_phase1_smoke_case(
         bundle,
         case_name=case_name,
@@ -386,6 +389,7 @@ def run_phase1_smoke_case(
 
     if not audit_report.startup_allowed:
         result_payload = _build_result_payload(
+            pin_details=pin_details,
             case_name=audit_report.case_name,
             solver=audit_report.solver,
             scratch_case_dir=scratch_case_dir,
@@ -424,6 +428,7 @@ def run_phase1_smoke_case(
         )
         if returncode != 0:
             result_payload = _build_result_payload(
+                pin_details=pin_details,
                 case_name=audit_report.case_name,
                 solver=audit_report.solver,
                 scratch_case_dir=scratch_case_dir,
@@ -451,6 +456,7 @@ def run_phase1_smoke_case(
     no_nan_inf = _logs_are_clean(command_results)
     status = "pass" if required_outputs_present and no_nan_inf else "fail"
     result_payload = _build_result_payload(
+        pin_details=pin_details,
         case_name=audit_report.case_name,
         solver=audit_report.solver,
         scratch_case_dir=scratch_case_dir,
@@ -922,6 +928,7 @@ def _logs_are_clean(command_results: list[dict[str, Any]]) -> bool:
 
 def _build_result_payload(
     *,
+    pin_details: Any,
     case_name: str,
     solver: str,
     scratch_case_dir: pathlib.Path,
@@ -935,6 +942,15 @@ def _build_result_payload(
     return {
         "schema_version": MANIFEST_SCHEMA_VERSION,
         "canonical_name": PHASE1_SMOKE_RESULT_NAME,
+        "reviewed_source_tuple_id": pin_details.reviewed_source_tuple_id,
+        "runtime_base": pin_details.runtime_base,
+        "toolkit": {
+            "selected_lane": "primary",
+            "selected_lane_value": pin_details.primary_toolkit_lane,
+            "primary_lane": pin_details.primary_toolkit_lane,
+            "experimental_lane": pin_details.experimental_toolkit_lane,
+            "driver_floor": pin_details.driver_floor,
+        },
         "case_name": case_name,
         "solver": solver,
         "status": status,

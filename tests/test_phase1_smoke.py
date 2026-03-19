@@ -14,6 +14,7 @@ from scripts.authority import (
     run_phase1_smoke_case,
     scan_phase1_smoke_case,
 )
+from scripts.authority.pins import load_pin_details
 from scripts.authority.phase1_smoke import Phase1SmokeAuditReport, Phase1SmokeRunResult, main
 
 
@@ -233,6 +234,9 @@ class Phase1SmokeTests(unittest.TestCase):
         self.assertTrue(copied_case_exists)
         self.assertTrue(result.audit_report.startup_allowed)
         self.assertEqual(result_payload["status"], "pass")
+        self.assertEqual(result_payload["reviewed_source_tuple_id"], load_pin_details(self.bundle).reviewed_source_tuple_id)
+        self.assertEqual(result_payload["runtime_base"], load_pin_details(self.bundle).runtime_base)
+        self.assertEqual(result_payload["toolkit"]["selected_lane"], "primary")
         self.assertEqual(result_payload["case_name"], "cubeLinear")
         self.assertEqual(result_payload["command_results"][0]["command"][0], "blockMesh")
         self.assertTrue(result_payload["success_criteria"]["required_outputs_present"])

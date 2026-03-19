@@ -125,10 +125,22 @@ def sample_fatbinary_report() -> dict[str, object]:
     }
 
 
-def sample_smoke_result(case_name: str, solver: str) -> dict[str, object]:
+def sample_smoke_result(case_name: str, solver: str, bundle=None) -> dict[str, object]:
+    if bundle is None:
+        bundle = load_authority_bundle(repo_path())
+    pin_details = load_pin_details(bundle)
     return {
         "schema_version": "1.0.0",
         "canonical_name": "smoke_result.json",
+        "reviewed_source_tuple_id": pin_details.reviewed_source_tuple_id,
+        "runtime_base": pin_details.runtime_base,
+        "toolkit": {
+            "selected_lane": "primary",
+            "selected_lane_value": pin_details.primary_toolkit_lane,
+            "primary_lane": pin_details.primary_toolkit_lane,
+            "experimental_lane": pin_details.experimental_toolkit_lane,
+            "driver_floor": pin_details.driver_floor,
+        },
         "case_name": case_name,
         "solver": solver,
         "status": "pass",
@@ -141,10 +153,22 @@ def sample_smoke_result(case_name: str, solver: str) -> dict[str, object]:
     }
 
 
-def sample_memcheck_result() -> dict[str, object]:
+def sample_memcheck_result(bundle=None) -> dict[str, object]:
+    if bundle is None:
+        bundle = load_authority_bundle(repo_path())
+    pin_details = load_pin_details(bundle)
     return {
         "schema_version": "1.0.0",
         "canonical_name": "memcheck_result.json",
+        "reviewed_source_tuple_id": pin_details.reviewed_source_tuple_id,
+        "runtime_base": pin_details.runtime_base,
+        "toolkit": {
+            "selected_lane": "primary",
+            "selected_lane_value": pin_details.primary_toolkit_lane,
+            "primary_lane": pin_details.primary_toolkit_lane,
+            "experimental_lane": pin_details.experimental_toolkit_lane,
+            "driver_floor": pin_details.driver_floor,
+        },
         "case_name": "cubeLinear",
         "solver": "laplacianFoam",
         "status": "pass",
@@ -165,11 +189,23 @@ def sample_memcheck_result() -> dict[str, object]:
     }
 
 
-def sample_nsys_result(mode: str) -> dict[str, object]:
+def sample_nsys_result(mode: str, bundle=None) -> dict[str, object]:
+    if bundle is None:
+        bundle = load_authority_bundle(repo_path())
+    pin_details = load_pin_details(bundle)
     diagnostic_only = mode == "um_fault"
     return {
         "schema_version": "1.0.0",
         "canonical_name": "nsys_profile_result.json",
+        "reviewed_source_tuple_id": pin_details.reviewed_source_tuple_id,
+        "runtime_base": pin_details.runtime_base,
+        "toolkit": {
+            "selected_lane": "primary",
+            "selected_lane_value": pin_details.primary_toolkit_lane,
+            "primary_lane": pin_details.primary_toolkit_lane,
+            "experimental_lane": pin_details.experimental_toolkit_lane,
+            "driver_floor": pin_details.driver_floor,
+        },
         "case_name": "channelTransient",
         "solver": "pimpleFoam",
         "profile_mode": mode,
@@ -1129,6 +1165,189 @@ class Phase1AcceptanceTests(unittest.TestCase):
 
         self.assertEqual(payload["status"], "FAIL")
         self.assertIn("ptx_jit_traceable", payload["failing_gate_ids"])
+
+    def test_build_phase1_acceptance_report_requires_smoke_results_to_match_primary_tuple(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_root = pathlib.Path(temp_dir)
+            docs_path = temp_root / "docs" / "bringup" / "phase1_blackwell.md"
+            docs_path.parent.mkdir(parents=True, exist_ok=True)
+            docs_path.write_text("# Phase 1 Blackwell bring-up\n", encoding="utf-8")
+
+            stale_smoke = sample_smoke_result("cubeLinear", "laplacianFoam", self.bundle)
+            stale_smoke["reviewed_source_tuple_id"] = "STALE_TUPLE"
+            stale_smoke["runtime_base"] = "stale/runtime"
+            stale_smoke["toolkit"]["selected_lane"] = "experimental"
+            stale_smoke["toolkit"]["selected_lane_value"] = load_pin_details(self.bundle).experimental_toolkit_lane
+
+            host_env_path = write_json(temp_root / "host_env.json", sample_host_env(self.bundle))
+            manifest_refs_path = write_json(
+                temp_root / "manifest_refs.json",
+                sample_manifest_refs(self.bundle),
+            )
+            cuda_probe_path = write_json(temp_root / "cuda_probe.json", sample_cuda_probe())
+            build_metadata_path = write_json(
+                temp_root / "build_metadata.json",
+                sample_build_metadata(self.bundle, build_log=(temp_root / "build.log").as_posix()),
+            )
+            fatbinary_report_path = write_json(temp_root / "fatbinary_report.json", sample_fatbinary_report())
+            smoke_result_paths = [
+                write_json(temp_root / "cubeLinear.json", stale_smoke),
+                write_json(temp_root / "channelSteady.json", sample_smoke_result("channelSteady", "simpleFoam", self.bundle)),
+                write_json(
+                    temp_root / "channelTransient.json",
+                    sample_smoke_result("channelTransient", "pimpleFoam", self.bundle),
+                ),
+            ]
+            memcheck_result_path = write_json(temp_root / "memcheck_result.json", sample_memcheck_result(self.bundle))
+            nsys_result_paths = [
+                write_json(temp_root / "basic.json", sample_nsys_result("basic", self.bundle)),
+                write_json(temp_root / "um_fault.json", sample_nsys_result("um_fault", self.bundle)),
+            ]
+            ptx_jit_result_path = write_json(
+                temp_root / PHASE1_PTX_JIT_RESULT_NAME,
+                sample_ptx_jit_result(self.bundle),
+            )
+
+            report = build_phase1_acceptance_report(
+                self.bundle,
+                output_dir=temp_root / "acceptance",
+                host_env_path=host_env_path,
+                manifest_refs_path=manifest_refs_path,
+                cuda_probe_path=cuda_probe_path,
+                build_metadata_path=build_metadata_path,
+                fatbinary_report_path=fatbinary_report_path,
+                smoke_result_paths=smoke_result_paths,
+                memcheck_result_path=memcheck_result_path,
+                nsys_result_paths=nsys_result_paths,
+                ptx_jit_result_path=ptx_jit_result_path,
+                bringup_doc_path=docs_path,
+            )
+            payload = json.loads(report.json_path.read_text(encoding="utf-8"))
+
+        self.assertEqual(payload["status"], "FAIL")
+        self.assertIn("smoke_results_traceable", payload["failing_gate_ids"])
+
+    def test_build_phase1_acceptance_report_requires_memcheck_to_match_primary_tuple(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_root = pathlib.Path(temp_dir)
+            docs_path = temp_root / "docs" / "bringup" / "phase1_blackwell.md"
+            docs_path.parent.mkdir(parents=True, exist_ok=True)
+            docs_path.write_text("# Phase 1 Blackwell bring-up\n", encoding="utf-8")
+
+            stale_memcheck = sample_memcheck_result(self.bundle)
+            stale_memcheck["reviewed_source_tuple_id"] = "STALE_TUPLE"
+            stale_memcheck["runtime_base"] = "stale/runtime"
+            stale_memcheck["toolkit"]["selected_lane"] = "experimental"
+            stale_memcheck["toolkit"]["selected_lane_value"] = load_pin_details(self.bundle).experimental_toolkit_lane
+
+            host_env_path = write_json(temp_root / "host_env.json", sample_host_env(self.bundle))
+            manifest_refs_path = write_json(
+                temp_root / "manifest_refs.json",
+                sample_manifest_refs(self.bundle),
+            )
+            cuda_probe_path = write_json(temp_root / "cuda_probe.json", sample_cuda_probe())
+            build_metadata_path = write_json(
+                temp_root / "build_metadata.json",
+                sample_build_metadata(self.bundle, build_log=(temp_root / "build.log").as_posix()),
+            )
+            fatbinary_report_path = write_json(temp_root / "fatbinary_report.json", sample_fatbinary_report())
+            smoke_result_paths = [
+                write_json(temp_root / "cubeLinear.json", sample_smoke_result("cubeLinear", "laplacianFoam", self.bundle)),
+                write_json(temp_root / "channelSteady.json", sample_smoke_result("channelSteady", "simpleFoam", self.bundle)),
+                write_json(
+                    temp_root / "channelTransient.json",
+                    sample_smoke_result("channelTransient", "pimpleFoam", self.bundle),
+                ),
+            ]
+            memcheck_result_path = write_json(temp_root / "memcheck_result.json", stale_memcheck)
+            nsys_result_paths = [
+                write_json(temp_root / "basic.json", sample_nsys_result("basic", self.bundle)),
+                write_json(temp_root / "um_fault.json", sample_nsys_result("um_fault", self.bundle)),
+            ]
+            ptx_jit_result_path = write_json(
+                temp_root / PHASE1_PTX_JIT_RESULT_NAME,
+                sample_ptx_jit_result(self.bundle),
+            )
+
+            report = build_phase1_acceptance_report(
+                self.bundle,
+                output_dir=temp_root / "acceptance",
+                host_env_path=host_env_path,
+                manifest_refs_path=manifest_refs_path,
+                cuda_probe_path=cuda_probe_path,
+                build_metadata_path=build_metadata_path,
+                fatbinary_report_path=fatbinary_report_path,
+                smoke_result_paths=smoke_result_paths,
+                memcheck_result_path=memcheck_result_path,
+                nsys_result_paths=nsys_result_paths,
+                ptx_jit_result_path=ptx_jit_result_path,
+                bringup_doc_path=docs_path,
+            )
+            payload = json.loads(report.json_path.read_text(encoding="utf-8"))
+
+        self.assertEqual(payload["status"], "FAIL")
+        self.assertIn("memcheck_traceable", payload["failing_gate_ids"])
+
+    def test_build_phase1_acceptance_report_requires_nsys_results_to_match_primary_tuple(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_root = pathlib.Path(temp_dir)
+            docs_path = temp_root / "docs" / "bringup" / "phase1_blackwell.md"
+            docs_path.parent.mkdir(parents=True, exist_ok=True)
+            docs_path.write_text("# Phase 1 Blackwell bring-up\n", encoding="utf-8")
+
+            stale_nsys = sample_nsys_result("basic", self.bundle)
+            stale_nsys["reviewed_source_tuple_id"] = "STALE_TUPLE"
+            stale_nsys["runtime_base"] = "stale/runtime"
+            stale_nsys["toolkit"]["selected_lane"] = "experimental"
+            stale_nsys["toolkit"]["selected_lane_value"] = load_pin_details(self.bundle).experimental_toolkit_lane
+
+            host_env_path = write_json(temp_root / "host_env.json", sample_host_env(self.bundle))
+            manifest_refs_path = write_json(
+                temp_root / "manifest_refs.json",
+                sample_manifest_refs(self.bundle),
+            )
+            cuda_probe_path = write_json(temp_root / "cuda_probe.json", sample_cuda_probe())
+            build_metadata_path = write_json(
+                temp_root / "build_metadata.json",
+                sample_build_metadata(self.bundle, build_log=(temp_root / "build.log").as_posix()),
+            )
+            fatbinary_report_path = write_json(temp_root / "fatbinary_report.json", sample_fatbinary_report())
+            smoke_result_paths = [
+                write_json(temp_root / "cubeLinear.json", sample_smoke_result("cubeLinear", "laplacianFoam", self.bundle)),
+                write_json(temp_root / "channelSteady.json", sample_smoke_result("channelSteady", "simpleFoam", self.bundle)),
+                write_json(
+                    temp_root / "channelTransient.json",
+                    sample_smoke_result("channelTransient", "pimpleFoam", self.bundle),
+                ),
+            ]
+            memcheck_result_path = write_json(temp_root / "memcheck_result.json", sample_memcheck_result(self.bundle))
+            nsys_result_paths = [
+                write_json(temp_root / "basic.json", stale_nsys),
+                write_json(temp_root / "um_fault.json", sample_nsys_result("um_fault", self.bundle)),
+            ]
+            ptx_jit_result_path = write_json(
+                temp_root / PHASE1_PTX_JIT_RESULT_NAME,
+                sample_ptx_jit_result(self.bundle),
+            )
+
+            report = build_phase1_acceptance_report(
+                self.bundle,
+                output_dir=temp_root / "acceptance",
+                host_env_path=host_env_path,
+                manifest_refs_path=manifest_refs_path,
+                cuda_probe_path=cuda_probe_path,
+                build_metadata_path=build_metadata_path,
+                fatbinary_report_path=fatbinary_report_path,
+                smoke_result_paths=smoke_result_paths,
+                memcheck_result_path=memcheck_result_path,
+                nsys_result_paths=nsys_result_paths,
+                ptx_jit_result_path=ptx_jit_result_path,
+                bringup_doc_path=docs_path,
+            )
+            payload = json.loads(report.json_path.read_text(encoding="utf-8"))
+
+        self.assertEqual(payload["status"], "FAIL")
+        self.assertIn("nsys_results_traceable", payload["failing_gate_ids"])
 
 
 if __name__ == "__main__":

@@ -512,6 +512,26 @@ def build_phase1_acceptance_report(
             label="pimpleFoam smoke case passes",
             evidence=_smoke_evidence_path(smoke_result_paths, "channelTransient"),
         ),
+        "smoke_results_traceable": _gate_result(
+            label="Smoke results match the reviewed tuple, runtime base, and primary lane",
+            passed=all(
+                _artifact_traceable_to_primary_lane(
+                    smoke_results.get(case_name),
+                    manifest_refs=manifest_refs,
+                    pin_details=pin_details,
+                )
+                for case_name in ("cubeLinear", "channelSteady", "channelTransient")
+            ),
+            expected=_traceability_expectation(pin_details),
+            observed={
+                case_name: _traceability_observed(smoke_results.get(case_name))
+                for case_name in ("cubeLinear", "channelSteady", "channelTransient")
+            },
+            evidence=",".join(
+                _smoke_evidence_path(smoke_result_paths, case_name)
+                for case_name in ("cubeLinear", "channelSteady", "channelTransient")
+            ),
+        ),
         "nvtx_visible_in_nsys": _gate_result(
             label="NVTX3 ranges visible in Nsight Systems",
             passed=basic_nsys_pass and _nested_bool(basic_nsys, "success_criteria", "phase1_required_ranges_present"),
@@ -564,6 +584,17 @@ def build_phase1_acceptance_report(
             },
             evidence=resolved_paths["memcheck_result"].as_posix(),
         ),
+        "memcheck_traceable": _gate_result(
+            label="Memcheck evidence matches the reviewed tuple, runtime base, and primary lane",
+            passed=_artifact_traceable_to_primary_lane(
+                memcheck_result,
+                manifest_refs=manifest_refs,
+                pin_details=pin_details,
+            ),
+            expected=_traceability_expectation(pin_details),
+            observed=_traceability_observed(memcheck_result),
+            evidence=resolved_paths["memcheck_result"].as_posix(),
+        ),
         "uvm_trace_captured": _gate_result(
             label="UVM-fault trace captured on one case",
             passed=um_fault_nsys_pass and _nested_bool(um_fault_nsys, "success_criteria", "uvm_evidence_present"),
@@ -591,6 +622,23 @@ def build_phase1_acceptance_report(
                 "success_criteria": _nested_value(um_fault_nsys, "success_criteria"),
             },
             evidence=_nsys_evidence_path(nsys_result_paths, "um_fault"),
+        ),
+        "nsys_results_traceable": _gate_result(
+            label="Nsight artifacts match the reviewed tuple, runtime base, and primary lane",
+            passed=all(
+                _artifact_traceable_to_primary_lane(
+                    nsys_results.get(mode),
+                    manifest_refs=manifest_refs,
+                    pin_details=pin_details,
+                )
+                for mode in ("basic", "um_fault")
+            ),
+            expected=_traceability_expectation(pin_details),
+            observed={
+                mode: _traceability_observed(nsys_results.get(mode))
+                for mode in ("basic", "um_fault")
+            },
+            evidence=",".join(_nsys_evidence_path(nsys_result_paths, mode) for mode in ("basic", "um_fault")),
         ),
         "bringup_doc_present": _gate_result(
             label="Bring-up documentation is archived with the acceptance bundle",
@@ -857,6 +905,40 @@ def _gate_result(
         "observed": observed,
         "evidence": evidence,
     }
+
+
+def _traceability_expectation(pin_details: Any) -> dict[str, Any]:
+    return {
+        "reviewed_source_tuple_id": pin_details.reviewed_source_tuple_id,
+        "runtime_base": pin_details.runtime_base,
+        "selected_lane": "primary",
+        "selected_lane_value": pin_details.primary_toolkit_lane,
+    }
+
+
+def _traceability_observed(payload: Mapping[str, Any] | None) -> dict[str, Any]:
+    return {
+        "reviewed_source_tuple_id": _nested_value(payload, "reviewed_source_tuple_id"),
+        "runtime_base": _nested_value(payload, "runtime_base"),
+        "selected_lane": _nested_value(payload, "toolkit", "selected_lane"),
+        "selected_lane_value": _nested_value(payload, "toolkit", "selected_lane_value"),
+    }
+
+
+def _artifact_traceable_to_primary_lane(
+    payload: Mapping[str, Any] | None,
+    *,
+    manifest_refs: Mapping[str, Any],
+    pin_details: Any,
+) -> bool:
+    return (
+        _nested_value(payload, "reviewed_source_tuple_id") == manifest_refs.get("reviewed_source_tuple_id")
+        and _nested_value(payload, "reviewed_source_tuple_id") == pin_details.reviewed_source_tuple_id
+        and _nested_value(payload, "runtime_base") == manifest_refs.get("runtime_base")
+        and _nested_value(payload, "runtime_base") == pin_details.runtime_base
+        and _nested_value(payload, "toolkit", "selected_lane") == "primary"
+        and _nested_value(payload, "toolkit", "selected_lane_value") == pin_details.primary_toolkit_lane
+    )
 
 
 def _smoke_evidence_path(

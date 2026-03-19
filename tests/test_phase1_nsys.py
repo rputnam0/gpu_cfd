@@ -6,6 +6,7 @@ import tempfile
 import unittest
 
 from scripts.authority import load_authority_bundle, repo_root
+from scripts.authority.pins import load_pin_details
 from scripts.authority.phase1_nsys import run_phase1_nsys_profile
 
 
@@ -93,6 +94,9 @@ class Phase1ProfilingTests(unittest.TestCase):
 
         self.assertEqual(result.status, "pass")
         self.assertEqual(result_payload["status"], "pass")
+        self.assertEqual(result_payload["reviewed_source_tuple_id"], load_pin_details(self.bundle).reviewed_source_tuple_id)
+        self.assertEqual(result_payload["runtime_base"], load_pin_details(self.bundle).runtime_base)
+        self.assertEqual(result_payload["toolkit"]["selected_lane"], "primary")
         self.assertEqual(result_payload["profile_mode"], "basic")
         self.assertFalse(result_payload["diagnostic_only"])
         self.assertTrue(result_payload["timing_baseline_eligible"])

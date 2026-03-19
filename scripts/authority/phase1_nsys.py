@@ -15,6 +15,7 @@ from typing import Any, Callable, Mapping
 try:
     from .bundle import AuthorityBundle, load_authority_bundle, repo_root
     from .graph_registry import load_graph_stage_registry
+    from .pins import load_pin_details
     from .phase1_smoke import (
         CASE_DEFINITIONS,
         MANIFEST_SCHEMA_VERSION,
@@ -28,6 +29,7 @@ except ImportError:  # pragma: no cover - script execution fallback
     sys.path.append(str(pathlib.Path(__file__).resolve().parents[2]))
     from scripts.authority.bundle import AuthorityBundle, load_authority_bundle, repo_root  # type: ignore
     from scripts.authority.graph_registry import load_graph_stage_registry  # type: ignore
+    from scripts.authority.pins import load_pin_details  # type: ignore
     from scripts.authority.phase1_smoke import (  # type: ignore
         CASE_DEFINITIONS,
         MANIFEST_SCHEMA_VERSION,
@@ -140,6 +142,7 @@ def run_phase1_nsys_profile(
     command_runner: Callable[..., int] | None = None,
     nsys_command: tuple[str, ...] = ("nsys",),
 ) -> Phase1NsysRunResult:
+    pin_details = load_pin_details(bundle)
     if mode not in PROFILE_MODE_CONFIG:
         raise ValueError(f"unsupported Phase 1 Nsight Systems mode {mode!r}")
     if mode == "um_fault" and case_name != DEFAULT_PHASE1_PROFILE_CASE:
@@ -189,6 +192,7 @@ def run_phase1_nsys_profile(
             classification="not_requested" if mode == "basic" else "missing_diagnostic_evidence",
         )
         payload = _build_result_payload(
+            pin_details=pin_details,
             case_name=case_name,
             solver=case_definition.solver,
             mode=mode,
@@ -353,6 +357,7 @@ def run_phase1_nsys_profile(
     )
     status = "pass" if not failure_reasons else "fail"
     payload = _build_result_payload(
+        pin_details=pin_details,
         case_name=case_name,
         solver=case_definition.solver,
         mode=mode,
@@ -625,6 +630,7 @@ def _logs_are_clean(command_results: list[dict[str, Any]]) -> bool:
 
 def _build_result_payload(
     *,
+    pin_details: Any,
     case_name: str,
     solver: str,
     mode: str,
@@ -648,6 +654,15 @@ def _build_result_payload(
     return {
         "schema_version": MANIFEST_SCHEMA_VERSION,
         "canonical_name": PHASE1_NSYS_RESULT_NAME,
+        "reviewed_source_tuple_id": pin_details.reviewed_source_tuple_id,
+        "runtime_base": pin_details.runtime_base,
+        "toolkit": {
+            "selected_lane": "primary",
+            "selected_lane_value": pin_details.primary_toolkit_lane,
+            "primary_lane": pin_details.primary_toolkit_lane,
+            "experimental_lane": pin_details.experimental_toolkit_lane,
+            "driver_floor": pin_details.driver_floor,
+        },
         "case_name": case_name,
         "solver": solver,
         "profile_mode": mode,
