@@ -349,7 +349,7 @@ Phase 1 owns `P1-01..P1-07` and is limited to workstation, toolchain, and profil
 - Phase 1 smoke-case run logs and audited runtime-setting artifacts.
 - Compute Sanitizer memcheck logs and verdict summary.
 - Baseline and UVM diagnostic Nsight Systems trace artifacts.
-- PTX-JIT logs and final `phase1_acceptance_report.json` and `phase1_acceptance_report.md`.
+- PTX-JIT logs and final `phase1_acceptance_report.json`, `phase1_acceptance_report.md`, and `phase1_acceptance_bundle_index.json`.
 
 ## shared_terms
 
