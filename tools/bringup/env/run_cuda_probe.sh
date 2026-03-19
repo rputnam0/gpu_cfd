@@ -89,54 +89,54 @@ if [[ -e "${wsl_lib_dir}/libcuda.so.1" ]]; then
       -print 2>/dev/null | sort -u
   )
   if ((${#conflicting_driver_paths[@]} > 0)); then
-  native_libcuda_real="$(readlink -f "${native_libcuda}" 2>/dev/null || printf '%s\n' "${native_libcuda}")"
-  owner_packages="$(
-    {
-      for conflicting_path in "${conflicting_driver_paths[@]}" "${native_libcuda_real}"; do
-        [[ -n "${conflicting_path}" ]] || continue
-        dpkg-query -S "${conflicting_path}" 2>/dev/null || true
-      done
-    } | cut -d: -f1 | awk 'NF' | sort -u || true
-  )"
-  conflicting_packages="$(
-    dpkg-query -W -f='${db:Status-Abbrev} ${binary:Package}\n' \
-      'libnvidia-compute-*' \
-      'libcudart*' \
-      'nvidia-cuda-dev' \
-      'nvidia-cuda-toolkit' 2>/dev/null | awk '$1 == "ii" { print $2 }' | sort -u || true
-  )"
-  echo "WSL host should not expose Linux display driver libraries at ${native_libcuda}." >&2
-  echo "Remove the Linux display driver packages from WSL and rely on ${wsl_lib_dir}." >&2
-    echo "Conflicting Linux-side driver libraries: ${conflicting_driver_paths[*]}" >&2
-  if [[ -n "${owner_packages}" ]]; then
-    mapfile -t cleanup_targets < <(expand_cleanup_targets ${owner_packages//$'\n'/ })
-    echo "Installed Linux-side libcuda owner packages: ${owner_packages//$'\n'/, }" >&2
-    echo "Example cleanup command: sudo apt remove --purge ${cleanup_targets[*]}" >&2
-    cleanup_fallout="$(simulate_cleanup_fallout "${cleanup_targets[@]}")"
-    if [[ -n "${cleanup_fallout}" ]]; then
-      echo "Simulated apt fallout: ${cleanup_fallout//$'\n'/, }" >&2
-    fi
-    echo "If you need to restore the CUDA toolkit in WSL afterward, use NVIDIA's WSL-Ubuntu installer path or the cuda-toolkit-12-x meta-package only; do not install cuda, cuda-12-x, or cuda-drivers under WSL." >&2
-  fi
-  if [[ -n "${conflicting_packages}" ]]; then
-    related_packages="$(
-      printf '%s\n' "${conflicting_packages}" | awk '
-        NR == FNR { owners[$1] = 1; next }
-        {
-          pkg = $1
-          base = pkg
-          sub(/:.*/, "", base)
-          if (!owners[base]) {
-            print pkg
-          }
-        }
-      ' <(printf '%s\n' "${owner_packages}") - | awk 'NF' || true
+    native_libcuda_real="$(readlink -f "${native_libcuda}" 2>/dev/null || printf '%s\n' "${native_libcuda}")"
+    owner_packages="$(
+      {
+        for conflicting_path in "${conflicting_driver_paths[@]}" "${native_libcuda_real}"; do
+          [[ -n "${conflicting_path}" ]] || continue
+          dpkg-query -S "${conflicting_path}" 2>/dev/null || true
+        done
+      } | cut -d: -f1 | awk 'NF' | sort -u || true
     )"
-    if [[ -n "${related_packages}" ]]; then
-      echo "Installed related CUDA toolkit packages: ${related_packages//$'\n'/, }" >&2
+    conflicting_packages="$(
+      dpkg-query -W -f='${db:Status-Abbrev} ${binary:Package}\n' \
+        'libnvidia-compute-*' \
+        'libcudart*' \
+        'nvidia-cuda-dev' \
+        'nvidia-cuda-toolkit' 2>/dev/null | awk '$1 == "ii" { print $2 }' | sort -u || true
+    )"
+    echo "WSL host should not expose Linux display driver libraries at ${native_libcuda}." >&2
+    echo "Remove the Linux display driver packages from WSL and rely on ${wsl_lib_dir}." >&2
+    echo "Conflicting Linux-side driver libraries: ${conflicting_driver_paths[*]}" >&2
+    if [[ -n "${owner_packages}" ]]; then
+      mapfile -t cleanup_targets < <(expand_cleanup_targets ${owner_packages//$'\n'/ })
+      echo "Installed Linux-side driver owner packages: ${owner_packages//$'\n'/, }" >&2
+      echo "Example cleanup command: sudo apt remove --purge ${cleanup_targets[*]}" >&2
+      cleanup_fallout="$(simulate_cleanup_fallout "${cleanup_targets[@]}")"
+      if [[ -n "${cleanup_fallout}" ]]; then
+        echo "Simulated apt fallout: ${cleanup_fallout//$'\n'/, }" >&2
+      fi
+      echo "If you need to restore the CUDA toolkit in WSL afterward, use NVIDIA's WSL-Ubuntu installer path or the cuda-toolkit-12-x meta-package only; do not install cuda, cuda-12-x, or cuda-drivers under WSL." >&2
     fi
-  fi
-  exit 1
+    if [[ -n "${conflicting_packages}" ]]; then
+      related_packages="$(
+        printf '%s\n' "${conflicting_packages}" | awk '
+          NR == FNR { owners[$1] = 1; next }
+          {
+            pkg = $1
+            base = pkg
+            sub(/:.*/, "", base)
+            if (!owners[base]) {
+              print pkg
+            }
+          }
+        ' <(printf '%s\n' "${owner_packages}") - | awk 'NF' || true
+      )"
+      if [[ -n "${related_packages}" ]]; then
+        echo "Installed related CUDA toolkit packages: ${related_packages//$'\n'/, }" >&2
+      fi
+    fi
+    exit 1
   fi
 fi
 

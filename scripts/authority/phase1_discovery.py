@@ -535,7 +535,7 @@ def _validate_wsl_driver_stack(
     package_suffix = ""
     if owner_packages:
         cleanup_targets = _expand_wsl_cleanup_targets(owner_packages)
-        package_suffix = " Installed Linux-side libcuda owner packages: " + ", ".join(
+        package_suffix = " Installed Linux-side driver owner packages: " + ", ".join(
             owner_packages
         )
         package_suffix += (

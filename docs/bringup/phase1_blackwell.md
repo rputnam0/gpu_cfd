@@ -21,7 +21,7 @@ CUDA probe runs. If `tools/bringup/env/run_cuda_probe.sh` prints a message like:
 WSL host should not expose Linux display driver libraries at /usr/lib/x86_64-linux-gnu/libcuda.so.1.
 Remove the Linux display driver packages from WSL and rely on /usr/lib/wsl/lib.
 Conflicting Linux-side driver libraries: /usr/lib/x86_64-linux-gnu/libcuda.so /usr/lib/x86_64-linux-gnu/libcuda.so.1 /usr/lib/x86_64-linux-gnu/libcuda.so.535.288.01 /usr/lib/x86_64-linux-gnu/libnvidia-ml.so /usr/lib/x86_64-linux-gnu/libnvidia-ml.so.1 /usr/lib/x86_64-linux-gnu/libnvidia-ml.so.535.288.01 /usr/lib/x86_64-linux-gnu/libnvidia-ptxjitcompiler.so /usr/lib/x86_64-linux-gnu/libnvidia-ptxjitcompiler.so.1 /usr/lib/x86_64-linux-gnu/libnvidia-ptxjitcompiler.so.535.288.01
-Installed Linux-side libcuda owner packages: libnvidia-compute-535
+Installed Linux-side driver owner packages: libnvidia-compute-535
 Example cleanup command: sudo apt remove --purge libnvidia-compute-535 libnvidia-compute-535-server
 Simulated apt fallout: libcuinj64-12.0, libnvidia-ml-dev, nsight-systems, nsight-systems-target, nvidia-cuda-dev, nvidia-cuda-toolkit, nvidia-profiler, nvidia-visual-profiler
 If you need to restore the CUDA toolkit in WSL afterward, use NVIDIA's WSL-Ubuntu installer path or the cuda-toolkit-12-x meta-package only; do not install cuda, cuda-12-x, or cuda-drivers under WSL.
