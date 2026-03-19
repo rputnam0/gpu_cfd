@@ -15,10 +15,15 @@ Phase 1 acceptance report can be treated as reviewable.
 - `build_metadata.json` and `fatbinary_report.json` must stay traceable to the same reviewed
   tuple, runtime base, and primary-lane toolkit selection as the canonical manifests
 - Smoke-case results for `cubeLinear`, `channelSteady`, and `channelTransient` from `P1-04`
+- The acceptance bundle expects those three smoke-case result JSONs exactly once each;
+  duplicate or unexpected smoke-result inputs now fail the report as malformed inventory
 - Smoke, memcheck, and Nsight result JSONs must stay traceable to the same reviewed tuple,
   runtime base, and primary-lane toolkit selection as the canonical manifests
 - Compute Sanitizer memcheck result from `P1-05`
 - Nsight Systems `basic` and `um_fault` result JSONs from `P1-06`
+- The acceptance bundle likewise expects the `basic` and `um_fault` Nsight result JSONs
+  exactly once each; duplicate or unexpected Nsight-result inputs now fail the report as
+  malformed inventory
 
 ## WSL Driver Guard
 
@@ -204,7 +209,9 @@ logs, raw fatbinary `ptx` / `sass` dumps, Compute Sanitizer memcheck log, raw Ns
 artifacts, Nsight command logs and summary/NVTX report files, smoke-audit reports, and the
 smoke-result and smoke-log / Nsight-result JSON inputs used by the hard gates. It also
 includes a compact contract-traceability section with the acceptance manifest revision,
-authority revisions, and required revalidation rows. The bundle index is the archive-facing
+authority revisions, required revalidation rows, and a reviewable input inventory that
+shows the exact smoke/Nsight result files supplied to the report stage, including any
+duplicate, missing, or unexpected names. The bundle index is the archive-facing
 directory of the final reports plus the supporting artifact inputs used to build them.
 It explicitly records the reviewed tuple, selected lane, workstation summary, and the
 canonical workstation-manifest paths (`host_env.json`, `manifest_refs.json`,
@@ -227,8 +234,10 @@ Phase 1 acceptance is `PASS` only when all hard checks in the `P1-07` card succe
 - the PTX-JIT run succeeds under `CUDA_FORCE_PTX_JIT=1`
 - `ptx_jit_result.json` is traceable to the same reviewed tuple, runtime base, and primary lane
 - all three Phase 1 smoke cases passed
+- the smoke-result inventory contains exactly one artifact for each required Phase 1 case
 - smoke, memcheck, and Nsight result JSONs are traceable to the same reviewed tuple, runtime base,
   and primary lane
+- the Nsight-result inventory contains exactly one artifact for each required Phase 1 mode
 - Nsight Systems shows required NVTX ranges and GPU kernels
 - the UVM diagnostic trace is present and its activity is either clean or documented
 - memcheck reports no actionable errors
