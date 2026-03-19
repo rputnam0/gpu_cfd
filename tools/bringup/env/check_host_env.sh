@@ -160,7 +160,7 @@ repo_commit="$(git -C "${repo_root}" rev-parse HEAD 2>/dev/null || echo unknown)
 
 trap 'write_runtime_snapshot' ERR
 
-exec > >(tee -a "${wrapper_log_path}") 2>&1
+exec > >(tee "${wrapper_log_path}") 2>&1
 
 printf '# check_host_env invocation\n'
 printf 'utc_time=%s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
