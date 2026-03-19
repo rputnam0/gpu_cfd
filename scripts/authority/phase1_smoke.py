@@ -13,13 +13,19 @@ from typing import Any, Callable, Mapping
 
 try:
     from .bundle import AuthorityBundle, load_authority_bundle, repo_root
-    from .support_scanner import SupportFunctionObject, SupportScanRequest, scan_support_matrix
+    from .support_scanner import (
+        SupportBoundaryCondition,
+        SupportFunctionObject,
+        SupportScanRequest,
+        scan_support_matrix,
+    )
 except ImportError:  # pragma: no cover - script execution fallback
     import sys
 
     sys.path.append(str(pathlib.Path(__file__).resolve().parents[2]))
     from scripts.authority.bundle import AuthorityBundle, load_authority_bundle, repo_root  # type: ignore
     from scripts.authority.support_scanner import (  # type: ignore
+        SupportBoundaryCondition,
         SupportFunctionObject,
         SupportScanRequest,
         scan_support_matrix,
@@ -273,6 +279,8 @@ def scan_phase1_smoke_case(
         )
 
     control_dict = _read_foam_dictionary(resolved_case_dir / "system" / "controlDict", issues=issues)
+    block_mesh_dict_path = resolved_case_dir / "system" / "blockMeshDict"
+    block_mesh_text = _read_case_text(block_mesh_dict_path, issues=issues)
     if control_dict:
         observed_solver = _clean_token(control_dict.get("application"))
         if observed_solver != definition.solver:
@@ -292,6 +300,13 @@ def scan_phase1_smoke_case(
     )
     parsed_turbulence_model = _parse_turbulence_model(turbulence_properties)
     issues.extend(_audit_fvschemes(fv_schemes))
+    boundary_conditions = _extract_boundary_conditions(resolved_case_dir, issues=issues)
+    processor_patches_present, cyclic_or_ami_patches_present = _parse_patch_policy_flags(
+        block_mesh_text
+    )
+    arbitrary_coded_patch_fields_present = any(
+        "coded" in condition.kind.lower() for condition in boundary_conditions
+    )
 
     function_objects = _extract_function_objects(control_dict)
     support_report = scan_support_matrix(
@@ -306,8 +321,13 @@ def scan_phase1_smoke_case(
                 for block, value in fv_schemes.items()
                 if isinstance(value, Mapping)
             },
+            boundary_audit=False,
             turbulence_model=parsed_turbulence_model,
+            processor_patches_present=processor_patches_present,
+            cyclic_or_ami_patches_present=cyclic_or_ami_patches_present,
+            arbitrary_coded_patch_fields_present=arbitrary_coded_patch_fields_present,
             function_objects=function_objects,
+            boundary_conditions=boundary_conditions,
         ),
     )
 
@@ -565,6 +585,27 @@ def _read_json(
         return {}
 
 
+def _read_case_text(
+    path: pathlib.Path,
+    *,
+    issues: list[Phase1SmokeIssue],
+) -> str:
+    if not path.exists():
+        return ""
+    try:
+        return path.read_text(encoding="utf-8")
+    except OSError as exc:
+        issues.append(
+            Phase1SmokeIssue(
+                code="unreadable_case_dictionary",
+                message="Smoke-case dictionaries must be readable from the repo checkout.",
+                citations=(PACK_CITATION,),
+                detail={"path": path.as_posix(), "error": str(exc)},
+            )
+        )
+        return ""
+
+
 def _read_foam_dictionary(
     path: pathlib.Path,
     *,
@@ -674,20 +715,108 @@ def _parse_turbulence_model(turbulence_properties: Mapping[str, Any]) -> str:
 
 
 def _audit_fvschemes(fv_schemes: Mapping[str, Any]) -> tuple[Phase1SmokeIssue, ...]:
+    issues: list[Phase1SmokeIssue] = []
     ddt_schemes = fv_schemes.get("ddtSchemes")
-    if not isinstance(ddt_schemes, Mapping):
+    if isinstance(ddt_schemes, Mapping):
+        default_scheme = _clean_token(ddt_schemes.get("default"))
+        if default_scheme in UNSUPPORTED_TIME_SCHEMES:
+            issues.append(
+                Phase1SmokeIssue(
+                    code="unsupported_time_scheme",
+                    message="Phase 1 smoke cases must reject unsupported time schemes before execution.",
+                    citations=(FV_SOLUTION_CITATION,),
+                    detail={"scheme": default_scheme},
+                )
+            )
+
+    grad_schemes = fv_schemes.get("gradSchemes")
+    if isinstance(grad_schemes, Mapping):
+        default_gradient = _clean_token(grad_schemes.get("default"))
+        if default_gradient != "Gauss linear":
+            issues.append(
+                Phase1SmokeIssue(
+                    code="unsupported_gradient_scheme",
+                    message="Phase 1 smoke cases must keep the checked-in gradient scheme subset.",
+                    citations=(FV_SOLUTION_CITATION,),
+                    detail={"scheme": default_gradient},
+                )
+            )
+
+    interpolation_schemes = fv_schemes.get("interpolationSchemes")
+    if isinstance(interpolation_schemes, Mapping):
+        default_interpolation = _clean_token(interpolation_schemes.get("default"))
+        if default_interpolation != "linear":
+            issues.append(
+                Phase1SmokeIssue(
+                    code="unsupported_interpolation_scheme",
+                    message="Phase 1 smoke cases must keep the checked-in interpolation scheme subset.",
+                    citations=(FV_SOLUTION_CITATION,),
+                    detail={"scheme": default_interpolation},
+                )
+            )
+
+    div_schemes = fv_schemes.get("divSchemes")
+    if isinstance(div_schemes, Mapping):
+        allowed_div_schemes = {
+            "default": "none",
+            "div(phi,U)": "Gauss linearUpwind grad(U)",
+        }
+        for key, value in div_schemes.items():
+            normalized_key = _clean_token(key)
+            normalized_value = _clean_token(value)
+            expected = allowed_div_schemes.get(normalized_key)
+            if expected is None or normalized_value != expected:
+                issues.append(
+                    Phase1SmokeIssue(
+                        code="unsupported_divergence_scheme",
+                        message="Phase 1 smoke cases must keep the checked-in divergence scheme subset.",
+                        citations=(FV_SOLUTION_CITATION,),
+                        detail={"entry": normalized_key, "scheme": normalized_value},
+                    )
+                )
+    return tuple(issues)
+
+
+def _extract_boundary_conditions(
+    case_dir: pathlib.Path,
+    *,
+    issues: list[Phase1SmokeIssue],
+) -> tuple[SupportBoundaryCondition, ...]:
+    zero_dir = case_dir / "0"
+    if not zero_dir.exists():
         return ()
-    default_scheme = _clean_token(ddt_schemes.get("default"))
-    if default_scheme in UNSUPPORTED_TIME_SCHEMES:
-        return (
-            Phase1SmokeIssue(
-                code="unsupported_time_scheme",
-                message="Phase 1 smoke cases must reject unsupported time schemes before execution.",
-                citations=(FV_SOLUTION_CITATION,),
-                detail={"scheme": default_scheme},
-            ),
-        )
-    return ()
+    conditions: list[SupportBoundaryCondition] = []
+    for field_path in sorted(path for path in zero_dir.iterdir() if path.is_file()):
+        payload = _read_foam_dictionary(field_path, issues=issues)
+        boundary_field = payload.get("boundaryField")
+        if not isinstance(boundary_field, Mapping):
+            continue
+        for patch_name, patch_payload in boundary_field.items():
+            if not isinstance(patch_payload, Mapping):
+                continue
+            conditions.append(
+                SupportBoundaryCondition(
+                    patch_role=_clean_token(patch_name),
+                    patch_name=_clean_token(patch_name),
+                    field=_clean_token(field_path.name),
+                    kind=_clean_token(patch_payload.get("type")),
+                )
+            )
+    return tuple(conditions)
+
+
+def _parse_patch_policy_flags(block_mesh_text: str) -> tuple[bool, bool]:
+    if not block_mesh_text.strip():
+        return False, False
+    processor_patches_present = False
+    cyclic_or_ami_patches_present = False
+    for patch_type in re.findall(r"\btype\s+([A-Za-z0-9_]+)\s*;", block_mesh_text):
+        patch_type = patch_type.lower()
+        if patch_type == "processor":
+            processor_patches_present = True
+        if patch_type == "cyclic" or "ami" in patch_type:
+            cyclic_or_ami_patches_present = True
+    return processor_patches_present, cyclic_or_ami_patches_present
 
 
 def _audit_fvsolution(fv_solution: Mapping[str, Any]) -> tuple[Phase1SmokeIssue, ...]:
@@ -736,6 +865,15 @@ def _audit_fvsolution(fv_solution: Mapping[str, Any]) -> tuple[Phase1SmokeIssue,
                         "smoother": smoother,
                         "allowed": sorted(ALLOWED_GAMG_SMOOTHERS),
                     },
+                )
+            )
+        if solver == "GAMG" and not smoother:
+            issues.append(
+                Phase1SmokeIssue(
+                    code="missing_gamg_smoother",
+                    message="GAMG smoke-case blocks must declare an explicit audited smoother.",
+                    citations=(FV_SOLUTION_CITATION,),
+                    detail={"field": _clean_token(field_name)},
                 )
             )
     return tuple(issues)

@@ -99,6 +99,27 @@ class Phase1SmokeTests(unittest.TestCase):
         self.assertIn("unsupported_time_scheme", codes)
         self.assertFalse(report.startup_allowed)
 
+    def test_audit_rejects_unsupported_gradient_and_interpolation_scheme_settings(self) -> None:
+        source_case = self.root / "tools" / "bringup" / "cases" / "phase1_smoke" / "channelTransient"
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_case = pathlib.Path(temp_dir) / "channelTransient"
+            shutil.copytree(source_case, temp_case)
+            fv_schemes = temp_case / "system" / "fvSchemes"
+            fv_schemes.write_text(
+                fv_schemes.read_text(encoding="utf-8")
+                .replace("default Gauss linear;", "default leastSquares;")
+                .replace("default linear;", "default cubic;"),
+                encoding="utf-8",
+            )
+
+            report = scan_phase1_smoke_case(self.bundle, case_dir=temp_case)
+
+        codes = tuple(reason["code"] for reason in report.reject_reasons)
+        self.assertIn("unsupported_gradient_scheme", codes)
+        self.assertIn("unsupported_interpolation_scheme", codes)
+        self.assertFalse(report.startup_allowed)
+
     def test_audit_rejects_non_laminar_turbulence_settings(self) -> None:
         source_case = self.root / "tools" / "bringup" / "cases" / "phase1_smoke" / "channelSteady"
 
@@ -117,6 +138,60 @@ class Phase1SmokeTests(unittest.TestCase):
 
         codes = tuple(reason["code"] for reason in report.reject_reasons)
         self.assertIn("turbulence_scope_violation", codes)
+        self.assertFalse(report.startup_allowed)
+
+    def test_audit_rejects_missing_gamg_smoother(self) -> None:
+        source_case = self.root / "tools" / "bringup" / "cases" / "phase1_smoke" / "channelTransient"
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_case = pathlib.Path(temp_dir) / "channelTransient"
+            shutil.copytree(source_case, temp_case)
+            fv_solution = temp_case / "system" / "fvSolution"
+            fv_solution.write_text(
+                fv_solution.read_text(encoding="utf-8").replace("        smoother diagonal;\n", ""),
+                encoding="utf-8",
+            )
+
+            report = scan_phase1_smoke_case(self.bundle, case_dir=temp_case)
+
+        codes = tuple(reason["code"] for reason in report.reject_reasons)
+        self.assertIn("missing_gamg_smoother", codes)
+        self.assertFalse(report.startup_allowed)
+
+    def test_audit_rejects_coded_patch_fields_from_checked_in_boundary_data(self) -> None:
+        source_case = self.root / "tools" / "bringup" / "cases" / "phase1_smoke" / "channelTransient"
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_case = pathlib.Path(temp_dir) / "channelTransient"
+            shutil.copytree(source_case, temp_case)
+            velocity_field = temp_case / "0" / "U"
+            velocity_field.write_text(
+                velocity_field.read_text(encoding="utf-8").replace("type noSlip;", "type codedFixedValue;"),
+                encoding="utf-8",
+            )
+
+            report = scan_phase1_smoke_case(self.bundle, case_dir=temp_case)
+
+        codes = tuple(reason["code"] for reason in report.reject_reasons)
+        self.assertIn("coded_patch_field_violation", codes)
+        self.assertFalse(report.startup_allowed)
+
+    def test_audit_rejects_cyclic_patches_from_block_mesh_dict(self) -> None:
+        source_case = self.root / "tools" / "bringup" / "cases" / "phase1_smoke" / "channelTransient"
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_case = pathlib.Path(temp_dir) / "channelTransient"
+            shutil.copytree(source_case, temp_case)
+            block_mesh = temp_case / "system" / "blockMeshDict"
+            block_mesh.write_text(
+                block_mesh.read_text(encoding="utf-8").replace("type wall;", "type cyclic;", 1),
+                encoding="utf-8",
+            )
+
+            report = scan_phase1_smoke_case(self.bundle, case_dir=temp_case)
+
+        codes = tuple(reason["code"] for reason in report.reject_reasons)
+        self.assertIn("cyclic_or_ami_patch_violation", codes)
         self.assertFalse(report.startup_allowed)
 
     def test_run_phase1_smoke_case_copies_case_and_emits_result_json(self) -> None:
