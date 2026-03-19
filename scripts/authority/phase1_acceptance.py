@@ -641,11 +641,30 @@ def build_phase1_acceptance_report(
             label="Compute Sanitizer memcheck passes on smallest case",
             passed=(
                 str(memcheck_result.get("status", "")).lower() == "pass"
+                and _nested_bool(memcheck_result, "success_criteria", "audit_passed")
+                and _nested_bool(memcheck_result, "success_criteria", "required_outputs_present")
+                and _nested_bool(memcheck_result, "success_criteria", "no_nan_inf")
+                and _nested_bool(memcheck_result, "success_criteria", "error_summary_found")
                 and int(_nested_value(memcheck_result, "memcheck", "actionable_errors") or 0) == 0
             ),
-            expected={"status": "pass", "actionable_errors": 0},
+            expected={
+                "status": "pass",
+                "audit_passed": True,
+                "required_outputs_present": True,
+                "no_nan_inf": True,
+                "error_summary_found": True,
+                "actionable_errors": 0,
+            },
             observed={
                 "status": memcheck_result.get("status"),
+                "audit_passed": _nested_value(memcheck_result, "success_criteria", "audit_passed"),
+                "required_outputs_present": _nested_value(
+                    memcheck_result, "success_criteria", "required_outputs_present"
+                ),
+                "no_nan_inf": _nested_value(memcheck_result, "success_criteria", "no_nan_inf"),
+                "error_summary_found": _nested_value(
+                    memcheck_result, "success_criteria", "error_summary_found"
+                ),
                 "actionable_errors": _nested_value(memcheck_result, "memcheck", "actionable_errors"),
                 "failure_reasons": memcheck_result.get("failure_reasons"),
             },
