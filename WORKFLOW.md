@@ -107,3 +107,4 @@ Execution brief:
 - Do not open or update a PR from a conflicted branch.
 - GitHub post-merge automation owns `In Review -> Done`, section cleanup sweep creation, and downstream release from `Backlog -> Todo`.
 - If auth, secrets, or required tools are missing, leave a concise blocker note and stop.
+- If a fresh repro on the current branch head proves the issue is blocked by an external action outside worker authority or capability, and no repo-side critical-path change remains after targeted validation, record one canonical blocker packet in the workpad, move the issue to `Backlog`, and stop. Do not rerun the blocked command unless the branch head changed, the external host state changed, or a human explicitly requested another repro.

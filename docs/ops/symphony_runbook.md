@@ -41,6 +41,45 @@ This repository expects the Linear statuses below on the `Projects` team.
 - `Refresh Required`: active branch-refresh work after clean `BEHIND` or `DIRTY` review state
 - `Done`: terminal state
 
+## External-blocker exit rule
+
+Workers must not stay in `In Progress` once an issue is proven blocked by an external action the
+worker cannot perform.
+
+Trigger the stop when all of the following are true:
+
+- the worker has a fresh repro on the current branch head
+- the repro fails before the required contract artifacts can be produced
+- the blocker requires an action outside worker authority or capability, such as `sudo`, package or
+  driver cleanup, host configuration, hardware access, credentials, admin approval, or a human
+  decision
+- relevant repo-side validation is already green, or the worker has explicitly confirmed that no
+  repo-side critical-path change remains
+- rerunning the same blocked command without an external state change would be expected to fail the
+  same way
+
+Required worker action:
+
+- write one canonical blocker packet to the Linear workpad containing:
+  - the exact failing command
+  - the exact blocker
+  - the latest evidence and artifact paths
+  - the exact external action required
+  - the exact resume command
+  - the exact success condition for resume
+- move the issue to `Backlog`
+- stop the worker immediately instead of continuing to rerun the blocked command
+
+Resume rule:
+
+- do not rerun the blocked command unless one of these changed:
+  - the branch head changed
+  - the external host state changed
+  - a human explicitly requested another repro
+
+For this repository, `Backlog` is the correct parked state for a true external blocker. A dedicated
+`Blocked` board column is not required for workers to stop honestly.
+
 ## Worker-side Linear access
 
 Symphony's reference workflow allows the worker to talk to Linear through either a configured
@@ -102,6 +141,9 @@ Review loop:
 - If findings remain on remediation pass 1 or 2, the helper keeps the issue in `In Progress`,
   persists the latest review artifacts into the issue workspace, and returns control to the same
   worker run so that worker can fix the branch immediately.
+- If the worker proves a fresh external blocker and no repo-side critical-path change remains, the
+  worker must record the blocker packet, move the issue to `Backlog`, and stop instead of
+  continuing `In Progress`.
 - If the third and final local review pass still reports findings, the helper creates one child
   `Backlog` issue per residual finding, opens or updates the PR, enables GitHub auto-merge,
   moves the parent issue to `In Review`, and stops the implementation worker instead of
