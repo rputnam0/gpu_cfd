@@ -339,6 +339,30 @@ def build_phase1_acceptance_report(
             },
             evidence=resolved_paths["cuda_probe"].as_posix(),
         ),
+        "cuda_probe_traceable": _gate_result(
+            label="CUDA probe matches the reviewed tuple, runtime base, and primary lane",
+            passed=(
+                cuda_probe.get("reviewed_source_tuple_id") == manifest_refs.get("reviewed_source_tuple_id")
+                and cuda_probe.get("reviewed_source_tuple_id") == pin_details.reviewed_source_tuple_id
+                and cuda_probe.get("runtime_base") == manifest_refs.get("runtime_base")
+                and cuda_probe.get("runtime_base") == pin_details.runtime_base
+                and _nested_value(cuda_probe, "toolkit", "selected_lane") == "primary"
+                and _nested_value(cuda_probe, "toolkit", "selected_lane_value") == pin_details.primary_toolkit_lane
+            ),
+            expected={
+                "reviewed_source_tuple_id": pin_details.reviewed_source_tuple_id,
+                "runtime_base": pin_details.runtime_base,
+                "selected_lane": "primary",
+                "selected_lane_value": pin_details.primary_toolkit_lane,
+            },
+            observed={
+                "reviewed_source_tuple_id": cuda_probe.get("reviewed_source_tuple_id"),
+                "runtime_base": cuda_probe.get("runtime_base"),
+                "selected_lane": _nested_value(cuda_probe, "toolkit", "selected_lane"),
+                "selected_lane_value": _nested_value(cuda_probe, "toolkit", "selected_lane_value"),
+            },
+            evidence=resolved_paths["cuda_probe"].as_posix(),
+        ),
         "primary_lane_toolchain": _gate_result(
             label="Primary lane toolchain is CUDA 12.9.1",
             passed=(
