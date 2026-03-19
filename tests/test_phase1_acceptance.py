@@ -1696,6 +1696,24 @@ class Phase1AcceptanceTests(unittest.TestCase):
                 self.assertEqual(completed.returncode, 0, completed.stderr)
                 self.assertIn(expected_flag, completed.stdout)
 
+    def test_legacy_acceptance_gate_shim_is_executable_and_renders_help_directly(self) -> None:
+        repo = repo_root()
+        shim_path = repo / "tools" / "bringup" / "python" / "acceptance_gate.py"
+
+        self.assertTrue(shim_path.is_file())
+        self.assertTrue(shim_path.stat().st_mode & 0o111)
+
+        completed = subprocess.run(
+            [str(shim_path), "--help"],
+            cwd=repo,
+            text=True,
+            capture_output=True,
+            check=False,
+        )
+
+        self.assertEqual(completed.returncode, 0, completed.stderr)
+        self.assertIn("ptx-jit-result-json", completed.stdout)
+
 
 if __name__ == "__main__":
     unittest.main()
