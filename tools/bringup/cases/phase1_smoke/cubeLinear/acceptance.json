@@ -1,0 +1,8 @@
+{
+  "case_name": "cubeLinear",
+  "required_outputs": [
+    "0.1/T"
+  ],
+  "schema_version": "1.0.0",
+  "solver": "laplacianFoam"
+}

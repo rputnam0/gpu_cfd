@@ -76,6 +76,7 @@ class SupportScanRequest:
     boundary_scope: str = "infer"
     fallback_policy: str = FAIL_FAST_POLICY
     backend: str = "native"
+    scheme_audit: bool = True
     backend_pressure_mode: str | None = None
     mesh_mode: str = "static"
     region_count: int = 1
@@ -288,7 +289,8 @@ def _scan_issues(bundle: AuthorityBundle, request: SupportScanRequest) -> tuple[
         )
 
     issues.extend(_scan_backend(request))
-    issues.extend(_scan_schemes(bundle, request))
+    if request.scheme_audit:
+        issues.extend(_scan_schemes(bundle, request))
     issues.extend(_scan_function_objects(bundle, request))
     issues.extend(_scan_boundary_conditions(bundle, request))
     issues.extend(_scan_startup_seed(bundle, request))

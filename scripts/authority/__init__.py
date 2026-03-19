@@ -80,6 +80,15 @@ from .phase1_build import (
     render_phase1_env_exports,
     run_phase1_build,
 )
+from .phase1_smoke import (
+    Phase1SmokeAuditReport,
+    Phase1SmokeCaseDefinition,
+    Phase1SmokeIssue,
+    Phase1SmokeRunResult,
+    build_phase1_smoke_manifest,
+    run_phase1_smoke_case,
+    scan_phase1_smoke_case,
+)
 from .reference_io import (
     REFERENCE_IO_COMPARISON_SCOPE,
     REFERENCE_IO_OVERLAY_ARTIFACT,
@@ -156,6 +165,10 @@ __all__ = [
     "Phase1BuildError",
     "Phase1BuildPlan",
     "Phase1BuildResult",
+    "Phase1SmokeAuditReport",
+    "Phase1SmokeCaseDefinition",
+    "Phase1SmokeIssue",
+    "Phase1SmokeRunResult",
     "GraphRegistryValidationError",
     "GraphStageRegistry",
     "OpenFOAMBaselineProbeReport",
@@ -198,6 +211,7 @@ __all__ = [
     "emit_environment_manifests",
     "emit_phase1_discovery_artifacts",
     "audit_nvtx_includes",
+    "build_phase1_smoke_manifest",
     "emit_case_bundle",
     "emit_reference_problem_artifacts",
     "enforce_support_scan",
@@ -218,6 +232,8 @@ __all__ = [
     "reference_io_overlay_command",
     "reference_io_overlay_stage",
     "repo_root",
+    "run_phase1_smoke_case",
+    "scan_phase1_smoke_case",
     "render_stage_runner_log_context",
     "render_phase1_env_exports",
     "resolve_accepted_tuple",

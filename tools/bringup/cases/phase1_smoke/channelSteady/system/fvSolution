@@ -1,0 +1,30 @@
+FoamFile
+{
+    version 2.0;
+    format ascii;
+    class dictionary;
+    object fvSolution;
+}
+
+solvers
+{
+    p
+    {
+        solver GAMG;
+        smoother Richardson;
+        tolerance 1e-10;
+        relTol 0.01;
+    }
+    U
+    {
+        solver PBiCG;
+        preconditioner aDILU;
+        tolerance 1e-09;
+        relTol 0.1;
+    }
+}
+
+SIMPLE
+{
+    nNonOrthogonalCorrectors 0;
+}
