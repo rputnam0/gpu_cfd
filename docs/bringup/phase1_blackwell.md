@@ -84,7 +84,7 @@ NVIDIA's CUDA on WSL guide says the Windows display driver is the only driver
 needed, warns that the default CUDA installation can overwrite the WSL driver mapping,
 recommends the WSL-Ubuntu toolkit path, and says not to install a Linux display
 driver in WSL:
-https://docs.nvidia.com/cuda/archive/12.3.1/wsl-user-guide/index.html
+https://docs.nvidia.com/cuda/archive/13.0.0/wsl-user-guide/index.html
 
 Do not continue to build, smoke, memcheck, Nsight, PTX-JIT, or final acceptance
 until the CUDA probe returns real RTX 5080 metadata and `managed_memory_probe_ok=true`.
