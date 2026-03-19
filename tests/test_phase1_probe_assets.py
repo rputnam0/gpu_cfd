@@ -168,6 +168,8 @@ class Phase1ProbeAssetTests(unittest.TestCase):
             env["GPU_CFD_WSL_LIB_DIR"] = str(fake_wsl)
             env["GPU_CFD_NATIVE_DRIVER_ROOT"] = str(fake_native)
             env["GPU_CFD_NATIVE_LIBCUDA"] = str(fake_native / "libcuda.so.1")
+            env["CUDA_HOME"] = str(temp_root / "cuda-home")
+            env["LD_LIBRARY_PATH"] = f"{temp_root / 'cuda-home' / 'lib64'}:{fake_wsl}"
 
             completed = subprocess.run(
                 [str(wrapper_path), str(temp_root / "raw_cuda_probe.json")],
@@ -369,6 +371,10 @@ class Phase1ProbeAssetTests(unittest.TestCase):
                 "Cuda compilation tools, release 12.9, V12.9.86",
                 snapshot_body,
             )
+            self.assertIn("# environment", snapshot_body)
+            self.assertIn("CUDA_HOME=", snapshot_body)
+            self.assertIn("LD_LIBRARY_PATH=", snapshot_body)
+            self.assertIn(f"PATH={fake_bin}:", snapshot_body)
             self.assertIn("# ldconfig -p (CUDA driver libraries)", snapshot_body)
 
     def test_cuda_runtime_probe_source_mentions_required_probe_fields(self) -> None:

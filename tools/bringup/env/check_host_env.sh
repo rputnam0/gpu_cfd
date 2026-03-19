@@ -56,6 +56,11 @@ write_runtime_snapshot() {
     echo "# nvcc --version"
     nvcc --version 2>/dev/null || true
     echo
+    echo "# environment"
+    printf 'CUDA_HOME=%s\n' "${CUDA_HOME:-}"
+    printf 'LD_LIBRARY_PATH=%s\n' "${LD_LIBRARY_PATH:-}"
+    printf 'PATH=%s\n' "${PATH:-}"
+    echo
     echo "# ldconfig -p (CUDA driver libraries)"
     ldconfig -p 2>/dev/null | rg 'libcuda\.so|libnvidia-ml\.so|libnvidia-ptxjitcompiler\.so' || true
     echo
