@@ -9,6 +9,7 @@ import os
 import pathlib
 import re
 import shlex
+import shutil
 import socket
 import subprocess
 from dataclasses import dataclass
@@ -30,8 +31,13 @@ except ImportError:  # pragma: no cover - script execution fallback
 
 
 BUILD_METADATA_SCHEMA_VERSION = "1.0.0"
+FATBINARY_REPORT_SCHEMA_VERSION = "1.0.0"
 SUPPORTED_BUILD_MODES = {"debug", "relwithdebinfo"}
 SKIP_AUDIT_DIR_NAMES = {".git", "__pycache__", ".venv", "build", "artifacts"}
+FATBINARY_CANDIDATE_DIR_NAMES = {"platforms", "bin", "lib"}
+FATBINARY_REPORT_NAME = "fatbinary_report.json"
+PTX_DUMP_NAME = "ptx.txt"
+SASS_DUMP_NAME = "sass.txt"
 AUDIT_SOURCE_SUFFIXES = {
     ".c",
     ".cc",
@@ -48,6 +54,10 @@ NVTX2_INCLUDE_PATTERN = re.compile(
     r'^\s*#\s*include\s*[<"]\s*nvtoolsext\.h\s*[>"]',
     flags=re.IGNORECASE | re.MULTILINE,
 )
+SASS_SM_PATTERN = re.compile(r"(?:arch\s*=\s*sm_|code\s+for\s+sm_)(\d+)")
+PTX_SM_PATTERN = re.compile(
+    r"(?:\.target\s+sm_|arch\s*=\s*sm_|code\s+for\s+sm_)(\d+)"
+)
 
 
 @dataclass(frozen=True)
@@ -62,10 +72,14 @@ class Phase1BuildPlan:
     manifest_refs_path: pathlib.Path
     metadata_path: pathlib.Path
     log_path: pathlib.Path
+    fatbinary_report_path: pathlib.Path
+    ptx_dump_path: pathlib.Path
+    sass_dump_path: pathlib.Path
     env_exports: dict[str, str]
     nvtx_audit_hits: tuple[str, ...]
     discovery_provenance: dict[str, str]
     recorded_tool_paths: dict[str, str]
+    prebuild_candidate_snapshot: dict[str, tuple[int, int]]
 
 
 @dataclass(frozen=True)
@@ -74,6 +88,14 @@ class Phase1BuildResult:
     returncode: int
     log_path: pathlib.Path
     metadata_path: pathlib.Path
+
+
+@dataclass(frozen=True)
+class Phase1FatbinaryInspectionResult:
+    smoke_gate_ready: bool
+    report_path: pathlib.Path
+    ptx_dump_path: pathlib.Path
+    sass_dump_path: pathlib.Path
 
 
 class Phase1BuildError(ValueError):
@@ -183,6 +205,10 @@ def plan_phase1_build(
 
     log_path = output_dir_path / f"build_{lane}_{mode}.log"
     metadata_path = output_dir_path / f"build_metadata_{lane}_{mode}.json"
+    fatbinary_report_path = output_dir_path / f"fatbinary_report_{lane}_{mode}.json"
+    ptx_dump_path = output_dir_path / f"ptx_{lane}_{mode}.txt"
+    sass_dump_path = output_dir_path / f"sass_{lane}_{mode}.txt"
+    prebuild_candidate_snapshot = _capture_fatbinary_candidate_snapshot(source_root_path)
     metadata = _build_metadata_payload(
         bundle=bundle,
         pin_details=pin_details,
@@ -201,6 +227,10 @@ def plan_phase1_build(
         nvtx_audit_hits=nvtx_audit_hits,
         discovery_provenance=discovery_provenance,
         recorded_tool_paths=recorded_tool_paths,
+        fatbinary_report_path=fatbinary_report_path,
+        ptx_dump_path=ptx_dump_path,
+        sass_dump_path=sass_dump_path,
+        prebuild_candidate_snapshot=prebuild_candidate_snapshot,
     )
     write_json(metadata_path, metadata)
 
@@ -215,10 +245,14 @@ def plan_phase1_build(
         manifest_refs_path=emitted.manifest_refs_path,
         metadata_path=metadata_path,
         log_path=log_path,
+        fatbinary_report_path=fatbinary_report_path,
+        ptx_dump_path=ptx_dump_path,
+        sass_dump_path=sass_dump_path,
         env_exports=env_exports,
         nvtx_audit_hits=nvtx_audit_hits,
         discovery_provenance=discovery_provenance,
         recorded_tool_paths=recorded_tool_paths,
+        prebuild_candidate_snapshot=prebuild_candidate_snapshot,
     )
 
 
@@ -286,6 +320,17 @@ def run_phase1_build(plan: Phase1BuildPlan) -> Phase1BuildResult:
         raise Phase1BuildError(
             failure_reason
         )
+    try:
+        inspect_phase1_build_fatbinaries(plan)
+    except Phase1BuildError as exc:
+        _record_build_outcome(
+            plan,
+            returncode=completed.returncode,
+            succeeded=False,
+            failure_stage="inspection",
+            failure_reason=str(exc),
+        )
+        raise
     _record_build_outcome(
         plan,
         returncode=completed.returncode,
@@ -294,6 +339,117 @@ def run_phase1_build(plan: Phase1BuildPlan) -> Phase1BuildResult:
         failure_reason=None,
     )
     return result
+
+
+def inspect_phase1_build_fatbinaries(
+    plan: Phase1BuildPlan,
+    *,
+    use_prebuild_snapshot: bool = True,
+) -> Phase1FatbinaryInspectionResult:
+    cuobjdump_path = _resolve_cuobjdump_path(plan)
+    targets = _discover_fatbinary_targets(
+        plan.source_root,
+        previous_snapshot=plan.prebuild_candidate_snapshot if use_prebuild_snapshot else None,
+    )
+    if not targets:
+        report = _write_fatbinary_report(
+            plan,
+            cuobjdump_path=cuobjdump_path,
+            inspected_targets=[],
+            native_sm_present=[],
+            ptx_targets=[],
+            ptx_present=False,
+            smoke_gate_ready=False,
+            failure_reason="no candidate built binaries were found for fatbinary inspection",
+            smoke_gate_targets=[],
+        )
+        raise Phase1BuildError(str(report["failure_reason"]))
+
+    sass_sections: list[str] = []
+    ptx_sections: list[str] = []
+    inspected_targets: list[dict[str, Any]] = []
+    native_sm_present: set[int] = set()
+    ptx_targets: set[int] = set()
+    required_native_sm = int(plan.env_exports["NVARCH"])
+    smoke_gate_targets: list[str] = []
+
+    for target_path in targets:
+        relative_target = target_path.relative_to(plan.source_root).as_posix()
+        sass_completed = subprocess.run(
+            [cuobjdump_path, "-sass", target_path.as_posix()],
+            text=True,
+            capture_output=True,
+            check=False,
+        )
+        ptx_completed = subprocess.run(
+            [cuobjdump_path, "-ptx", target_path.as_posix()],
+            text=True,
+            capture_output=True,
+            check=False,
+        )
+        sass_output = sass_completed.stdout or ""
+        ptx_output = ptx_completed.stdout or ""
+        target_native_sms = sorted(set(_extract_sm_targets(sass_output, pattern=SASS_SM_PATTERN)))
+        target_ptx_targets = sorted(set(_extract_sm_targets(ptx_output, pattern=PTX_SM_PATTERN)))
+        target_ptx_present = bool(ptx_output.strip())
+        target_smoke_gate_ready = (
+            required_native_sm in target_native_sms and target_ptx_present
+        )
+        native_sm_present.update(target_native_sms)
+        ptx_targets.update(target_ptx_targets)
+        sass_sections.append(_render_dump_section(relative_target, sass_output))
+        ptx_sections.append(_render_dump_section(relative_target, ptx_output))
+        if target_smoke_gate_ready:
+            smoke_gate_targets.append(relative_target)
+        inspected_targets.append(
+            {
+                "path": relative_target,
+                "sass_returncode": sass_completed.returncode,
+                "ptx_returncode": ptx_completed.returncode,
+                "native_sm_present": target_native_sms,
+                "ptx_targets": target_ptx_targets,
+                "ptx_present": target_ptx_present,
+                "smoke_gate_ready": target_smoke_gate_ready,
+            }
+        )
+
+    plan.sass_dump_path.write_text("".join(sass_sections), encoding="utf-8")
+    plan.ptx_dump_path.write_text("".join(ptx_sections), encoding="utf-8")
+
+    any_ptx = any(target["ptx_present"] for target in inspected_targets)
+    smoke_gate_ready = bool(smoke_gate_targets)
+    failure_reason = None
+    if not smoke_gate_ready and required_native_sm not in native_sm_present:
+        failure_reason = (
+            f"fatbinary inspection requires native sm_{required_native_sm} coverage"
+        )
+    elif not smoke_gate_ready and not any_ptx:
+        failure_reason = "fatbinary inspection requires retained PTX before smoke execution"
+    elif not smoke_gate_ready:
+        failure_reason = (
+            "fatbinary inspection requires at least one current build artifact to retain "
+            f"both native sm_{required_native_sm} cubin and PTX"
+        )
+
+    report = _write_fatbinary_report(
+        plan,
+        cuobjdump_path=cuobjdump_path,
+        inspected_targets=inspected_targets,
+        native_sm_present=sorted(native_sm_present),
+        ptx_targets=sorted(ptx_targets),
+        ptx_present=any_ptx,
+        smoke_gate_ready=smoke_gate_ready,
+        failure_reason=failure_reason,
+        smoke_gate_targets=smoke_gate_targets,
+    )
+    if failure_reason:
+        raise Phase1BuildError(failure_reason)
+    return Phase1FatbinaryInspectionResult(
+        smoke_gate_ready=bool(report["smoke_gate_ready"]),
+        report_path=plan.fatbinary_report_path,
+        ptx_dump_path=plan.ptx_dump_path,
+        sass_dump_path=plan.sass_dump_path,
+    )
 
 
 def audit_nvtx_includes(source_root: pathlib.Path | str) -> tuple[str, ...]:
@@ -322,7 +478,11 @@ def build_arg_parser() -> argparse.ArgumentParser:
 
     env_parser = subparsers.add_parser("env", help="Print sourceable Phase 1 env exports.")
     build_parser = subparsers.add_parser("build", help="Run the Phase 1 build wrapper.")
-    for subparser in (env_parser, build_parser):
+    inspect_parser = subparsers.add_parser(
+        "inspect",
+        help="Inspect built binaries for native cubin/PTX coverage.",
+    )
+    for subparser in (env_parser, build_parser, inspect_parser):
         subparser.add_argument(
             "--root",
             type=pathlib.Path,
@@ -398,6 +558,22 @@ def main(argv: list[str] | None = None) -> int:
     if args.command == "env":
         print(render_phase1_env_exports(plan))
         return 0
+    if args.command == "inspect":
+        result = inspect_phase1_build_fatbinaries(plan, use_prebuild_snapshot=False)
+        print(
+            json.dumps(
+                {
+                    "smoke_gate_ready": result.smoke_gate_ready,
+                    "fatbinary_report": result.report_path.as_posix(),
+                    "ptx_dump": result.ptx_dump_path.as_posix(),
+                    "sass_dump": result.sass_dump_path.as_posix(),
+                    "metadata_path": plan.metadata_path.as_posix(),
+                },
+                indent=2,
+                sort_keys=True,
+            )
+        )
+        return 0
 
     result = run_phase1_build(plan)
     print(
@@ -409,6 +585,7 @@ def main(argv: list[str] | None = None) -> int:
                 "metadata_path": result.metadata_path.as_posix(),
                 "host_env": plan.host_env_path.as_posix(),
                 "manifest_refs": plan.manifest_refs_path.as_posix(),
+                "fatbinary_report": plan.fatbinary_report_path.as_posix(),
             },
             indent=2,
             sort_keys=True,
@@ -468,6 +645,10 @@ def _build_metadata_payload(
     nvtx_audit_hits: tuple[str, ...],
     discovery_provenance: dict[str, str],
     recorded_tool_paths: dict[str, str],
+    fatbinary_report_path: pathlib.Path,
+    ptx_dump_path: pathlib.Path,
+    sass_dump_path: pathlib.Path,
+    prebuild_candidate_snapshot: dict[str, tuple[int, int]],
 ) -> dict[str, Any]:
     return {
         "schema_version": BUILD_METADATA_SCHEMA_VERSION,
@@ -497,6 +678,21 @@ def _build_metadata_payload(
             "passed": not nvtx_audit_hits,
             "banned_include_hits": list(nvtx_audit_hits),
         },
+        "fatbinary_artifacts": {
+            "report": fatbinary_report_path.as_posix(),
+            "ptx_dump": ptx_dump_path.as_posix(),
+            "sass_dump": sass_dump_path.as_posix(),
+        },
+        "fatbinary_inspection": {
+            "required_native_sm": nvarch,
+            "ptx_required": True,
+            "smoke_gate_ready": None,
+            "report_path": fatbinary_report_path.as_posix(),
+        },
+        "fatbinary_candidate_snapshot_before_build": {
+            path: {"mtime_ns": values[0], "size": values[1]}
+            for path, values in sorted(prebuild_candidate_snapshot.items())
+        },
         "returncode": None,
         "succeeded": None,
         "failure_stage": None,
@@ -521,11 +717,129 @@ def _record_build_outcome(
     write_json(plan.metadata_path, metadata)
 
 
+def _write_fatbinary_report(
+    plan: Phase1BuildPlan,
+    *,
+    cuobjdump_path: str,
+    inspected_targets: list[dict[str, Any]],
+    native_sm_present: list[int],
+    ptx_targets: list[int],
+    ptx_present: bool,
+    smoke_gate_ready: bool,
+    failure_reason: str | None,
+    smoke_gate_targets: list[str],
+) -> dict[str, Any]:
+    report = {
+        "schema_version": FATBINARY_REPORT_SCHEMA_VERSION,
+        "source_root": plan.source_root.as_posix(),
+        "cuobjdump_path": cuobjdump_path,
+        "required_native_sm": int(plan.env_exports["NVARCH"]),
+        "required_native_sm_found": int(plan.env_exports["NVARCH"]) in native_sm_present,
+        "ptx_required": True,
+        "ptx_present": ptx_present,
+        "ptx_targets": ptx_targets,
+        "native_sm_present": native_sm_present,
+        "inspected_binary_count": len(inspected_targets),
+        "inspection_targets": inspected_targets,
+        "smoke_gate_targets": smoke_gate_targets,
+        "artifacts": {
+            "report": plan.fatbinary_report_path.as_posix(),
+            "ptx_dump": plan.ptx_dump_path.as_posix(),
+            "sass_dump": plan.sass_dump_path.as_posix(),
+        },
+        "smoke_gate_ready": smoke_gate_ready,
+        "failure_reason": failure_reason,
+        "discovery_provenance": dict(plan.discovery_provenance),
+    }
+    write_json(plan.fatbinary_report_path, report)
+    metadata = _read_json_payload(plan.metadata_path)
+    metadata["fatbinary_inspection"] = {
+        "required_native_sm": int(plan.env_exports["NVARCH"]),
+        "ptx_required": True,
+        "smoke_gate_ready": smoke_gate_ready,
+        "report_path": plan.fatbinary_report_path.as_posix(),
+        "failure_reason": failure_reason,
+    }
+    write_json(plan.metadata_path, metadata)
+    return report
+
+
 def _write_build_log_message(log_path: pathlib.Path, message: str) -> None:
     with log_path.open("w", encoding="utf-8") as handle:
         handle.write(message)
         if not message.endswith("\n"):
             handle.write("\n")
+
+
+def _resolve_cuobjdump_path(plan: Phase1BuildPlan) -> str:
+    nvcc_path = pathlib.Path(plan.recorded_tool_paths["nvcc_path"])
+    sibling = nvcc_path.with_name("cuobjdump")
+    if sibling.is_file():
+        return sibling.as_posix()
+    discovered = shutil.which("cuobjdump")
+    if discovered:
+        return discovered
+    raise Phase1BuildError(
+        "cuobjdump is unavailable; fatbinary inspection requires the CUDA binary utilities"
+    )
+
+
+def _capture_fatbinary_candidate_snapshot(
+    source_root: pathlib.Path,
+) -> dict[str, tuple[int, int]]:
+    snapshot: dict[str, tuple[int, int]] = {}
+    for path in _candidate_fatbinary_paths(source_root):
+        stat_result = path.stat()
+        snapshot[path.relative_to(source_root).as_posix()] = (
+            stat_result.st_mtime_ns,
+            stat_result.st_size,
+        )
+    return snapshot
+
+
+def _discover_fatbinary_targets(
+    source_root: pathlib.Path,
+    *,
+    previous_snapshot: dict[str, tuple[int, int]] | None,
+) -> tuple[pathlib.Path, ...]:
+    current_snapshot = _capture_fatbinary_candidate_snapshot(source_root)
+    current_targets = tuple(sorted(source_root / path for path in current_snapshot))
+    if previous_snapshot is None:
+        return current_targets
+    targets: list[pathlib.Path] = []
+    for relative_path, fingerprint in current_snapshot.items():
+        if previous_snapshot.get(relative_path) == fingerprint:
+            continue
+        targets.append(source_root / relative_path)
+    if targets:
+        return tuple(sorted(targets))
+    return current_targets
+
+
+def _candidate_fatbinary_paths(source_root: pathlib.Path) -> tuple[pathlib.Path, ...]:
+    targets: list[pathlib.Path] = []
+    for path in source_root.rglob("*"):
+        if not path.is_file():
+            continue
+        relative_parts = path.relative_to(source_root).parts
+        if any(part in SKIP_AUDIT_DIR_NAMES for part in relative_parts):
+            continue
+        if not any(part in FATBINARY_CANDIDATE_DIR_NAMES for part in relative_parts):
+            continue
+        if not os.access(path, os.X_OK):
+            continue
+        targets.append(path)
+    return tuple(sorted(targets))
+
+
+def _render_dump_section(relative_target: str, content: str) -> str:
+    header = f"## {relative_target}\n"
+    body = content if content.endswith("\n") or not content else content + "\n"
+    return header + body
+
+
+def _extract_sm_targets(content: str, *, pattern: re.Pattern[str]) -> list[int]:
+    return [int(match) for match in pattern.findall(content)]
 
 
 def _build_mode_flags(mode: str, *, nvarch: int) -> tuple[str, str]:
