@@ -1655,6 +1655,16 @@ class Phase1AcceptanceTests(unittest.TestCase):
         self.assertIn("UV_CACHE_DIR", wrapper)
         self.assertIn('"$@"', wrapper)
 
+    def test_legacy_acceptance_gate_shim_exists_and_invokes_phase1_acceptance_report(self) -> None:
+        shim_path = repo_root() / "tools" / "bringup" / "python" / "acceptance_gate.py"
+
+        self.assertTrue(shim_path.is_file())
+
+        shim = shim_path.read_text(encoding="utf-8")
+        self.assertIn("scripts.authority.phase1_acceptance", shim)
+        self.assertIn('"report"', shim)
+        self.assertIn("main(", shim)
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -141,6 +141,10 @@ tools/bringup/run/run_phase1_acceptance.sh \
   --bringup-doc docs/bringup/phase1_blackwell.md
 ```
 
+For compatibility with the Phase 1 spec's original layout, the repo also keeps
+`tools/bringup/python/acceptance_gate.py` as a thin shim to the same checked-in
+acceptance implementation and CLI.
+
 Expected outputs:
 
 - `phase1_acceptance_report.json`
