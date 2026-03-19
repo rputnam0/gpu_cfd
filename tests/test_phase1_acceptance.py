@@ -207,6 +207,18 @@ def sample_memcheck_result(bundle=None) -> dict[str, object]:
         "solver": "laplacianFoam",
         "status": "pass",
         "failure_reasons": [],
+        "command_results": [
+            {
+                "command": ["blockMesh"],
+                "log_path": "compute_sanitizer/cubeLinear/01_blockMesh.log",
+                "returncode": 0,
+            },
+            {
+                "command": ["compute-sanitizer", "--tool", "memcheck", "laplacianFoam"],
+                "log_path": "compute_sanitizer/cubeLinear/memcheck.log",
+                "returncode": 0,
+            },
+        ],
         "success_criteria": {
             "audit_passed": True,
             "required_outputs_present": True,
@@ -247,6 +259,11 @@ def sample_nsys_result(mode: str, bundle=None) -> dict[str, object]:
         "timing_baseline_eligible": not diagnostic_only,
         "status": "pass",
         "failure_reasons": [],
+        "trace_artifacts": {
+            "trace": f"nsight_systems/{mode}/channelTransient/trace.nsys-rep",
+            "sqlite": f"nsight_systems/{mode}/channelTransient/trace.sqlite",
+            "stats_dir": f"nsight_systems/{mode}/channelTransient/stats",
+        },
         "success_criteria": {
             "audit_passed": True,
             "trace_generated": True,
@@ -571,6 +588,18 @@ class Phase1AcceptanceTests(unittest.TestCase):
             "ptx_jit/cubeLinear/02_ptx_jit.log",
         )
         self.assertEqual(
+            payload["artifact_paths"]["memcheck_logs"]["compute-sanitizer"],
+            "compute_sanitizer/cubeLinear/memcheck.log",
+        )
+        self.assertEqual(
+            payload["artifact_paths"]["nsys_trace_artifacts"]["basic"]["trace"],
+            "nsight_systems/basic/channelTransient/trace.nsys-rep",
+        )
+        self.assertEqual(
+            payload["artifact_paths"]["nsys_trace_artifacts"]["um_fault"]["sqlite"],
+            "nsight_systems/um_fault/channelTransient/trace.sqlite",
+        )
+        self.assertEqual(
             bundle_index["reviewed_source_tuple_id"],
             load_pin_details(self.bundle).reviewed_source_tuple_id,
         )
@@ -606,6 +635,9 @@ class Phase1AcceptanceTests(unittest.TestCase):
         self.assertIn((temp_root / "build" / "build.log").as_posix(), markdown)
         self.assertIn("ptx_jit/cubeLinear/01_blockMesh.log", markdown)
         self.assertIn("ptx_jit/cubeLinear/02_ptx_jit.log", markdown)
+        self.assertIn("compute_sanitizer/cubeLinear/memcheck.log", markdown)
+        self.assertIn("nsight_systems/basic/channelTransient/trace.nsys-rep", markdown)
+        self.assertIn("nsight_systems/um_fault/channelTransient/trace.sqlite", markdown)
         self.assertIn(smoke_result_paths[0].as_posix(), markdown)
         self.assertIn(smoke_result_paths[1].as_posix(), markdown)
         self.assertIn(smoke_result_paths[2].as_posix(), markdown)

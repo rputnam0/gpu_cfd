@@ -809,7 +809,14 @@ def build_phase1_acceptance_report(
         "artifact_paths": {
             **{name: path.as_posix() for name, path in resolved_paths.items()},
             "build_log": build_metadata.get("build_log"),
+            "memcheck_logs": _command_log_paths(memcheck_result),
             "ptx_jit_logs": _ptx_jit_log_paths(ptx_jit_result),
+            "nsys_trace_artifacts": {
+                str((_read_json(pathlib.Path(item)).get("profile_mode") or pathlib.Path(item).stem)): _trace_artifacts(
+                    _read_json(pathlib.Path(item))
+                )
+                for item in nsys_result_paths
+            },
             "smoke_results": {
                 str((_read_json(pathlib.Path(item)).get("case_name") or pathlib.Path(item).stem)): pathlib.Path(item).as_posix()
                 for item in smoke_result_paths
@@ -1261,6 +1268,29 @@ def _render_acceptance_markdown(payload: Mapping[str, Any]) -> str:
                 "",
             ]
         )
+    memcheck_logs = payload["artifact_paths"]["memcheck_logs"]
+    if memcheck_logs:
+        lines.extend(
+            [
+                "### Memcheck Logs",
+                "",
+                *[f"- `{command_name}`: `{artifact_path}`" for command_name, artifact_path in memcheck_logs.items()],
+                "",
+            ]
+        )
+    nsys_trace_artifacts = payload["artifact_paths"]["nsys_trace_artifacts"]
+    if nsys_trace_artifacts:
+        lines.extend(
+            [
+                "### Nsight Trace Artifacts",
+                "",
+            ]
+        )
+        for profile_mode, artifacts in nsys_trace_artifacts.items():
+            lines.append(f"- `{profile_mode}` trace: `{artifacts.get('trace')}`")
+            lines.append(f"- `{profile_mode}` sqlite: `{artifacts.get('sqlite')}`")
+            lines.append(f"- `{profile_mode}` stats: `{artifacts.get('stats_dir')}`")
+        lines.append("")
     if payload["failing_gate_ids"]:
         lines.extend(
             [
@@ -1329,6 +1359,10 @@ def _logs_are_clean(command_results: list[dict[str, Any]]) -> bool:
 
 
 def _ptx_jit_log_paths(payload: Mapping[str, Any]) -> dict[str, str]:
+    return _command_log_paths(payload)
+
+
+def _command_log_paths(payload: Mapping[str, Any]) -> dict[str, str]:
     log_paths: dict[str, str] = {}
     for index, entry in enumerate(payload.get("command_results", []), start=1):
         if not isinstance(entry, Mapping):
@@ -1343,6 +1377,17 @@ def _ptx_jit_log_paths(payload: Mapping[str, Any]) -> dict[str, str]:
         key = command_name if command_name not in log_paths else f"{index}_{command_name}"
         log_paths[key] = str(log_path)
     return log_paths
+
+
+def _trace_artifacts(payload: Mapping[str, Any]) -> dict[str, str]:
+    artifacts = payload.get("trace_artifacts", {})
+    if not isinstance(artifacts, Mapping):
+        return {}
+    return {
+        key: str(value)
+        for key, value in artifacts.items()
+        if value
+    }
 
 
 def _write_json(path: pathlib.Path | str, payload: Mapping[str, Any]) -> None:
