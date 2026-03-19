@@ -60,6 +60,10 @@ Expected remediation:
 - keep using the Windows-side NVIDIA WSL driver and the `/usr/lib/wsl/lib` shim
 - rerun the canonical host discovery entrypoint first:
   `tools/bringup/env/check_host_env.sh <discovery-dir>`
+- if that wrapper fails, inspect the emitted `nvidia_runtime_snapshot.txt`; it now
+  includes `ldconfig -p` CUDA-driver resolution, native-vs-WSL driver library paths,
+  `dpkg -S` owner lookups, installed NVIDIA/CUDA package rows, `nvidia-smi` state,
+  `/proc/cmdline`, and the recent `dxg` kernel messages in one place
 
 NVIDIA's CUDA on WSL guide says the Windows display driver is the only driver
 needed, warns that the default CUDA installation can overwrite the WSL driver mapping,
