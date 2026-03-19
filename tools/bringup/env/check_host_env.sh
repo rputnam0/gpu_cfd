@@ -50,6 +50,12 @@ write_runtime_snapshot() {
     echo "# nvidia-smi -q (selected)"
     nvidia-smi -q 2>/dev/null | rg -n 'Driver Version|CUDA Version|GPU Virtualization Mode|Persistence Mode|Compute Mode|MIG Mode|Attached GPUs|Minor Number|BAR1 Memory Usage|Processes|Product Name' || true
     echo
+    echo "# command -v nvcc"
+    command -v nvcc 2>/dev/null || true
+    echo
+    echo "# nvcc --version"
+    nvcc --version 2>/dev/null || true
+    echo
     echo "# ldconfig -p (CUDA driver libraries)"
     ldconfig -p 2>/dev/null | rg 'libcuda\.so|libnvidia-ml\.so|libnvidia-ptxjitcompiler\.so' || true
     echo

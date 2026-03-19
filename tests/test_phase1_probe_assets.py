@@ -275,7 +275,21 @@ class Phase1ProbeAssetTests(unittest.TestCase):
 
             for tool_name in ("nvcc", "g++", "g++-12"):
                 tool_path = fake_bin / tool_name
-                tool_path.write_text("#!/usr/bin/env bash\nexit 0\n", encoding="utf-8")
+                if tool_name == "nvcc":
+                    tool_path.write_text(
+                        "#!/usr/bin/env bash\n"
+                        "if [[ \"${1:-}\" == \"--version\" ]]; then\n"
+                        "  echo \"Cuda compilation tools, release 12.9, V12.9.86\"\n"
+                        "  echo \"Build cuda_12.9.r12.9/compiler.36037853_0\"\n"
+                        "  exit 0\n"
+                        "fi\n"
+                        "exit 0\n",
+                        encoding="utf-8",
+                    )
+                else:
+                    tool_path.write_text(
+                        "#!/usr/bin/env bash\nexit 0\n", encoding="utf-8"
+                    )
                 tool_path.chmod(0o755)
 
             dpkg_query_path = fake_bin / "dpkg-query"
@@ -348,6 +362,13 @@ class Phase1ProbeAssetTests(unittest.TestCase):
                 log_body,
             )
             self.assertIn("# /dev/dxg", snapshot_body)
+            self.assertIn("# command -v nvcc", snapshot_body)
+            self.assertIn(str(fake_bin / "nvcc"), snapshot_body)
+            self.assertIn("# nvcc --version", snapshot_body)
+            self.assertIn(
+                "Cuda compilation tools, release 12.9, V12.9.86",
+                snapshot_body,
+            )
             self.assertIn("# ldconfig -p (CUDA driver libraries)", snapshot_body)
 
     def test_cuda_runtime_probe_source_mentions_required_probe_fields(self) -> None:
