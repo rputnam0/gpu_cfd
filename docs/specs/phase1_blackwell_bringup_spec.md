@@ -1118,7 +1118,7 @@ unset CUDA_FORCE_PTX_JIT
 
 * **Modify:** add `acceptance_gate.py`.
 * **Why:** Phase 2 must not start from ambiguous Phase 1 status.
-* **Expected output:** `phase1_acceptance_report.json` and `phase1_acceptance_report.md`.
+* **Expected output:** `phase1_acceptance_report.json`, `phase1_acceptance_report.md`, and `phase1_acceptance_bundle_index.json`.
 * **Verify:** report marked `PASS`.
 * **Likely breakages:** parser too fragile, missing artifact paths, inconsistent naming.
 
@@ -1474,6 +1474,7 @@ These artifacts are mandatory Phase 1 outputs and must be archived together. The
 * PTX-JIT logs
 * `phase1_acceptance_report.json`
 * `phase1_acceptance_report.md`
+* `phase1_acceptance_bundle_index.json`
 * `docs/bringup/phase1_blackwell.md`
 
 # 6. Validation and benchmarking framework
@@ -1827,6 +1828,7 @@ Deliverables:
 
 * `phase1_acceptance_report.json`
 * `phase1_acceptance_report.md`
+* `phase1_acceptance_bundle_index.json`
 
 Dependencies:
 
