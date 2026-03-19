@@ -766,9 +766,25 @@ class Phase1AcceptanceTests(unittest.TestCase):
             bundle_index["inputs"]["ptx_jit_result"],
             ptx_jit_result_path.as_posix(),
         )
+        self.assertEqual(
+            bundle_index["input_inventory"],
+            payload["input_inventory"],
+        )
+        self.assertTrue(payload["input_inventory"]["smoke_results"]["complete"])
+        self.assertTrue(payload["input_inventory"]["nsys_results"]["complete"])
+        self.assertEqual(
+            payload["input_inventory"]["smoke_results"]["required"],
+            ["cubeLinear", "channelSteady", "channelTransient"],
+        )
+        self.assertEqual(
+            payload["input_inventory"]["nsys_results"]["required"],
+            ["basic", "um_fault"],
+        )
         self.assertIn("Status: PASS", markdown)
         self.assertIn("## Accepted Proposal", markdown)
         self.assertIn("## Contract Traceability", markdown)
+        self.assertIn("### Smoke Input Inventory", markdown)
+        self.assertIn("### Nsight Input Inventory", markdown)
         self.assertIn(load_pin_details(self.bundle).primary_toolkit_lane, markdown)
         self.assertIn(self.bundle.authority_revisions["acceptance_manifest"]["sha256"], markdown)
         self.assertIn(load_pin_details(self.bundle).required_revalidation[0], markdown)
@@ -788,6 +804,11 @@ class Phase1AcceptanceTests(unittest.TestCase):
         self.assertIn(smoke_result_paths[0].parent.joinpath("smoke_audit.json").as_posix(), markdown)
         self.assertIn("smoke/cubeLinear/02_laplacianFoam.log", markdown)
         self.assertIn("smoke/channelSteady/02_simpleFoam.log", markdown)
+        self.assertIn(smoke_result_paths[0].as_posix(), markdown)
+        self.assertIn(smoke_result_paths[1].as_posix(), markdown)
+        self.assertIn(smoke_result_paths[2].as_posix(), markdown)
+        self.assertIn(nsys_result_paths[0].as_posix(), markdown)
+        self.assertIn(nsys_result_paths[1].as_posix(), markdown)
         self.assertIn("smoke/channelTransient/02_pimpleFoam.log", markdown)
         self.assertIn("build/ptx_primary_relwithdebinfo.txt", markdown)
         self.assertIn("build/sass_primary_relwithdebinfo.txt", markdown)
