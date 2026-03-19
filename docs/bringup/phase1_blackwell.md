@@ -40,6 +40,10 @@ Expected remediation:
   `libnvidia-compute-535-server` as a replacement, so include both in the purge command
 - expect `apt` to propose removing dependent toolkit packages when the native
   `libcuda` owner package is purged; re-verify the required toolchain after host cleanup
+- on this workstation, `apt-get -s remove --purge libnvidia-compute-535 libnvidia-compute-535-server`
+  would also remove `nvidia-cuda-toolkit`, `nvidia-cuda-dev`, `nvidia-profiler`,
+  `nvidia-visual-profiler`, `nsight-systems`, `nsight-systems-target`,
+  `libcuinj64-12.0`, and `libnvidia-ml-dev`
 - keep using the Windows-side NVIDIA WSL driver and the `/usr/lib/wsl/lib` shim
 - rerun the canonical CUDA probe first
 
