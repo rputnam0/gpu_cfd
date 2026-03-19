@@ -165,7 +165,7 @@ Authoritative source(s): `phase1_blackwell_bringup_spec.md`
 ### P1-07 — PTX-JIT proof and Phase 1 acceptance bundle
 - **Depends on:** P1-06
 - **Scope:** Run the PTX-JIT compatibility proof and generate the Phase 1 acceptance reports that freeze the bring-up result.
-- **Done when:** PTX-JIT succeeds on the workstation lane and `phase1_acceptance_report.json` / `.md` are complete and reviewable.
+- **Done when:** PTX-JIT succeeds on the workstation lane and `phase1_acceptance_report.json`, `phase1_acceptance_report.md`, and `phase1_acceptance_bundle_index.json` are complete and reviewable.
 
 
 ## Phase 2 — GPU memory model

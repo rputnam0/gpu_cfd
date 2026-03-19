@@ -301,7 +301,7 @@ Phase 1 owns `P1-01..P1-07` and is limited to workstation, toolchain, and profil
   - Backlog scope:
     - "Run the PTX-JIT compatibility proof and generate the Phase 1 acceptance reports that freeze the bring-up result."
   - Backlog done_when:
-    - "PTX-JIT succeeds on the workstation lane and `phase1_acceptance_report.json` and `.md` are complete and reviewable."
+    - "PTX-JIT succeeds on the workstation lane and `phase1_acceptance_report.json`, `phase1_acceptance_report.md`, and `phase1_acceptance_bundle_index.json` are complete and reviewable."
 - Depends on (backlog IDs):
   - `P1-06`
 - Prerequisites:

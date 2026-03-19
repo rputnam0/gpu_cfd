@@ -249,7 +249,7 @@
             "P1-06"
           ],
           "scope": "Run the PTX-JIT compatibility proof and generate the Phase 1 acceptance reports that freeze the bring-up result.",
-          "done_when": "PTX-JIT succeeds on the workstation lane and `phase1_acceptance_report.json` / `.md` are complete and reviewable."
+          "done_when": "PTX-JIT succeeds on the workstation lane and `phase1_acceptance_report.json`, `phase1_acceptance_report.md`, and `phase1_acceptance_bundle_index.json` are complete and reviewable."
         }
       ]
     },
