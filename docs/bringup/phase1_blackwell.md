@@ -58,7 +58,8 @@ Expected remediation:
   `nokaslr`, the WSL-visible worker view does not expose `nvidia_uvm` tunables,
   and `dmesg` shows repeated early `dxgkio_query_adapter_info` ioctl failures
 - keep using the Windows-side NVIDIA WSL driver and the `/usr/lib/wsl/lib` shim
-- rerun the canonical CUDA probe first
+- rerun the canonical host discovery entrypoint first:
+  `tools/bringup/env/check_host_env.sh <discovery-dir>`
 
 NVIDIA's CUDA on WSL guide says the Windows display driver is the only driver
 needed, warns that the default CUDA installation can overwrite the WSL driver mapping,

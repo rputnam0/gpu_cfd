@@ -12,9 +12,11 @@ class Phase1ProbeAssetTests(unittest.TestCase):
     def test_cuda_runtime_probe_assets_exist(self) -> None:
         source = repo_root() / "tools" / "bringup" / "src" / "validate_cuda_runtime.cu"
         wrapper = repo_root() / "tools" / "bringup" / "env" / "run_cuda_probe.sh"
+        host_wrapper = repo_root() / "tools" / "bringup" / "env" / "check_host_env.sh"
 
         self.assertTrue(source.is_file())
         self.assertTrue(wrapper.is_file())
+        self.assertTrue(host_wrapper.is_file())
 
     def test_cuda_runtime_probe_wrapper_compiles_expected_source(self) -> None:
         wrapper = (
@@ -50,6 +52,19 @@ class Phase1ProbeAssetTests(unittest.TestCase):
         self.assertIn("cuda-drivers", wrapper)
         self.assertNotIn('&& -e "${native_libcuda}"', wrapper)
         self.assertIn('if [[ -e "${wsl_lib_dir}/libcuda.so.1" ]]; then', wrapper)
+
+    def test_host_env_wrapper_runs_probe_and_discovery(self) -> None:
+        wrapper = (
+            repo_root() / "tools" / "bringup" / "env" / "check_host_env.sh"
+        ).read_text(encoding="utf-8")
+
+        self.assertIn("run_cuda_probe.sh", wrapper)
+        self.assertIn("phase1_discovery.py", wrapper)
+        self.assertIn("host_env.json", wrapper)
+        self.assertIn("manifest_refs.json", wrapper)
+        self.assertIn("cuda_probe.json", wrapper)
+        self.assertIn("raw_cuda_probe.json", wrapper)
+        self.assertIn("--output-dir", wrapper)
 
     def test_cuda_runtime_probe_source_mentions_required_probe_fields(self) -> None:
         source = (
