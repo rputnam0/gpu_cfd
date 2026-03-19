@@ -156,6 +156,11 @@ def sample_fatbinary_report(bundle=None) -> dict[str, object]:
         "ptx_targets": [120],
         "native_sm_present": [120],
         "smoke_gate_ready": True,
+        "artifacts": {
+            "report": "build/fatbinary_report.json",
+            "ptx_dump": "build/ptx_primary_relwithdebinfo.txt",
+            "sass_dump": "build/sass_primary_relwithdebinfo.txt",
+        },
     }
 
 
@@ -620,6 +625,14 @@ class Phase1AcceptanceTests(unittest.TestCase):
             "smoke/channelTransient/02_pimpleFoam.log",
         )
         self.assertEqual(
+            payload["artifact_paths"]["fatbinary_artifacts"]["ptx_dump"],
+            "build/ptx_primary_relwithdebinfo.txt",
+        )
+        self.assertEqual(
+            payload["artifact_paths"]["fatbinary_artifacts"]["sass_dump"],
+            "build/sass_primary_relwithdebinfo.txt",
+        )
+        self.assertEqual(
             bundle_index["reviewed_source_tuple_id"],
             load_pin_details(self.bundle).reviewed_source_tuple_id,
         )
@@ -646,6 +659,10 @@ class Phase1AcceptanceTests(unittest.TestCase):
         self.assertEqual(
             bundle_index["supporting_artifacts"]["smoke_logs"]["channelSteady"]["simpleFoam"],
             "smoke/channelSteady/02_simpleFoam.log",
+        )
+        self.assertEqual(
+            bundle_index["supporting_artifacts"]["fatbinary_artifacts"]["ptx_dump"],
+            "build/ptx_primary_relwithdebinfo.txt",
         )
         self.assertEqual(
             bundle_index["workstation_manifests"]["manifest_refs"],
@@ -681,6 +698,8 @@ class Phase1AcceptanceTests(unittest.TestCase):
         self.assertIn("smoke/cubeLinear/02_laplacianFoam.log", markdown)
         self.assertIn("smoke/channelSteady/02_simpleFoam.log", markdown)
         self.assertIn("smoke/channelTransient/02_pimpleFoam.log", markdown)
+        self.assertIn("build/ptx_primary_relwithdebinfo.txt", markdown)
+        self.assertIn("build/sass_primary_relwithdebinfo.txt", markdown)
         self.assertIn(smoke_result_paths[0].as_posix(), markdown)
         self.assertIn(smoke_result_paths[1].as_posix(), markdown)
         self.assertIn(smoke_result_paths[2].as_posix(), markdown)

@@ -809,6 +809,7 @@ def build_phase1_acceptance_report(
         "artifact_paths": {
             **{name: path.as_posix() for name, path in resolved_paths.items()},
             "build_log": build_metadata.get("build_log"),
+            "fatbinary_artifacts": _fatbinary_artifacts(fatbinary_report),
             "memcheck_logs": _command_log_paths(memcheck_result),
             "ptx_jit_logs": _ptx_jit_log_paths(ptx_jit_result),
             "smoke_logs": {
@@ -864,6 +865,7 @@ def build_phase1_acceptance_report(
         },
         "supporting_artifacts": {
             "build_log": payload["artifact_paths"]["build_log"],
+            "fatbinary_artifacts": payload["artifact_paths"]["fatbinary_artifacts"],
             "ptx_jit_logs": payload["artifact_paths"]["ptx_jit_logs"],
             "memcheck_logs": payload["artifact_paths"]["memcheck_logs"],
             "smoke_logs": payload["artifact_paths"]["smoke_logs"],
@@ -1251,6 +1253,16 @@ def _render_acceptance_markdown(payload: Mapping[str, Any]) -> str:
             "",
         ]
     )
+    fatbinary_artifacts = payload["artifact_paths"]["fatbinary_artifacts"]
+    if fatbinary_artifacts:
+        lines.extend(
+            [
+                "### Fatbinary Artifacts",
+                "",
+                *[f"- `{name}`: `{artifact_path}`" for name, artifact_path in fatbinary_artifacts.items()],
+                "",
+            ]
+        )
     smoke_results = payload["artifact_paths"]["smoke_results"]
     if smoke_results:
         lines.extend(
@@ -1412,6 +1424,17 @@ def _trace_artifacts(payload: Mapping[str, Any]) -> dict[str, str]:
         key: str(value)
         for key, value in artifacts.items()
         if value
+    }
+
+
+def _fatbinary_artifacts(payload: Mapping[str, Any]) -> dict[str, str]:
+    artifacts = payload.get("artifacts", {})
+    if not isinstance(artifacts, Mapping):
+        return {}
+    return {
+        key: str(value)
+        for key, value in artifacts.items()
+        if key != "report" and value
     }
 
 
