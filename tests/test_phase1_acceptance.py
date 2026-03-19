@@ -6,6 +6,7 @@ import tempfile
 import unittest
 
 from scripts.authority import load_authority_bundle, repo_root
+from scripts.authority.pins import load_pin_details
 from scripts.authority.phase1_acceptance import (
     PHASE1_ACCEPTANCE_MARKDOWN_NAME,
     PHASE1_ACCEPTANCE_REPORT_NAME,
@@ -26,21 +27,22 @@ def write_json(path: pathlib.Path, payload: dict[str, object]) -> pathlib.Path:
 
 
 def sample_host_env(bundle) -> dict[str, object]:
+    pin_details = load_pin_details(bundle)
     return {
         "schema_version": "1.0.0",
         "canonical_name": "host_env.json",
         "consumer": "run",
-        "reviewed_source_tuple_id": bundle.pins.reviewed_source_tuple_id,
-        "runtime_base": bundle.pins.runtime_base,
+        "reviewed_source_tuple_id": pin_details.reviewed_source_tuple_id,
+        "runtime_base": pin_details.runtime_base,
         "toolkit": {
             "selected_lane": "primary",
-            "selected_lane_value": bundle.pins.primary_toolkit_lane,
-            "primary_lane": bundle.pins.primary_toolkit_lane,
-            "experimental_lane": bundle.pins.experimental_toolkit_lane,
-            "driver_floor": bundle.pins.driver_floor,
+            "selected_lane_value": pin_details.primary_toolkit_lane,
+            "primary_lane": pin_details.primary_toolkit_lane,
+            "experimental_lane": pin_details.experimental_toolkit_lane,
+            "driver_floor": pin_details.driver_floor,
         },
-        "gpu_target": bundle.pins.gpu_target,
-        "instrumentation": bundle.pins.instrumentation,
+        "gpu_target": pin_details.gpu_target,
+        "instrumentation": pin_details.instrumentation,
         "host_observations": {
             "hostname": "phase1-test-host",
             "gpu_csv": "NVIDIA GeForce RTX 5080, 595.50.00, 16384 MiB",
@@ -52,13 +54,14 @@ def sample_host_env(bundle) -> dict[str, object]:
 
 
 def sample_manifest_refs(bundle) -> dict[str, object]:
+    pin_details = load_pin_details(bundle)
     return {
         "schema_version": "1.0.0",
         "canonical_name": "manifest_refs.json",
         "consumer": "run",
-        "reviewed_source_tuple_id": bundle.pins.reviewed_source_tuple_id,
-        "runtime_base": bundle.pins.runtime_base,
-        "required_revalidation": list(bundle.pins.required_revalidation),
+        "reviewed_source_tuple_id": pin_details.reviewed_source_tuple_id,
+        "runtime_base": pin_details.runtime_base,
+        "required_revalidation": list(pin_details.required_revalidation),
         "authority_revisions": bundle.authority_revisions,
         "repo": {"git_commit": "abc123def456"},
     }
@@ -79,6 +82,7 @@ def sample_cuda_probe() -> dict[str, object]:
 
 
 def sample_build_metadata(bundle, *, build_log: str) -> dict[str, object]:
+    pin_details = load_pin_details(bundle)
     return {
         "schema_version": "1.0.0",
         "lane": "primary",
@@ -86,10 +90,10 @@ def sample_build_metadata(bundle, *, build_log: str) -> dict[str, object]:
         "have_cuda": True,
         "nvarch": 120,
         "ptx_retention_required": True,
-        "selected_lane_value": bundle.pins.primary_toolkit_lane,
+        "selected_lane_value": pin_details.primary_toolkit_lane,
         "build_log": build_log,
-        "reviewed_source_tuple_id": bundle.pins.reviewed_source_tuple_id,
-        "required_revalidation": list(bundle.pins.required_revalidation),
+        "reviewed_source_tuple_id": pin_details.reviewed_source_tuple_id,
+        "required_revalidation": list(pin_details.required_revalidation),
         "succeeded": True,
         "returncode": 0,
         "failure_reason": None,
@@ -330,7 +334,10 @@ class Phase1AcceptanceTests(unittest.TestCase):
         self.assertEqual(payload["status"], "PASS")
         self.assertEqual(payload["disposition"], "pass")
         self.assertEqual(payload["lane"], "primary")
-        self.assertEqual(payload["reviewed_source_tuple_id"], self.bundle.pins.reviewed_source_tuple_id)
+        self.assertEqual(
+            payload["reviewed_source_tuple_id"],
+            load_pin_details(self.bundle).reviewed_source_tuple_id,
+        )
         self.assertTrue(payload["gate_results"]["hard"]["ptx_jit_succeeds"]["passed"])
         self.assertTrue(payload["gate_results"]["hard"]["uvm_trace_captured"]["passed"])
         self.assertEqual(payload["failing_gate_ids"], [])
@@ -413,6 +420,112 @@ class Phase1AcceptanceTests(unittest.TestCase):
         self.assertEqual(payload["disposition"], "fail")
         self.assertIn("ptx_jit_succeeds", payload["failing_gate_ids"])
         self.assertIn("ptx_jit_succeeds", payload["reason"])
+
+    def test_build_phase1_acceptance_report_accepts_normalized_pin_values_from_emitters(self) -> None:
+        pin_details = load_pin_details(self.bundle)
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_root = pathlib.Path(temp_dir)
+            docs_path = temp_root / "docs" / "bringup" / "phase1_blackwell.md"
+            docs_path.parent.mkdir(parents=True, exist_ok=True)
+            docs_path.write_text("# Phase 1 Blackwell bring-up\n", encoding="utf-8")
+
+            host_env = sample_host_env(self.bundle)
+            host_env["reviewed_source_tuple_id"] = pin_details.reviewed_source_tuple_id
+            host_env["runtime_base"] = pin_details.runtime_base
+            host_env["toolkit"]["driver_floor"] = pin_details.driver_floor
+            manifest_refs = sample_manifest_refs(self.bundle)
+            manifest_refs["reviewed_source_tuple_id"] = pin_details.reviewed_source_tuple_id
+            manifest_refs["runtime_base"] = pin_details.runtime_base
+            build_metadata = sample_build_metadata(
+                self.bundle,
+                build_log=(temp_root / "build" / "build.log").as_posix(),
+            )
+            build_metadata["reviewed_source_tuple_id"] = pin_details.reviewed_source_tuple_id
+
+            host_env_path = write_json(temp_root / "discovery" / "host_env.json", host_env)
+            manifest_refs_path = write_json(
+                temp_root / "discovery" / "manifest_refs.json",
+                manifest_refs,
+            )
+            cuda_probe_path = write_json(
+                temp_root / "discovery" / "cuda_probe.json",
+                sample_cuda_probe(),
+            )
+            build_metadata_path = write_json(
+                temp_root / "build" / "build_metadata_primary_relwithdebinfo.json",
+                build_metadata,
+            )
+            fatbinary_report_path = write_json(
+                temp_root / "build" / "fatbinary_report_primary_relwithdebinfo.json",
+                sample_fatbinary_report(),
+            )
+            smoke_result_paths = [
+                write_json(
+                    temp_root / "smoke" / "cubeLinear" / "smoke_result.json",
+                    sample_smoke_result("cubeLinear", "laplacianFoam"),
+                ),
+                write_json(
+                    temp_root / "smoke" / "channelSteady" / "smoke_result.json",
+                    sample_smoke_result("channelSteady", "simpleFoam"),
+                ),
+                write_json(
+                    temp_root / "smoke" / "channelTransient" / "smoke_result.json",
+                    sample_smoke_result("channelTransient", "pimpleFoam"),
+                ),
+            ]
+            memcheck_result_path = write_json(
+                temp_root / "compute_sanitizer" / "cubeLinear" / "memcheck_result.json",
+                sample_memcheck_result(),
+            )
+            nsys_result_paths = [
+                write_json(
+                    temp_root / "nsight_systems" / "basic" / "channelTransient" / "nsys_profile_result.json",
+                    sample_nsys_result("basic"),
+                ),
+                write_json(
+                    temp_root / "nsight_systems" / "um_fault" / "channelTransient" / "nsys_profile_result.json",
+                    sample_nsys_result("um_fault"),
+                ),
+            ]
+            ptx_jit_result_path = write_json(
+                temp_root / "ptx_jit" / "cubeLinear" / PHASE1_PTX_JIT_RESULT_NAME,
+                {
+                    "schema_version": "1.0.0",
+                    "canonical_name": PHASE1_PTX_JIT_RESULT_NAME,
+                    "case_name": "cubeLinear",
+                    "solver": "laplacianFoam",
+                    "status": "pass",
+                    "failure_reasons": [],
+                    "environment": {"CUDA_FORCE_PTX_JIT": "1"},
+                    "success_criteria": {
+                        "audit_passed": True,
+                        "fatbinary_smoke_gate_ready": True,
+                        "required_outputs_present": True,
+                        "no_nan_inf": True,
+                    },
+                },
+            )
+
+            report = build_phase1_acceptance_report(
+                self.bundle,
+                output_dir=temp_root / "acceptance",
+                host_env_path=host_env_path,
+                manifest_refs_path=manifest_refs_path,
+                cuda_probe_path=cuda_probe_path,
+                build_metadata_path=build_metadata_path,
+                fatbinary_report_path=fatbinary_report_path,
+                smoke_result_paths=smoke_result_paths,
+                memcheck_result_path=memcheck_result_path,
+                nsys_result_paths=nsys_result_paths,
+                ptx_jit_result_path=ptx_jit_result_path,
+                bringup_doc_path=docs_path,
+            )
+            payload = json.loads(report.json_path.read_text(encoding="utf-8"))
+
+        self.assertEqual(payload["status"], "PASS")
+        self.assertEqual(payload["reviewed_source_tuple_id"], pin_details.reviewed_source_tuple_id)
+        self.assertEqual(payload["runtime_base"], pin_details.runtime_base)
 
     def test_build_phase1_acceptance_report_fails_when_manifest_refs_are_missing(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:

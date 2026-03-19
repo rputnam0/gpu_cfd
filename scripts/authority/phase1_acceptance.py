@@ -14,6 +14,7 @@ from typing import Any, Callable, Mapping
 
 try:
     from .bundle import AuthorityBundle, load_authority_bundle, repo_root
+    from .pins import load_pin_details
     from .phase1_smoke import (
         CASE_DEFINITIONS,
         MANIFEST_SCHEMA_VERSION,
@@ -26,6 +27,7 @@ except ImportError:  # pragma: no cover - script execution fallback
 
     sys.path.append(str(pathlib.Path(__file__).resolve().parents[2]))
     from scripts.authority.bundle import AuthorityBundle, load_authority_bundle, repo_root  # type: ignore
+    from scripts.authority.pins import load_pin_details  # type: ignore
     from scripts.authority.phase1_smoke import (  # type: ignore
         CASE_DEFINITIONS,
         MANIFEST_SCHEMA_VERSION,
@@ -219,6 +221,7 @@ def build_phase1_acceptance_report(
 ) -> Phase1AcceptanceReportResult:
     output_dir_path = pathlib.Path(output_dir)
     output_dir_path.mkdir(parents=True, exist_ok=True)
+    pin_details = load_pin_details(bundle)
 
     resolved_paths = {
         "host_env": pathlib.Path(host_env_path),
@@ -251,7 +254,7 @@ def build_phase1_acceptance_report(
 
     host_observations = _as_dict(host_env.get("host_observations"))
     toolkit = _as_dict(host_env.get("toolkit"))
-    expected_required_revalidation = list(bundle.pins.required_revalidation)
+    expected_required_revalidation = list(pin_details.required_revalidation)
     basic_nsys = nsys_results.get("basic", {})
     um_fault_nsys = nsys_results.get("um_fault", {})
     basic_nsys_pass = (
@@ -294,13 +297,13 @@ def build_phase1_acceptance_report(
                     manifest_refs.get("required_revalidation") == expected_required_revalidation,
                     manifest_refs.get("reviewed_source_tuple_id") == host_env.get("reviewed_source_tuple_id"),
                     manifest_refs.get("runtime_base") == host_env.get("runtime_base"),
-                    manifest_refs.get("reviewed_source_tuple_id") == bundle.pins.reviewed_source_tuple_id,
-                    manifest_refs.get("runtime_base") == bundle.pins.runtime_base,
+                    manifest_refs.get("reviewed_source_tuple_id") == pin_details.reviewed_source_tuple_id,
+                    manifest_refs.get("runtime_base") == pin_details.runtime_base,
                 )
             ),
             expected={
-                "reviewed_source_tuple_id": bundle.pins.reviewed_source_tuple_id,
-                "runtime_base": bundle.pins.runtime_base,
+                "reviewed_source_tuple_id": pin_details.reviewed_source_tuple_id,
+                "runtime_base": pin_details.runtime_base,
                 "required_revalidation": expected_required_revalidation,
             },
             observed={
@@ -329,9 +332,9 @@ def build_phase1_acceptance_report(
             label="Primary lane toolchain is CUDA 12.9.1",
             passed=(
                 toolkit.get("selected_lane") == "primary"
-                and toolkit.get("selected_lane_value") == bundle.pins.primary_toolkit_lane
+                and toolkit.get("selected_lane_value") == pin_details.primary_toolkit_lane
             ),
-            expected={"selected_lane": "primary", "selected_lane_value": bundle.pins.primary_toolkit_lane},
+            expected={"selected_lane": "primary", "selected_lane_value": pin_details.primary_toolkit_lane},
             observed={
                 "selected_lane": toolkit.get("selected_lane"),
                 "selected_lane_value": toolkit.get("selected_lane_value"),
@@ -342,9 +345,9 @@ def build_phase1_acceptance_report(
             label="Driver is 595.45.04 or newer",
             passed=_driver_floor_satisfied(
                 host_observations.get("gpu_csv"),
-                bundle.pins.driver_floor,
+                pin_details.driver_floor,
             ),
-            expected=bundle.pins.driver_floor,
+            expected=pin_details.driver_floor,
             observed=host_observations.get("gpu_csv"),
             evidence=resolved_paths["host_env"].as_posix(),
         ),
@@ -359,9 +362,9 @@ def build_phase1_acceptance_report(
             label="Build metadata comes from the required primary lane",
             passed=(
                 build_metadata.get("lane") == "primary"
-                and build_metadata.get("selected_lane_value") == bundle.pins.primary_toolkit_lane
+                and build_metadata.get("selected_lane_value") == pin_details.primary_toolkit_lane
             ),
-            expected={"lane": "primary", "selected_lane_value": bundle.pins.primary_toolkit_lane},
+            expected={"lane": "primary", "selected_lane_value": pin_details.primary_toolkit_lane},
             observed={
                 "lane": build_metadata.get("lane"),
                 "selected_lane_value": build_metadata.get("selected_lane_value"),
@@ -372,9 +375,9 @@ def build_phase1_acceptance_report(
             label="Build metadata matches the reviewed source tuple",
             passed=(
                 build_metadata.get("reviewed_source_tuple_id") == manifest_refs.get("reviewed_source_tuple_id")
-                and build_metadata.get("reviewed_source_tuple_id") == bundle.pins.reviewed_source_tuple_id
+                and build_metadata.get("reviewed_source_tuple_id") == pin_details.reviewed_source_tuple_id
             ),
-            expected={"reviewed_source_tuple_id": bundle.pins.reviewed_source_tuple_id},
+            expected={"reviewed_source_tuple_id": pin_details.reviewed_source_tuple_id},
             observed={"reviewed_source_tuple_id": build_metadata.get("reviewed_source_tuple_id")},
             evidence=resolved_paths["build_metadata"].as_posix(),
         ),
