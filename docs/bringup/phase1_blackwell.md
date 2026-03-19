@@ -54,6 +54,11 @@ Expected remediation:
   libnvidia-compute-535-server` confirms that naming both packages explicitly avoids
   that replacement loop; the remaining direct blast radius is the expected toolkit
   and profiler package set already shown in the guard output
+- on this workstation, `apt-mark showmanual` currently lists `nvidia-cuda-toolkit`,
+  and `apt-cache depends` shows the relevant chain as
+  `nvidia-cuda-toolkit -> nvidia-cuda-dev -> libnvidia-compute-535`, so the manual
+  distro toolkit install is the current package anchor keeping the conflicting native
+  Linux driver library owner in the WSL distro
 - expect `apt` to propose removing dependent toolkit packages when the native
   `libcuda` owner package is purged; the guard now prints a `Simulated apt fallout`
   line so the operator can review that blast radius before making host changes
