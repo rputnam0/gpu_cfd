@@ -311,7 +311,7 @@ Phase 1 owns `P1-01..P1-07` and is limited to workstation, toolchain, and profil
 - Concrete task slices:
   1. Execute PTX-JIT compatibility run using the required compatibility mode and archive logs.
   2. Aggregate Phase 1 artifact set into deterministic acceptance inputs with explicit pass and fail disposition.
-  3. Emit `phase1_acceptance_report.json` and `phase1_acceptance_report.md` tied to lane, source tuple, and workstation manifests.
+  3. Emit `phase1_acceptance_report.json`, `phase1_acceptance_report.md`, and `phase1_acceptance_bundle_index.json` tied to lane, source tuple, and workstation manifests.
   4. Freeze final bring-up result and publish downstream handoff packet for Phase 2+ consumers.
 - Artifacts/contracts introduced or consumed:
   - Introduced:
