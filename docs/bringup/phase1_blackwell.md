@@ -21,7 +21,7 @@ CUDA probe runs. If `tools/bringup/env/run_cuda_probe.sh` prints a message like:
 WSL host should not expose Linux display driver libraries at /usr/lib/x86_64-linux-gnu/libcuda.so.1.
 Remove the Linux display driver packages from WSL and rely on /usr/lib/wsl/lib.
 Installed Linux-side libcuda owner packages: libnvidia-compute-535
-Example cleanup command: sudo apt remove --purge libnvidia-compute-535
+Example cleanup command: sudo apt remove --purge libnvidia-compute-535 libnvidia-compute-535-server
 Installed related CUDA toolkit packages: libcudart12:amd64, nvidia-cuda-dev:amd64, nvidia-cuda-toolkit
 ```
 
@@ -36,6 +36,8 @@ Expected remediation:
   `libnvidia-compute-525`, `libnvidia-compute-525-server`,
   `libnvidia-compute-535`, `libnvidia-compute-535-server`, `libcudart12`,
   `nvidia-cuda-dev`, and `nvidia-cuda-toolkit`
+- on Ubuntu 24.04, purging `libnvidia-compute-535` alone may cause `apt` to install
+  `libnvidia-compute-535-server` as a replacement, so include both in the purge command
 - expect `apt` to propose removing dependent toolkit packages when the native
   `libcuda` owner package is purged; re-verify the required toolchain after host cleanup
 - keep using the Windows-side NVIDIA WSL driver and the `/usr/lib/wsl/lib` shim

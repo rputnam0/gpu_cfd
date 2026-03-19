@@ -27,6 +27,21 @@ wsl_lib_dir="/usr/lib/wsl/lib"
 native_libcuda="/usr/lib/x86_64-linux-gnu/libcuda.so.1"
 
 if [[ -e "${wsl_lib_dir}/libcuda.so.1" && -e "${native_libcuda}" ]]; then
+  expand_cleanup_targets() {
+    local package_name
+    local base_name
+    local -a expanded=()
+    for package_name in "$@"; do
+      [[ -n "${package_name}" ]] || continue
+      expanded+=("${package_name}")
+      base_name="${package_name%%:*}"
+      if [[ "${base_name}" == libnvidia-compute-* && "${base_name}" != *-server ]]; then
+        expanded+=("${base_name}-server")
+      fi
+    done
+    printf '%s\n' "${expanded[@]}" | awk 'NF && !seen[$0]++'
+  }
+
   native_libcuda_real="$(readlink -f "${native_libcuda}" 2>/dev/null || printf '%s\n' "${native_libcuda}")"
   owner_packages="$(
     {
@@ -44,8 +59,9 @@ if [[ -e "${wsl_lib_dir}/libcuda.so.1" && -e "${native_libcuda}" ]]; then
   echo "WSL host should not expose Linux display driver libraries at ${native_libcuda}." >&2
   echo "Remove the Linux display driver packages from WSL and rely on ${wsl_lib_dir}." >&2
   if [[ -n "${owner_packages}" ]]; then
+    cleanup_targets="$(expand_cleanup_targets ${owner_packages//$'\n'/ })"
     echo "Installed Linux-side libcuda owner packages: ${owner_packages//$'\n'/, }" >&2
-    echo "Example cleanup command: sudo apt remove --purge ${owner_packages//$'\n'/ }" >&2
+    echo "Example cleanup command: sudo apt remove --purge ${cleanup_targets//$'\n'/ }" >&2
   fi
   if [[ -n "${conflicting_packages}" ]]; then
     related_packages="$(

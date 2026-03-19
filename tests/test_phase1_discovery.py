@@ -19,6 +19,7 @@ from scripts.authority.phase1_discovery import collect_host_observations, main
 from scripts.authority.phase1_discovery import (
     _discover_conflicting_wsl_cuda_packages,
     _discover_conflicting_wsl_libcuda_owner_packages,
+    _expand_wsl_cleanup_targets,
     _package_base_name,
 )
 
@@ -153,6 +154,16 @@ class Phase1DiscoveryTests(unittest.TestCase):
     def test_package_base_name_strips_arch_suffix(self) -> None:
         self.assertEqual(_package_base_name("libnvidia-compute-535:amd64"), "libnvidia-compute-535")
         self.assertEqual(_package_base_name("nvidia-cuda-toolkit"), "nvidia-cuda-toolkit")
+
+    def test_expand_wsl_cleanup_targets_adds_server_variant_for_compute_driver(self) -> None:
+        self.assertEqual(
+            _expand_wsl_cleanup_targets(["libnvidia-compute-535"]),
+            ["libnvidia-compute-535", "libnvidia-compute-535-server"],
+        )
+        self.assertEqual(
+            _expand_wsl_cleanup_targets(["nvidia-cuda-toolkit"]),
+            ["nvidia-cuda-toolkit"],
+        )
 
     def test_emit_phase1_discovery_artifacts_emits_canonical_host_and_cuda_probe_json(
         self,
@@ -435,7 +446,7 @@ class Phase1DiscoveryTests(unittest.TestCase):
 
             with self.assertRaisesRegex(
                 ValueError,
-                "sudo apt remove --purge libnvidia-compute-535:amd64",
+                "sudo apt remove --purge libnvidia-compute-535:amd64 libnvidia-compute-535-server",
             ):
                 collect_host_observations(
                     command_runner=runner,

@@ -523,12 +523,13 @@ def _validate_wsl_driver_stack(
     ]
     package_suffix = ""
     if owner_packages:
+        cleanup_targets = _expand_wsl_cleanup_targets(owner_packages)
         package_suffix = " Installed Linux-side libcuda owner packages: " + ", ".join(
             owner_packages
         )
         package_suffix += (
             ". Example cleanup command: sudo apt remove --purge "
-            + " ".join(owner_packages)
+            + " ".join(cleanup_targets)
         )
     if related_packages:
         package_suffix += " Installed related CUDA toolkit packages: " + ", ".join(
@@ -597,6 +598,29 @@ def _discover_conflicting_wsl_libcuda_owner_packages(
 
 def _package_base_name(package_name: str) -> str:
     return package_name.partition(":")[0].strip()
+
+
+def _expand_wsl_cleanup_targets(owner_packages: list[str]) -> list[str]:
+    cleanup_targets: list[str] = []
+    seen: set[str] = set()
+    for package_name in owner_packages:
+        for candidate in (
+            package_name,
+            *_server_variant_cleanup_targets(package_name),
+        ):
+            if candidate and candidate not in seen:
+                seen.add(candidate)
+                cleanup_targets.append(candidate)
+    return cleanup_targets
+
+
+def _server_variant_cleanup_targets(package_name: str) -> tuple[str, ...]:
+    base_name = _package_base_name(package_name)
+    if not base_name.startswith("libnvidia-compute-"):
+        return ()
+    if base_name.endswith("-server"):
+        return ()
+    return (f"{base_name}-server",)
 
 
 def _is_wsl_environment() -> bool:
